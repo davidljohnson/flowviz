@@ -28,6 +28,7 @@ import NodeDetailsPanel from './components/NodeDetailsPanel/NodeDetailsPanel';
 import FloatingConnectionLine from './edges/FloatingConnectionLine';
 import { useStoryMode } from './hooks/useStoryMode';
 import LoadingIndicator from '../../../shared/components/LoadingIndicator';
+import { useProviderConfig } from '../../app/hooks/useProviderConfig';
 
 export interface StreamingFlowVisualizationProps {
   url: string; // Can be URL or text content
@@ -56,7 +57,7 @@ export interface StreamingFlowVisualizationProps {
   storyModeSpeed?: number;
 }
 
-const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProps> = ({ 
+const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProps> = ({
   url,
   loadedFlow,
   onExportAvailable,
@@ -77,6 +78,9 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
+
+  // Get current provider/model selection
+  const { selectedProvider, selectedModel } = useProviderConfig();
   
   // Determine content type based on URL format
   const contentType = useMemo(() => {
@@ -255,7 +259,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       console.log('🚀 Starting streaming direct flow extraction...');
       
       streamingClientRef.current = new StreamingDirectFlowClient();
-      
+
       await streamingClientRef.current.extractDirectFlowStreaming(url, {
         onProgress: (stage, message) => {
           onProgress?.(stage, message);
@@ -337,11 +341,14 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
           onStreamingEnd?.(); // Notify parent that streaming has ended (even on error)
           onError?.(err); // Pass error to parent for snackbar display
         }
+      }, {
+        provider: selectedProvider,
+        model: selectedModel
       });
     };
 
     startStreaming();
-  }, [url]); // Only depend on URL to avoid re-runs
+  }, [url, selectedProvider, selectedModel]); // Depend on URL, provider, and model
 
   // Track when re-layout needed
   const [needsLayout, setNeedsLayout] = useState(false);
