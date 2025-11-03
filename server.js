@@ -12,6 +12,7 @@ import { validateUrl, secureFetch, rateLimits, handleFetchError } from './securi
 import Anthropic from '@anthropic-ai/sdk';
 import { logger } from './src/shared/utils/logger.js';
 import dotenv from 'dotenv';
+import { ProviderFactory } from './providers/provider-factory.js';
 
 // Load environment variables from .env file
 const dotenvResult = dotenv.config();
@@ -22,13 +23,29 @@ if (dotenvResult.parsed) {
   if (dotenvResult.parsed.ANTHROPIC_API_KEY) {
     process.env.ANTHROPIC_API_KEY = dotenvResult.parsed.ANTHROPIC_API_KEY;
   }
-  
+
   if (dotenvResult.parsed.ANTHROPIC_BASE_URL) {
     process.env.ANTHROPIC_BASE_URL = dotenvResult.parsed.ANTHROPIC_BASE_URL;
   }
-  
+
   if (dotenvResult.parsed.ANTHROPIC_MODEL) {
     process.env.ANTHROPIC_MODEL = dotenvResult.parsed.ANTHROPIC_MODEL;
+  }
+
+  if (dotenvResult.parsed.OPENAI_API_KEY) {
+    process.env.OPENAI_API_KEY = dotenvResult.parsed.OPENAI_API_KEY;
+  }
+
+  if (dotenvResult.parsed.OPENAI_BASE_URL) {
+    process.env.OPENAI_BASE_URL = dotenvResult.parsed.OPENAI_BASE_URL;
+  }
+
+  if (dotenvResult.parsed.OPENAI_MODEL) {
+    process.env.OPENAI_MODEL = dotenvResult.parsed.OPENAI_MODEL;
+  }
+
+  if (dotenvResult.parsed.DEFAULT_AI_PROVIDER) {
+    process.env.DEFAULT_AI_PROVIDER = dotenvResult.parsed.DEFAULT_AI_PROVIDER;
   }
 }
 
@@ -37,6 +54,10 @@ console.log('[ENV] Loaded from .env file:', dotenvResult.parsed ? 'YES' : 'NO');
 console.log('[ENV] ANTHROPIC_API_KEY:', process.env.ANTHROPIC_API_KEY ? '***' + process.env.ANTHROPIC_API_KEY.slice(-4) : 'Not set');
 console.log('[ENV] ANTHROPIC_BASE_URL:', process.env.ANTHROPIC_BASE_URL || 'Not set');
 console.log('[ENV] ANTHROPIC_MODEL:', process.env.ANTHROPIC_MODEL || 'Not set');
+console.log('[ENV] OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? '***' + process.env.OPENAI_API_KEY.slice(-4) : 'Not set');
+console.log('[ENV] OPENAI_BASE_URL:', process.env.OPENAI_BASE_URL || 'Not set');
+console.log('[ENV] OPENAI_MODEL:', process.env.OPENAI_MODEL || 'Not set');
+console.log('[ENV] DEFAULT_AI_PROVIDER:', process.env.DEFAULT_AI_PROVIDER || 'Not set');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -106,6 +127,31 @@ if (process.env.NODE_ENV === 'production') {
 // Health check endpoint
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Get available AI providers
+app.get('/api/providers', (_req, res) => {
+  try {
+    const providers = ProviderFactory.getAvailableProviders();
+    const defaultProvider = ProviderFactory.getDefaultProvider();
+
+    logger.info('Providers request', {
+      availableCount: providers.length,
+      defaultProvider
+    });
+
+    res.json({
+      providers,
+      defaultProvider,
+      hasConfiguredProviders: providers.length > 0
+    });
+  } catch (error) {
+    logger.error('Error getting providers:', error);
+    res.status(500).json({
+      error: 'Failed to get available providers',
+      details: error.message
+    });
+  }
 });
 
 // Secure image fetch endpoint with rate limiting and validation  
@@ -400,7 +446,183 @@ function assessConfidence(analysisText, imageCount) {
   return 'low';
 }
 
-// AI streaming endpoint for SSE - PROTECTED with strict rate limiting
+// Unified AI streaming endpoint with provider selection - PROTECTED with strict rate limiting
+app.post('/api/analyze-stream', rateLimits.streaming, async (req, res) => {
+  logger.info('Starting unified AI streaming request...');
+
+  // Set up SSE headers
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+  });
+
+  try {
+    const { provider, model, url, text, system } = req.body;
+    logger.debug('Request body received', { provider, model, hasUrl: !!url, hasText: !!text });
+
+    // Determine which provider to use
+    const selectedProvider = provider || ProviderFactory.getDefaultProvider();
+
+    if (!selectedProvider) {
+      logger.error('No AI providers configured');
+      res.write(`data: ${JSON.stringify({ type: 'error', error: 'No AI providers configured. Please set ANTHROPIC_API_KEY or OPENAI_API_KEY.' })}\n\n`);
+      res.end();
+      return;
+    }
+
+    logger.info('Using AI provider:', selectedProvider);
+
+    // Get provider configuration
+    const providerConfig = ProviderFactory.getProviderConfig(selectedProvider);
+
+    // Override model if specified in request
+    if (model) {
+      providerConfig.model = model;
+    }
+
+    // Create provider instance
+    const aiProvider = ProviderFactory.create(selectedProvider, providerConfig);
+
+    // Validate provider is configured
+    if (!aiProvider.isConfigured()) {
+      logger.error(`${selectedProvider} provider not properly configured`);
+      res.write(`data: ${JSON.stringify({ type: 'error', error: `${selectedProvider} provider not configured. Missing API key.` })}\n\n`);
+      res.end();
+      return;
+    }
+
+    // Validate input
+    if (!url && !text) {
+      logger.warn('Request missing both URL and text');
+      res.write(`data: ${JSON.stringify({ type: 'error', error: 'Either URL or text is required' })}\n\n`);
+      res.end();
+      return;
+    }
+
+    let finalText;
+    let visionAnalysis = null;
+
+    // Process URL if provided
+    if (url) {
+      res.write(`data: ${JSON.stringify({ type: 'progress', stage: 'fetching_article', message: 'Fetching article content...' })}\n\n`);
+
+      const validatedUrl = validateUrl(url);
+      const response = await secureFetch(validatedUrl, { timeout: 30000 });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch article: ${response.statusText}`);
+      }
+
+      const html = await response.text();
+      const dom = new JSDOM(html, { url: validatedUrl.href });
+      const readabilityReader = new Readability(dom.window.document);
+      const article = readabilityReader.parse();
+
+      if (!article) {
+        throw new Error('Could not extract content from article');
+      }
+
+      res.write(`data: ${JSON.stringify({ type: 'progress', stage: 'processing_content', message: 'Processing article content...' })}\n\n`);
+
+      const enhancedHtml = `
+        <html>
+          <head><title>${article.title || 'Article'}</title></head>
+          <body>
+            <h1>${article.title || 'Article'}</h1>
+            ${article.byline ? `<p class="byline">${article.byline}</p>` : ''}
+            <div class="content">${article.content}</div>
+          </body>
+        </html>
+      `;
+
+      const doc = new JSDOM(enhancedHtml).window.document;
+      finalText = doc.body.textContent || doc.body.innerText || '';
+
+      // Process images with vision analysis if any
+      res.write(`data: ${JSON.stringify({ type: 'progress', stage: 'analyzing_images', message: 'Analyzing images...' })}\n\n`);
+
+      const imgElements = Array.from(dom.window.document.querySelectorAll('img'));
+
+      if (imgElements.length > 0) {
+        try {
+          logger.info(`Found ${imgElements.length} images, starting vision analysis...`);
+
+          const processedImages = [];
+          for (const img of imgElements.slice(0, 5)) {
+            const imgUrl = img.src;
+            if (!imgUrl || !imgUrl.startsWith('http')) continue;
+
+            try {
+              const imageResponse = await secureFetch(validateUrl(imgUrl), {
+                timeout: 15000,
+                maxSize: parseInt(process.env.MAX_IMAGE_SIZE) || 3 * 1024 * 1024,
+                headers: { 'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8' }
+              });
+
+              if (imageResponse.ok) {
+                const buffer = await imageResponse.arrayBuffer();
+                const nodeBuffer = Buffer.from(buffer);
+                const fileType = await fileTypeFromBuffer(nodeBuffer);
+                const mediaType = fileType?.mime || imageResponse.headers.get('content-type') || 'image/jpeg';
+
+                const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+                if (allowedTypes.includes(mediaType)) {
+                  processedImages.push({
+                    base64Data: nodeBuffer.toString('base64'),
+                    mediaType: mediaType,
+                    url: imgUrl
+                  });
+                }
+              }
+            } catch (imgError) {
+              logger.warn(`Failed to process image ${imgUrl}:`, imgError.message);
+            }
+          }
+
+          // Analyze images with the selected provider
+          if (processedImages.length > 0) {
+            logger.info(`Processing ${processedImages.length} images with ${selectedProvider} vision analysis`);
+
+            try {
+              const visionResult = await aiProvider.analyzeVision(processedImages, finalText);
+              visionAnalysis = visionResult.analysisText;
+              logger.info(`Vision analysis complete: ${visionAnalysis.length} chars`);
+            } catch (visionError) {
+              logger.warn(`Vision analysis failed with ${selectedProvider}:`, visionError.message);
+              // Continue without vision analysis
+            }
+          }
+        } catch (err) {
+          logger.warn('Image processing failed:', err.message);
+          // Continue without vision analysis
+        }
+      }
+    } else {
+      // Use provided text
+      finalText = text;
+    }
+
+    // Stream analysis
+    res.write(`data: ${JSON.stringify({ type: 'progress', stage: 'analyzing', message: `Analyzing with ${selectedProvider}...` })}\n\n`);
+
+    await aiProvider.stream(
+      { text: finalText, visionAnalysis, system },
+      res
+    );
+
+    logger.info('AI streaming completed successfully');
+    res.end();
+
+  } catch (err) {
+    logger.error('Unified streaming error:', { message: err.message, stack: err.stack });
+    res.write(`data: ${JSON.stringify({ type: 'error', error: err.message })}\n\n`);
+    res.write(`data: [DONE]\n\n`);
+    res.end();
+  }
+});
+
+// Legacy Claude streaming endpoint for backward compatibility
 app.post('/api/claude-stream', rateLimits.streaming, async (req, res) => {
   logger.info('Starting full-pipeline streaming request...');
   logger.debug('Request body received', { hasUrl: !!req.body.url, hasText: !!req.body.text });

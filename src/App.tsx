@@ -218,15 +218,17 @@ export default function App() {
     };
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent, options?: { provider?: string; model?: string }) => {
     e.preventDefault();
-    
+
+    console.log('Submit with options:', options);
+
     if (inputMode === 'url') {
       if (!url) {
         setShowError(true);
         return;
       }
-      
+
       setArticleContent(null);
       setSubmittedUrl(url);
       setSubmittedText('');
@@ -241,7 +243,7 @@ export default function App() {
         setShowError(true);
         return;
       }
-      
+
       setArticleContent(null);
       setSubmittedText(textContent);
       setSubmittedUrl('');
