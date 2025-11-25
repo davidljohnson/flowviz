@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Box, Snackbar, Container, Alert } from '@mui/material';
 import { FlowAlert } from './shared/components/Alert';
 import { flowVizTheme } from './shared/theme/flowviz-theme';
@@ -12,6 +12,7 @@ import WarningIcon from '@mui/icons-material/Warning';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { AppBar, SearchForm, NewSearchDialog, SettingsDialog } from './features/app/components';
 import { useAppState } from './features/app/hooks';
+import { useProviderConfig } from './features/app/hooks/useProviderConfig';
 
 // Text input limits based on Claude's context limits (700k chars max)
 const TEXT_LIMITS = {
@@ -44,13 +45,13 @@ export default function App() {
     storyModeData,
     getSaveData,
     loadedFlow,
-    
+
     // Dialog states
     newSearchDialogOpen,
     saveFlowDialogOpen,
     loadFlowDialogOpen,
     settingsDialogOpen,
-    
+
     // Settings
     settingsLoaded,
     cinematicMode,
@@ -58,17 +59,19 @@ export default function App() {
     edgeStyle,
     edgeCurve,
     storyModeSpeed,
-    
+    selectedProvider,
+    selectedModel,
+
     // Flow management
     hasUnsavedChanges,
     isLoadedFlow,
     isStreaming,
-    
+
     // Toast
     toastOpen,
     toastMessage,
     toastSeverity,
-    
+
     // Setters
     setSubmittedUrl,
     setSubmittedText,
@@ -90,17 +93,48 @@ export default function App() {
     setEdgeStyle,
     setEdgeCurve,
     setStoryModeSpeed,
+    setSelectedProvider,
+    setSelectedModel,
     setHasUnsavedChanges,
     setIsLoadedFlow,
     setIsStreaming,
     setToastOpen,
-    
+
     // Handlers
     handleUrlChange,
     showToast,
     handleSaveSettings,
     clearAllState,
   } = useAppState();
+
+  // Get provider defaults
+  const providerConfig = useProviderConfig();
+
+  // Auto-set provider/model defaults on initial load if not set
+  useEffect(() => {
+    // Wait for both settings and provider config to load, then set defaults if empty
+    if (
+      settingsLoaded &&
+      !providerConfig.isLoading &&
+      (!selectedProvider || selectedProvider === '' || selectedProvider === null) &&
+      providerConfig.selectedProvider &&
+      providerConfig.selectedModel
+    ) {
+      setSelectedProvider(providerConfig.selectedProvider);
+      setSelectedModel(providerConfig.selectedModel);
+      // Save to localStorage immediately
+      localStorage.setItem('ai_provider', providerConfig.selectedProvider);
+      localStorage.setItem('ai_model', providerConfig.selectedModel);
+    }
+  }, [
+    settingsLoaded,
+    providerConfig.isLoading,
+    selectedProvider,
+    providerConfig.selectedProvider,
+    providerConfig.selectedModel,
+    setSelectedProvider,
+    setSelectedModel
+  ]);
 
   const { isLoading, error, refetch } = useQuery({
     queryKey: ['article', submittedUrl, submittedText],
@@ -218,15 +252,17 @@ export default function App() {
     };
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent, options?: { provider?: string; model?: string }) => {
     e.preventDefault();
-    
+
+    console.log('Submit with options:', options);
+
     if (inputMode === 'url') {
       if (!url) {
         setShowError(true);
         return;
       }
-      
+
       setArticleContent(null);
       setSubmittedUrl(url);
       setSubmittedText('');
@@ -241,7 +277,7 @@ export default function App() {
         setShowError(true);
         return;
       }
-      
+
       setArticleContent(null);
       setSubmittedText(textContent);
       setSubmittedUrl('');
@@ -397,8 +433,8 @@ export default function App() {
 
       {/* Show streaming visualization when we have content and settings are loaded */}
       {articleContent && settingsLoaded && (
-        <StreamingFlowVisualization 
-          url={submittedUrl || submittedText || ''} 
+        <StreamingFlowVisualization
+          url={submittedUrl || submittedText || ''}
           loadedFlow={loadedFlow}
           onExportAvailable={handleExportAvailable}
           onClearAvailable={handleClearAvailable}
@@ -420,6 +456,8 @@ export default function App() {
           edgeStyle={edgeStyle}
           edgeCurve={edgeCurve}
           storyModeSpeed={storyModeSpeed}
+          selectedProvider={selectedProvider}
+          selectedModel={selectedModel}
         />
       )}
 
@@ -536,12 +574,16 @@ export default function App() {
         edgeStyle={edgeStyle}
         edgeCurve={edgeCurve}
         storyModeSpeed={storyModeSpeed}
+        selectedProvider={selectedProvider}
+        selectedModel={selectedModel}
         onClose={() => setSettingsDialogOpen(false)}
         onCinematicModeChange={setCinematicMode}
         onEdgeColorChange={setEdgeColor}
         onEdgeStyleChange={setEdgeStyle}
         onEdgeCurveChange={setEdgeCurve}
         onStoryModeSpeedChange={setStoryModeSpeed}
+        onProviderChange={setSelectedProvider}
+        onModelChange={setSelectedModel}
         onSave={handleSaveSettings}
       />
     </Box>

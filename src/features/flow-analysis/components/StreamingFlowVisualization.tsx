@@ -54,9 +54,11 @@ export interface StreamingFlowVisualizationProps {
   edgeStyle?: string;
   edgeCurve?: string;
   storyModeSpeed?: number;
+  selectedProvider?: string;
+  selectedModel?: string;
 }
 
-const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProps> = ({ 
+const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProps> = ({
   url,
   loadedFlow,
   onExportAvailable,
@@ -71,7 +73,9 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   edgeColor = 'default',
   edgeStyle = 'solid',
   edgeCurve = 'smooth',
-  storyModeSpeed = 3
+  storyModeSpeed = 3,
+  selectedProvider,
+  selectedModel
 }) => {
   const reactFlowInstance = useReactFlow();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -255,7 +259,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       console.log('🚀 Starting streaming direct flow extraction...');
       
       streamingClientRef.current = new StreamingDirectFlowClient();
-      
+
       await streamingClientRef.current.extractDirectFlowStreaming(url, {
         onProgress: (stage, message) => {
           onProgress?.(stage, message);
@@ -337,11 +341,14 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
           onStreamingEnd?.(); // Notify parent that streaming has ended (even on error)
           onError?.(err); // Pass error to parent for snackbar display
         }
+      }, {
+        provider: selectedProvider,
+        model: selectedModel
       });
     };
 
     startStreaming();
-  }, [url]); // Only depend on URL to avoid re-runs
+  }, [url, selectedProvider, selectedModel]); // Depend on URL, provider, and model
 
   // Track when re-layout needed
   const [needsLayout, setNeedsLayout] = useState(false);

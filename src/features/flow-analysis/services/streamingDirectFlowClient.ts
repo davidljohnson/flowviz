@@ -9,6 +9,11 @@ export interface StreamingDirectFlowCallbacks {
   onError: (error: Error) => void;
 }
 
+export interface StreamingOptions {
+  provider?: string;
+  model?: string;
+}
+
 export class StreamingDirectFlowClient {
   private nodeIdMap = new Map<string, string>();
   private processedNodeIds = new Set<string>();
@@ -17,16 +22,19 @@ export class StreamingDirectFlowClient {
   private emittedNodeIds = new Set<string>();
 
   async extractDirectFlowStreaming(
-    input: string, 
-    callbacks: StreamingDirectFlowCallbacks
+    input: string,
+    callbacks: StreamingDirectFlowCallbacks,
+    options?: StreamingOptions
   ): Promise<void> {
     console.log('=== Starting Streaming Direct Flow Extraction ===');
-    
+    console.log('Provider:', options?.provider || 'default');
+    console.log('Model:', options?.model || 'default');
+
     try {
       // Determine if input is URL or text content
       const isUrl = input.startsWith('http://') || input.startsWith('https://');
-      
-      const response = await fetch('/api/claude-stream', {
+
+      const response = await fetch('/api/analyze-stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -34,6 +42,8 @@ export class StreamingDirectFlowClient {
         body: JSON.stringify({
           ...(isUrl ? { url: input } : { text: input }),
           system: "You are an expert in cyber threat intelligence analysis.",
+          provider: options?.provider,
+          model: options?.model,
         }),
       });
 

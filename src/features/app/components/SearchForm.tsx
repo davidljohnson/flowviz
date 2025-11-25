@@ -3,16 +3,19 @@ import {
   Container,
   Typography,
   Paper,
+  Alert,
+  AlertTitle,
   Chip,
 } from '@mui/material';
 import LinkIcon from '@mui/icons-material/Link';
 import SearchIcon from '@mui/icons-material/Search';
 import TextFieldsIcon from '@mui/icons-material/TextFields';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { keyframes } from '@mui/system';
 import { SearchInputURL, SearchInputMultiline } from '../../../shared/components/SearchInput';
 import { HeroSubmitButton } from '../../../shared/components/Button';
-import { CaptionText } from '../../../shared/components/Typography';
 import { flowVizTheme } from '../../../shared/theme/flowviz-theme';
+import { useProviderConfig } from '../hooks/useProviderConfig';
 
 const streamingGradient = keyframes`
   0% {
@@ -64,10 +67,13 @@ export default function SearchForm({
   onTextChange,
   onSubmit,
 }: SearchFormProps) {
+  // Check if any providers are configured
+  const { hasConfiguredProviders, isLoading: providersLoading } = useProviderConfig();
+
   return (
-    <Container 
-      maxWidth="md" 
-      sx={{ 
+    <Container
+      maxWidth="md"
+      sx={{
         mt: { xs: 4, md: 8 },
         mb: 4,
         px: { xs: 2, sm: 3 },
@@ -114,6 +120,109 @@ export default function SearchForm({
           Real-time visualization of attack patterns from threat intelligence reports
         </Typography>
       </Box>
+
+      {/* Show warning when no providers are configured */}
+      {!providersLoading && !hasConfiguredProviders && (
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 3, md: 4 },
+            mb: 3,
+            backgroundColor: flowVizTheme.colors.status.warning.bg,
+            backdropFilter: flowVizTheme.effects.blur.heavy,
+            border: `1px solid ${flowVizTheme.colors.status.warning.border}`,
+            borderRadius: 3,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+            <WarningAmberIcon sx={{
+              color: flowVizTheme.colors.status.warning.accent,
+              fontSize: '2rem',
+              mt: 0.5
+            }} />
+            <Box sx={{ flex: 1 }}>
+              <Typography
+                variant="h6"
+                sx={{
+                  color: flowVizTheme.colors.status.warning.text,
+                  fontWeight: 600,
+                  mb: 1,
+                  fontSize: '1.1rem'
+                }}
+              >
+                No AI Provider Configured
+              </Typography>
+              <Typography
+                sx={{
+                  color: flowVizTheme.colors.status.warning.text,
+                  fontSize: '0.95rem',
+                  mb: 2,
+                  lineHeight: 1.6,
+                  opacity: 0.95
+                }}
+              >
+                FlowViz requires an AI provider API key to analyze threat intelligence reports.
+                Please configure at least one provider to continue.
+              </Typography>
+
+              <Box
+                component="ol"
+                sx={{
+                  m: 0,
+                  pl: 2.5,
+                  color: flowVizTheme.colors.status.warning.text,
+                  '& li': {
+                    mb: 1,
+                    fontSize: '0.9rem',
+                    lineHeight: 1.5,
+                    opacity: 0.9
+                  }
+                }}
+              >
+                <li>Add your API key to the <code style={{
+                  backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                  padding: '2px 6px',
+                  borderRadius: '3px',
+                  fontFamily: 'monospace',
+                  fontSize: '0.85rem'
+                }}>.env</code> file:</li>
+                <Box
+                  component="ul"
+                  sx={{
+                    mt: 1,
+                    mb: 1.5,
+                    pl: 3,
+                    listStyle: 'disc',
+                    '& li': { fontSize: '0.85rem', mb: 0.5 }
+                  }}
+                >
+                  <li>For Claude: <code style={{
+                    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                    padding: '2px 6px',
+                    borderRadius: '3px',
+                    fontFamily: 'monospace',
+                    fontSize: '0.8rem'
+                  }}>ANTHROPIC_API_KEY=your-key-here</code></li>
+                  <li>For GPT: <code style={{
+                    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                    padding: '2px 6px',
+                    borderRadius: '3px',
+                    fontFamily: 'monospace',
+                    fontSize: '0.8rem'
+                  }}>OPENAI_API_KEY=your-key-here</code></li>
+                </Box>
+                <li>Restart the server: <code style={{
+                  backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                  padding: '2px 6px',
+                  borderRadius: '3px',
+                  fontFamily: 'monospace',
+                  fontSize: '0.85rem'
+                }}>npm run dev:full</code></li>
+              </Box>
+            </Box>
+          </Box>
+        </Paper>
+      )}
 
       <Paper
         elevation={0}
@@ -393,7 +502,7 @@ export default function SearchForm({
             <HeroSubmitButton
               variant="contained"
               type="submit"
-              disabled={isLoading || (inputMode === 'text' && getTextStats(textContent).isOverLimit)}
+              disabled={!hasConfiguredProviders || isLoading || (inputMode === 'text' && getTextStats(textContent).isOverLimit)}
               isLoading={isLoading}
             >
               <SearchIcon sx={{ fontSize: 20, color: flowVizTheme.colors.text.primary }} />
