@@ -126,7 +126,7 @@ Edge types (relationship labels):
 - "Uses", "Targets", "Communicates with", "Connects to", "Affects", "Leads to"
 
 Requirements:
-1. Each node MUST have: id (unique), type, data.label, data.description
+1. Each node MUST have: id (unique), type, data.name, data.description
 2. Action nodes MUST have: data.technique_id (e.g., "T1190"), data.tactic (e.g., "Initial Access")
 3. All nodes should include: data.source_excerpt (relevant quote from article), data.confidence ("low", "medium", "high")
 4. Use chronological ordering when possible
@@ -141,7 +141,7 @@ Example output format:
       "id": "action-1",
       "type": "action",
       "data": {
-        "label": "Exploit Public-Facing Application",
+        "name": "Exploit Public-Facing Application",
         "description": "Attacker exploited vulnerable web server",
         "technique_id": "T1190",
         "tactic": "Initial Access",
@@ -153,7 +153,7 @@ Example output format:
       "id": "tool-1",
       "type": "tool",
       "data": {
-        "label": "Metasploit",
+        "name": "Metasploit",
         "description": "Used for exploitation",
         "source_excerpt": "Quote from article...",
         "confidence": "medium"
@@ -227,7 +227,7 @@ Focus on actionable technical intelligence that supplements the article text.`;
    */
   getVisionModel() {
     // Use gpt-4o for vision if main model doesn't support vision
-    const visionModels = ['gpt-4o', 'gpt-4-turbo', 'gpt-4-turbo-2024-04-09'];
+    const visionModels = ['gpt-4o', 'gpt-4o-2024-11-20', 'gpt-4-turbo', 'gpt-4-turbo-2024-04-09'];
     return visionModels.includes(this.model) ? this.model : 'gpt-4o';
   }
 
@@ -236,10 +236,20 @@ Focus on actionable technical intelligence that supplements the article text.`;
    */
   static getSupportedModels() {
     return [
+      // GPT-4o series (multimodal flagship)
       'gpt-4o',
-      'gpt-4-turbo',
+      'gpt-4o-2024-11-20',
       'gpt-4o-mini',
+
+      // o1 reasoning models
+      'o1',
+      'o1-preview',
+      'o1-mini',
+
+      // GPT-4 series
+      'gpt-4-turbo',
       'gpt-4-turbo-2024-04-09',
+      'gpt-4',
       'gpt-4-0125-preview'
     ];
   }

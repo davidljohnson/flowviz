@@ -3,20 +3,17 @@ import {
   Container,
   Typography,
   Paper,
+  Alert,
+  AlertTitle,
   Chip,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
 } from '@mui/material';
 import LinkIcon from '@mui/icons-material/Link';
 import SearchIcon from '@mui/icons-material/Search';
 import TextFieldsIcon from '@mui/icons-material/TextFields';
-import PsychologyIcon from '@mui/icons-material/Psychology';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { keyframes } from '@mui/system';
 import { SearchInputURL, SearchInputMultiline } from '../../../shared/components/SearchInput';
 import { HeroSubmitButton } from '../../../shared/components/Button';
-import { CaptionText } from '../../../shared/components/Typography';
 import { flowVizTheme } from '../../../shared/theme/flowviz-theme';
 import { useProviderConfig } from '../hooks/useProviderConfig';
 
@@ -54,7 +51,7 @@ interface SearchFormProps {
   onInputModeChange: (mode: 'url' | 'text') => void;
   onUrlChange: (url: string) => void;
   onTextChange: (text: string) => void;
-  onSubmit: (e: React.FormEvent, options?: { provider?: string; model?: string }) => void;
+  onSubmit: (e: React.FormEvent) => void;
 }
 
 export default function SearchForm({
@@ -70,30 +67,13 @@ export default function SearchForm({
   onTextChange,
   onSubmit,
 }: SearchFormProps) {
-  // Provider configuration hook
-  const {
-    providers,
-    hasConfiguredProviders,
-    selectedProvider,
-    selectedModel,
-    availableModels,
-    setSelectedProvider,
-    setSelectedModel,
-    currentProviderName,
-  } = useProviderConfig();
+  // Check if any providers are configured
+  const { hasConfiguredProviders, isLoading: providersLoading } = useProviderConfig();
 
-  // Handle form submission with provider options
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit(e, {
-      provider: selectedProvider,
-      model: selectedModel,
-    });
-  };
   return (
-    <Container 
-      maxWidth="md" 
-      sx={{ 
+    <Container
+      maxWidth="md"
+      sx={{
         mt: { xs: 4, md: 8 },
         mb: 4,
         px: { xs: 2, sm: 3 },
@@ -140,6 +120,109 @@ export default function SearchForm({
           Real-time visualization of attack patterns from threat intelligence reports
         </Typography>
       </Box>
+
+      {/* Show warning when no providers are configured */}
+      {!providersLoading && !hasConfiguredProviders && (
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 3, md: 4 },
+            mb: 3,
+            backgroundColor: flowVizTheme.colors.status.warning.bg,
+            backdropFilter: flowVizTheme.effects.blur.heavy,
+            border: `1px solid ${flowVizTheme.colors.status.warning.border}`,
+            borderRadius: 3,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+            <WarningAmberIcon sx={{
+              color: flowVizTheme.colors.status.warning.accent,
+              fontSize: '2rem',
+              mt: 0.5
+            }} />
+            <Box sx={{ flex: 1 }}>
+              <Typography
+                variant="h6"
+                sx={{
+                  color: flowVizTheme.colors.status.warning.text,
+                  fontWeight: 600,
+                  mb: 1,
+                  fontSize: '1.1rem'
+                }}
+              >
+                No AI Provider Configured
+              </Typography>
+              <Typography
+                sx={{
+                  color: flowVizTheme.colors.status.warning.text,
+                  fontSize: '0.95rem',
+                  mb: 2,
+                  lineHeight: 1.6,
+                  opacity: 0.95
+                }}
+              >
+                FlowViz requires an AI provider API key to analyze threat intelligence reports.
+                Please configure at least one provider to continue.
+              </Typography>
+
+              <Box
+                component="ol"
+                sx={{
+                  m: 0,
+                  pl: 2.5,
+                  color: flowVizTheme.colors.status.warning.text,
+                  '& li': {
+                    mb: 1,
+                    fontSize: '0.9rem',
+                    lineHeight: 1.5,
+                    opacity: 0.9
+                  }
+                }}
+              >
+                <li>Add your API key to the <code style={{
+                  backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                  padding: '2px 6px',
+                  borderRadius: '3px',
+                  fontFamily: 'monospace',
+                  fontSize: '0.85rem'
+                }}>.env</code> file:</li>
+                <Box
+                  component="ul"
+                  sx={{
+                    mt: 1,
+                    mb: 1.5,
+                    pl: 3,
+                    listStyle: 'disc',
+                    '& li': { fontSize: '0.85rem', mb: 0.5 }
+                  }}
+                >
+                  <li>For Claude: <code style={{
+                    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                    padding: '2px 6px',
+                    borderRadius: '3px',
+                    fontFamily: 'monospace',
+                    fontSize: '0.8rem'
+                  }}>ANTHROPIC_API_KEY=your-key-here</code></li>
+                  <li>For GPT: <code style={{
+                    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                    padding: '2px 6px',
+                    borderRadius: '3px',
+                    fontFamily: 'monospace',
+                    fontSize: '0.8rem'
+                  }}>OPENAI_API_KEY=your-key-here</code></li>
+                </Box>
+                <li>Restart the server: <code style={{
+                  backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                  padding: '2px 6px',
+                  borderRadius: '3px',
+                  fontFamily: 'monospace',
+                  fontSize: '0.85rem'
+                }}>npm run dev:full</code></li>
+              </Box>
+            </Box>
+          </Box>
+        </Paper>
+      )}
 
       <Paper
         elevation={0}
@@ -282,135 +365,7 @@ export default function SearchForm({
           </Box>
         </Box>
 
-        {/* AI Provider and Model Selection */}
-        {hasConfiguredProviders && providers.length > 0 && (
-          <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            {/* Provider Selector - only show if multiple providers */}
-            {providers.length > 1 && (
-              <FormControl
-                size="small"
-                sx={{
-                  flex: '1 1 200px',
-                  minWidth: '200px',
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: flowVizTheme.colors.surface.rest,
-                    backdropFilter: flowVizTheme.effects.blur.light,
-                    borderRadius: '12px',
-                    border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
-                    '&:hover': {
-                      borderColor: flowVizTheme.colors.surface.border.default,
-                    },
-                    '&.Mui-focused': {
-                      borderColor: flowVizTheme.colors.surface.border.default,
-                    },
-                  },
-                  '& .MuiInputLabel-root': {
-                    color: flowVizTheme.colors.text.tertiary,
-                    '&.Mui-focused': {
-                      color: flowVizTheme.colors.text.secondary,
-                    },
-                  },
-                  '& .MuiSelect-select': {
-                    color: flowVizTheme.colors.text.primary,
-                    paddingRight: '24px !important', // Reduce gap between text and dropdown icon
-                  },
-                  '& .MuiSelect-icon': {
-                    right: '4px', // Move dropdown icon closer to the text
-                  },
-                }}
-              >
-                <InputLabel>AI Provider</InputLabel>
-                <Select
-                  value={selectedProvider || ''}
-                  onChange={(e) => setSelectedProvider(e.target.value)}
-                  label="AI Provider"
-                  startAdornment={
-                    <PsychologyIcon sx={{
-                      fontSize: 18,
-                      ml: 0.5,
-                      mr: 1, // Increased spacing between icon and text
-                      color: flowVizTheme.colors.text.tertiary
-                    }} />
-                  }
-                >
-                  {providers.map((provider) => (
-                    <MenuItem key={provider.id} value={provider.id}>
-                      {provider.displayName}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )}
-
-            {/* Model Selector */}
-            <FormControl
-              size="small"
-              sx={{
-                flex: '1 1 250px',
-                minWidth: '250px',
-                '& .MuiOutlinedInput-root': {
-                  backgroundColor: flowVizTheme.colors.surface.rest,
-                  backdropFilter: flowVizTheme.effects.blur.light,
-                  borderRadius: '12px',
-                  border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
-                  '&:hover': {
-                    borderColor: flowVizTheme.colors.surface.border.default,
-                  },
-                  '&.Mui-focused': {
-                    borderColor: flowVizTheme.colors.surface.border.default,
-                  },
-                },
-                '& .MuiInputLabel-root': {
-                  color: flowVizTheme.colors.text.tertiary,
-                  '&.Mui-focused': {
-                    color: flowVizTheme.colors.text.secondary,
-                  },
-                },
-                '& .MuiSelect-select': {
-                  color: flowVizTheme.colors.text.primary,
-                  paddingRight: '24px !important', // Reduce gap between text and dropdown icon
-                },
-                '& .MuiSelect-icon': {
-                  right: '4px', // Move dropdown icon closer to the text
-                },
-              }}
-            >
-              <InputLabel>Model</InputLabel>
-              <Select
-                value={selectedModel || ''}
-                onChange={(e) => setSelectedModel(e.target.value)}
-                label="Model"
-              >
-                {availableModels.map((model) => (
-                  <MenuItem key={model} value={model}>
-                    {model}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            {/* Provider indicator chip */}
-            {providers.length === 1 && (
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Chip
-                  icon={<PsychologyIcon />}
-                  label={`Using ${currentProviderName}`}
-                  size="small"
-                  sx={{
-                    backgroundColor: flowVizTheme.colors.surface.rest,
-                    border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,
-                    color: flowVizTheme.colors.text.secondary,
-                    '& .MuiChip-icon': {
-                      color: flowVizTheme.colors.text.tertiary,
-                    },
-                  }}
-                />
-              </Box>
-            )}
-          </Box>
-        )}
-
-        <Box component="form" onSubmit={handleSubmit}>
+        <Box component="form" onSubmit={onSubmit}>
           {inputMode === 'url' ? (
             <SearchInputURL
               fullWidth
@@ -547,7 +502,7 @@ export default function SearchForm({
             <HeroSubmitButton
               variant="contained"
               type="submit"
-              disabled={isLoading || (inputMode === 'text' && getTextStats(textContent).isOverLimit)}
+              disabled={!hasConfiguredProviders || isLoading || (inputMode === 'text' && getTextStats(textContent).isOverLimit)}
               isLoading={isLoading}
             >
               <SearchIcon sx={{ fontSize: 20, color: flowVizTheme.colors.text.primary }} />

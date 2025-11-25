@@ -47,6 +47,8 @@ export const useAppState = () => {
   const [edgeStyle, setEdgeStyle] = useState('solid');
   const [edgeCurve, setEdgeCurve] = useState('smooth');
   const [storyModeSpeed, setStoryModeSpeed] = useState(3); // seconds, range 1-10
+  const [selectedProvider, setSelectedProvider] = useState('');
+  const [selectedModel, setSelectedModel] = useState('');
   
   // Initialize settings from localStorage after mount
   useEffect(() => {
@@ -54,27 +56,37 @@ export const useAppState = () => {
     if (storedCinematic !== null) {
       setCinematicMode(storedCinematic === 'true');
     }
-    
+
     const storedEdgeColor = localStorage.getItem('edge_color');
     if (storedEdgeColor) {
       setEdgeColor(storedEdgeColor);
     }
-    
+
     const storedEdgeStyle = localStorage.getItem('edge_style');
     if (storedEdgeStyle) {
       setEdgeStyle(storedEdgeStyle);
     }
-    
+
     const storedEdgeCurve = localStorage.getItem('edge_curve');
     if (storedEdgeCurve) {
       setEdgeCurve(storedEdgeCurve);
     }
-    
+
     const storedStorySpeed = localStorage.getItem('story_mode_speed');
     if (storedStorySpeed) {
       setStoryModeSpeed(parseInt(storedStorySpeed, 10));
     }
-    
+
+    const storedProvider = localStorage.getItem('ai_provider');
+    if (storedProvider) {
+      setSelectedProvider(storedProvider);
+    }
+
+    const storedModel = localStorage.getItem('ai_model');
+    if (storedModel) {
+      setSelectedModel(storedModel);
+    }
+
     setSettingsLoaded(true);
   }, []);
   
@@ -136,6 +148,8 @@ export const useAppState = () => {
     edgeStyle: string;
     edgeCurve: string;
     storyModeSpeed: number;
+    selectedProvider: string;
+    selectedModel: string;
   }) => {
     // Use provided settings or current state values
     const settingsToSave = newSettings || {
@@ -143,16 +157,20 @@ export const useAppState = () => {
       edgeColor,
       edgeStyle,
       edgeCurve,
-      storyModeSpeed
+      storyModeSpeed,
+      selectedProvider,
+      selectedModel,
     };
-    
+
     // Save to localStorage
     localStorage.setItem('cinematic_mode', settingsToSave.cinematicMode.toString());
     localStorage.setItem('edge_color', settingsToSave.edgeColor);
     localStorage.setItem('edge_style', settingsToSave.edgeStyle);
     localStorage.setItem('edge_curve', settingsToSave.edgeCurve);
     localStorage.setItem('story_mode_speed', settingsToSave.storyModeSpeed.toString());
-    
+    localStorage.setItem('ai_provider', settingsToSave.selectedProvider);
+    localStorage.setItem('ai_model', settingsToSave.selectedModel);
+
     showToast('Settings saved successfully', 'success');
     setSettingsDialogOpen(false);
   };
@@ -209,7 +227,9 @@ export const useAppState = () => {
     edgeStyle,
     edgeCurve,
     storyModeSpeed,
-    
+    selectedProvider,
+    selectedModel,
+
     // Flow management
     hasUnsavedChanges,
     isLoadedFlow,
@@ -245,13 +265,15 @@ export const useAppState = () => {
     setEdgeStyle,
     setEdgeCurve,
     setStoryModeSpeed,
+    setSelectedProvider,
+    setSelectedModel,
     setHasUnsavedChanges,
     setIsLoadedFlow,
     setIsStreaming,
     setToastOpen,
     setToastMessage,
     setToastSeverity,
-    
+
     // Handlers
     handleUrlChange,
     showToast,

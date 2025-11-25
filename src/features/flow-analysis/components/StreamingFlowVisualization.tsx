@@ -28,7 +28,6 @@ import NodeDetailsPanel from './components/NodeDetailsPanel/NodeDetailsPanel';
 import FloatingConnectionLine from './edges/FloatingConnectionLine';
 import { useStoryMode } from './hooks/useStoryMode';
 import LoadingIndicator from '../../../shared/components/LoadingIndicator';
-import { useProviderConfig } from '../../app/hooks/useProviderConfig';
 
 export interface StreamingFlowVisualizationProps {
   url: string; // Can be URL or text content
@@ -55,6 +54,8 @@ export interface StreamingFlowVisualizationProps {
   edgeStyle?: string;
   edgeCurve?: string;
   storyModeSpeed?: number;
+  selectedProvider?: string;
+  selectedModel?: string;
 }
 
 const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProps> = ({
@@ -72,15 +73,14 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   edgeColor = 'default',
   edgeStyle = 'solid',
   edgeCurve = 'smooth',
-  storyModeSpeed = 3
+  storyModeSpeed = 3,
+  selectedProvider,
+  selectedModel
 }) => {
   const reactFlowInstance = useReactFlow();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
-
-  // Get current provider/model selection
-  const { selectedProvider, selectedModel } = useProviderConfig();
   
   // Determine content type based on URL format
   const contentType = useMemo(() => {

@@ -63,7 +63,7 @@ export function useProviderConfig() {
   const providers = data?.providers || [];
   const currentProvider = selectedProvider || data?.defaultProvider || providers[0]?.id;
   const providerData = providers.find(p => p.id === currentProvider);
-  const currentModel = selectedModel || providerData?.defaultModel;
+  const currentModel = selectedModel || providerData?.defaultModel || '';
 
   return {
     // Provider list

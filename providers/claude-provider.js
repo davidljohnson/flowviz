@@ -144,7 +144,7 @@ Edge types (relationship labels):
 - "Uses", "Targets", "Communicates with", "Connects to", "Affects", "Leads to"
 
 Requirements:
-1. Each node MUST have: id (unique), type, data.label, data.description
+1. Each node MUST have: id (unique), type, data.name, data.description
 2. Action nodes MUST have: data.technique_id (e.g., "T1190"), data.tactic (e.g., "Initial Access")
 3. All nodes should include: data.source_excerpt (relevant quote from article), data.confidence ("low", "medium", "high")
 4. Use chronological ordering when possible
@@ -159,7 +159,7 @@ Example output format:
       "id": "action-1",
       "type": "action",
       "data": {
-        "label": "Exploit Public-Facing Application",
+        "name": "Exploit Public-Facing Application",
         "description": "Attacker exploited vulnerable web server",
         "technique_id": "T1190",
         "tactic": "Initial Access",
@@ -171,7 +171,7 @@ Example output format:
       "id": "tool-1",
       "type": "tool",
       "data": {
-        "label": "Metasploit",
+        "name": "Metasploit",
         "description": "Used for exploitation",
         "source_excerpt": "Quote from article...",
         "confidence": "medium"
@@ -243,9 +243,13 @@ Focus on actionable technical intelligence that supplements the article text.`;
   static getSupportedModels() {
     return [
       'claude-sonnet-4-5-20250929',
+      'claude-haiku-4-5-20251001',
+      'claude-3-7-sonnet-20250219',
       'claude-3-5-sonnet-20241022',
-      'claude-opus-4-20250514',
-      'claude-3-opus-20240229'
+      'claude-3-5-haiku-20241022',
+      'claude-3-opus-20240229',
+      'claude-3-sonnet-20240229',
+      'claude-3-haiku-20240307'
     ];
   }
 }
