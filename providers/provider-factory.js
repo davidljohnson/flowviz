@@ -1,5 +1,6 @@
 import { ClaudeProvider } from './claude-provider.js';
 import { OpenAIProvider } from './openai-provider.js';
+import { OllamaProvider } from './ollama-provider.js';
 
 /**
  * Factory for creating AI provider instances
@@ -7,7 +8,7 @@ import { OpenAIProvider } from './openai-provider.js';
 export class ProviderFactory {
   /**
    * Create a provider instance
-   * @param {string} providerName - 'anthropic', 'claude', 'openai', or 'gpt'
+   * @param {string} providerName - 'anthropic', 'claude', 'openai', 'gpt', or 'ollama'
    * @param {object} config - Provider configuration { apiKey, model, baseUrl }
    * @returns {BaseProvider}
    */
@@ -23,8 +24,11 @@ export class ProviderFactory {
       case 'gpt':
         return new OpenAIProvider(config);
 
+      case 'ollama':
+        return new OllamaProvider(config);
+
       default:
-        throw new Error(`Unknown provider: ${providerName}. Supported: anthropic, claude, openai, gpt`);
+        throw new Error(`Unknown provider: ${providerName}. Supported: anthropic, claude, openai, gpt, ollama`);
     }
   }
 
@@ -59,6 +63,18 @@ export class ProviderFactory {
       });
     }
 
+    // Check for Ollama
+    if (process.env.OLLAMA_BASE_URL && (process.env.OLLAMA_TEXT_MODEL || process.env.OLLAMA_VISION_MODEL)) {
+      providers.push({
+        id: 'ollama',
+        name: 'Ollama',
+        displayName: 'Ollama',
+        models: OllamaProvider.getSupportedModels(),
+        defaultModel: process.env.OLLAMA_TEXT_MODEL || 'huggingface.co/TeichAI/Qwen3-14B-Claude-Sonnet-4.5-Reasoning-Distill-GGUF:latest',
+        configured: true
+      });
+    }
+
     return providers;
   }
 
@@ -76,6 +92,16 @@ export class ProviderFactory {
       if (normalized === 'anthropic' || normalized === 'claude') {
         return 'anthropic';
       }
+      if (normalized === 'ollama') {
+        // console.log('[DEBUG] getDefaultProvider:', 'ollama');
+        // Verify that Ollama is actually configured before returning it as default
+        const providers = this.getAvailableProviders();
+        const ollamaProvider = providers.find(p => p.id === 'ollama');
+        if (ollamaProvider && ollamaProvider.configured) {
+          return 'ollama';
+        }
+        // If Ollama is not properly configured, fall through to return first available provider
+      }
     }
 
     // Otherwise return first available
@@ -85,7 +111,7 @@ export class ProviderFactory {
 
   /**
    * Get provider configuration from environment
-   * @param {string} providerId - Provider ID ('anthropic' or 'openai')
+   * @param {string} providerId - Provider ID ('anthropic', 'openai', or 'ollama')
    * @returns {object} Provider configuration
    */
   static getProviderConfig(providerId) {
@@ -104,6 +130,14 @@ export class ProviderFactory {
         apiKey: process.env.OPENAI_API_KEY,
         model: process.env.OPENAI_MODEL || 'gpt-4o',
         baseUrl: process.env.OPENAI_BASE_URL
+      };
+    }
+
+    if (normalized === 'ollama') {
+      return {
+        textModel: process.env.OLLAMA_TEXT_MODEL,
+        visionModel: process.env.OLLAMA_VISION_MODEL,
+        baseUrl: process.env.OLLAMA_BASE_URL
       };
     }
 
