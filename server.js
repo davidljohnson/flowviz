@@ -44,6 +44,18 @@ if (dotenvResult.parsed) {
     process.env.OPENAI_MODEL = dotenvResult.parsed.OPENAI_MODEL;
   }
 
+  if (dotenvResult.parsed.OLLAMA_BASE_URL) {
+    process.env.OLLAMA_BASE_URL = dotenvResult.parsed.OLLAMA_BASE_URL;
+  }
+
+  if (dotenvResult.parsed.OLLAMA_TEXT_MODEL) {
+    process.env.OLLAMA_TEXT_MODEL = dotenvResult.parsed.OLLAMA_TEXT_MODEL;
+  }
+
+  if (dotenvResult.parsed.OLLAMA_VISION_MODEL) {
+    process.env.OLLAMA_VISION_MODEL = dotenvResult.parsed.OLLAMA_VISION_MODEL;
+  }
+
   if (dotenvResult.parsed.DEFAULT_AI_PROVIDER) {
     process.env.DEFAULT_AI_PROVIDER = dotenvResult.parsed.DEFAULT_AI_PROVIDER;
   }
@@ -57,6 +69,9 @@ console.log('[ENV] ANTHROPIC_MODEL:', process.env.ANTHROPIC_MODEL || 'Not set');
 console.log('[ENV] OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? '***' + process.env.OPENAI_API_KEY.slice(-4) : 'Not set');
 console.log('[ENV] OPENAI_BASE_URL:', process.env.OPENAI_BASE_URL || 'Not set');
 console.log('[ENV] OPENAI_MODEL:', process.env.OPENAI_MODEL || 'Not set');
+console.log('[ENV] OLLAMA_BASE_URL:', process.env.OLLAMA_BASE_URL || 'Not set');
+console.log('[ENV] OLLAMA_TEXT_MODEL:', process.env.OLLAMA_TEXT_MODEL || 'Not set');
+console.log('[ENV] OLLAMA_VISION_MODEL:', process.env.OLLAMA_VISION_MODEL || 'Not set');
 console.log('[ENV] DEFAULT_AI_PROVIDER:', process.env.DEFAULT_AI_PROVIDER || 'Not set');
 
 const __filename = fileURLToPath(import.meta.url);
@@ -462,7 +477,10 @@ app.post('/api/analyze-stream', rateLimits.streaming, async (req, res) => {
     logger.debug('Request body received', { provider, model, hasUrl: !!url, hasText: !!text });
 
     // Determine which provider to use
-    const selectedProvider = provider || ProviderFactory.getDefaultProvider();
+    // const selectedProvider = provider || ProviderFactory.getDefaultProvider();
+    const selectedProvider = ProviderFactory.getDefaultProvider();
+
+    // console.log('[DEBUG] server.js - selectedProvider:', selectedProvider) ;
 
     if (!selectedProvider) {
       logger.error('No AI providers configured');
@@ -582,12 +600,18 @@ app.post('/api/analyze-stream', rateLimits.streaming, async (req, res) => {
 
           // Analyze images with the selected provider
           if (processedImages.length > 0) {
-            logger.info(`Processing ${processedImages.length} images with ${selectedProvider} vision analysis`);
 
             try {
-              const visionResult = await aiProvider.analyzeVision(processedImages, finalText);
-              visionAnalysis = visionResult.analysisText;
-              logger.info(`Vision analysis complete: ${visionAnalysis.length} chars`);
+              // Skip vision analysis for Ollama with Qwen3-VL as it doesn't work properly
+              if (selectedProvider === 'ollama') {
+                logger.info('Skipping vision analysis for Ollama (currently not supported, results are better with just text analysis)');
+                visionAnalysis = 'Vision analysis is not supported with the current Ollama configuration.';
+              } else {
+                logger.info(`Processing ${processedImages.length} images with ${selectedProvider} vision analysis`);
+                const visionResult = await aiProvider.analyzeVision(processedImages, finalText);
+                visionAnalysis = visionResult.analysisText;
+                logger.info(`Vision analysis complete: ${visionAnalysis.length} chars`);
+              }
             } catch (visionError) {
               logger.warn(`Vision analysis failed with ${selectedProvider}:`, visionError.message);
               // Continue without vision analysis
@@ -1032,4 +1056,4 @@ if (process.env.NODE_ENV === 'production') {
 app.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
   logger.info(`Health check: http://localhost:${PORT}/health`);
-}); 
+});
