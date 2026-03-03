@@ -8,7 +8,9 @@ import {
   useNodesState,
   useEdgesState,
   MarkerType,
-  useReactFlow
+  useReactFlow,
+  getNodesBounds,
+  getViewportForBounds
 } from 'reactflow';
 import { toPng } from 'html-to-image';
 import { STIXBundleExporter } from '../../flow-export/services/stixBundleExporter';
@@ -420,78 +422,123 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
 
   const handleExport = useCallback(async (format: 'png' | 'json' | 'afb' | 'flowviz') => {
     const filename = `attack-flow-${Date.now()}`;
-    
+
     if (format === 'png') {
-      // Export as PNG - capture the entire visualization container to include node details
-      const element = selectedNode 
-        ? document.querySelector('.flow-visualization-container') as HTMLElement
-        : document.querySelector('.react-flow') as HTMLElement;
-        
-      if (!element) {
-        console.error('Visualization element not found');
+      // For high-resolution PNG export, we need to capture the flow at full scale
+      // not at the current zoom level
+
+      if (selectedNode) {
+        // If a node is selected, export the container with the details panel
+        const element = document.querySelector('.flow-visualization-container') as HTMLElement;
+        if (!element) {
+          console.error('Visualization container not found');
+          return;
+        }
+
+        try {
+          const closeButtonElement = element.querySelector('.node-details-close-button') as HTMLElement;
+          const originalCloseButtonDisplay = closeButtonElement?.style.display;
+          if (closeButtonElement) {
+            closeButtonElement.style.display = 'none';
+          }
+
+          const dataUrl = await toPng(element, {
+            backgroundColor: '#0d1117',
+            pixelRatio: 2,
+          });
+
+          if (closeButtonElement) {
+            closeButtonElement.style.display = originalCloseButtonDisplay || '';
+          }
+
+          const link = document.createElement('a');
+          link.download = `${filename}.png`;
+          link.href = dataUrl;
+          link.click();
+        } catch (error) {
+          console.error('Error exporting to PNG:', error);
+        }
         return;
       }
 
-      try {
-        // Hide React Flow controls, attribution, and close button during export
-        const controlsElement = element.querySelector('.react-flow__controls') as HTMLElement;
-        const attributionElement = element.querySelector('.react-flow__attribution') as HTMLElement;
-        const closeButtonElement = element.querySelector('.node-details-close-button') as HTMLElement;
-        const originalControlsDisplay = controlsElement?.style.display;
-        const originalAttributionDisplay = attributionElement?.style.display;
-        const originalCloseButtonDisplay = closeButtonElement?.style.display;
-        
-        if (controlsElement) {
-          controlsElement.style.display = 'none';
-        }
-        if (attributionElement) {
-          attributionElement.style.display = 'none';
-        }
-        if (closeButtonElement) {
-          closeButtonElement.style.display = 'none';
-        }
+      // PNG export - canonical ReactFlow approach
+      // Note: onlyRenderVisibleElements is enabled, so we must fitView first
+      // to ensure all nodes are in the DOM before capture
+      if (nodes.length === 0) {
+        console.error('No nodes to export');
+        return;
+      }
 
-        const dataUrl = await toPng(element, {
+      // 1. Get bounds of all nodes
+      const nodesBounds = getNodesBounds(nodes);
+
+      // 2. Calculate export dimensions based on content
+      const padding = 50;
+      const minDimension = 1500;
+      const scale = Math.max(1, minDimension / Math.min(nodesBounds.width, nodesBounds.height));
+      const imageWidth = Math.round((nodesBounds.width + padding * 2) * scale);
+      const imageHeight = Math.round((nodesBounds.height + padding * 2) * scale);
+
+      // 3. Get optimal viewport transform to fit all nodes
+      const exportViewport = getViewportForBounds(
+        nodesBounds,
+        imageWidth,
+        imageHeight,
+        0.5,  // minZoom
+        2,    // maxZoom
+        padding
+      );
+
+      // 4. Get viewport element (the actual rendered content layer)
+      const viewportElement = document.querySelector('.react-flow__viewport') as HTMLElement;
+      if (!viewportElement) {
+        console.error('ReactFlow viewport not found');
+        return;
+      }
+
+      // 5. Save current viewport and fitView to ensure all nodes are rendered in DOM
+      const currentViewport = reactFlowInstance.getViewport();
+      reactFlowInstance.fitView({ padding: 0.1, duration: 0 });
+
+      // Wait for React to render all nodes
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // 6. Hide UI elements
+      const reactFlowElement = document.querySelector('.react-flow') as HTMLElement;
+      const controlsElement = reactFlowElement?.querySelector('.react-flow__controls') as HTMLElement;
+      const attributionElement = reactFlowElement?.querySelector('.react-flow__attribution') as HTMLElement;
+      const origControlsDisplay = controlsElement?.style.display;
+      const origAttributionDisplay = attributionElement?.style.display;
+
+      if (controlsElement) controlsElement.style.display = 'none';
+      if (attributionElement) attributionElement.style.display = 'none';
+
+      try {
+        // 7. Capture with calculated viewport transform applied via style
+        const dataUrl = await toPng(viewportElement, {
           backgroundColor: '#0d1117',
-          width: element.offsetWidth,
-          height: element.offsetHeight,
+          width: imageWidth,
+          height: imageHeight,
           pixelRatio: 2,
           style: {
-            transform: 'none',
+            width: `${imageWidth}px`,
+            height: `${imageHeight}px`,
+            transform: `translate(${exportViewport.x}px, ${exportViewport.y}px) scale(${exportViewport.zoom})`,
           },
         });
 
-        // Restore controls, attribution, and close button visibility
-        if (controlsElement) {
-          controlsElement.style.display = originalControlsDisplay || '';
-        }
-        if (attributionElement) {
-          attributionElement.style.display = originalAttributionDisplay || '';
-        }
-        if (closeButtonElement) {
-          closeButtonElement.style.display = originalCloseButtonDisplay || '';
-        }
-
+        // 8. Download
         const link = document.createElement('a');
         link.download = `${filename}.png`;
         link.href = dataUrl;
         link.click();
       } catch (error) {
         console.error('Error exporting to PNG:', error);
-        
-        // Restore controls, attribution, and close button visibility even on error
-        const controlsElement = element.querySelector('.react-flow__controls') as HTMLElement;
-        const attributionElement = element.querySelector('.react-flow__attribution') as HTMLElement;
-        const closeButtonElement = element.querySelector('.node-details-close-button') as HTMLElement;
-        if (controlsElement) {
-          controlsElement.style.display = '';
-        }
-        if (attributionElement) {
-          attributionElement.style.display = '';
-        }
-        if (closeButtonElement) {
-          closeButtonElement.style.display = '';
-        }
+      } finally {
+        // 9. Restore UI visibility and viewport
+        if (controlsElement) controlsElement.style.display = origControlsDisplay || '';
+        if (attributionElement) attributionElement.style.display = origAttributionDisplay || '';
+        reactFlowInstance.setViewport(currentViewport);
       }
     } else if (format === 'json') {
       // Export as STIX bundle
