@@ -455,6 +455,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
           backgroundColor: '#0d1117',
           width: element.offsetWidth,
           height: element.offsetHeight,
+          pixelRatio: 2,
           style: {
             transform: 'none',
           },
