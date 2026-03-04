@@ -44,6 +44,18 @@ if (dotenvResult.parsed) {
     process.env.OPENAI_MODEL = dotenvResult.parsed.OPENAI_MODEL;
   }
 
+  if (dotenvResult.parsed.OLLAMA_BASE_URL) {
+    process.env.OLLAMA_BASE_URL = dotenvResult.parsed.OLLAMA_BASE_URL;
+  }
+
+  if (dotenvResult.parsed.OLLAMA_TEXT_MODEL) {
+    process.env.OLLAMA_TEXT_MODEL = dotenvResult.parsed.OLLAMA_TEXT_MODEL;
+  }
+
+  if (dotenvResult.parsed.OLLAMA_VISION_MODEL) {
+    process.env.OLLAMA_VISION_MODEL = dotenvResult.parsed.OLLAMA_VISION_MODEL;
+  }
+
   if (dotenvResult.parsed.DEFAULT_AI_PROVIDER) {
     process.env.DEFAULT_AI_PROVIDER = dotenvResult.parsed.DEFAULT_AI_PROVIDER;
   }
@@ -57,6 +69,9 @@ console.log('[ENV] ANTHROPIC_MODEL:', process.env.ANTHROPIC_MODEL || 'Not set');
 console.log('[ENV] OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? '***' + process.env.OPENAI_API_KEY.slice(-4) : 'Not set');
 console.log('[ENV] OPENAI_BASE_URL:', process.env.OPENAI_BASE_URL || 'Not set');
 console.log('[ENV] OPENAI_MODEL:', process.env.OPENAI_MODEL || 'Not set');
+console.log('[ENV] OLLAMA_BASE_URL:', process.env.OLLAMA_BASE_URL || 'Not set');
+console.log('[ENV] OLLAMA_TEXT_MODEL:', process.env.OLLAMA_TEXT_MODEL || 'Not set');
+console.log('[ENV] OLLAMA_VISION_MODEL:', process.env.OLLAMA_VISION_MODEL || 'Not set');
 console.log('[ENV] DEFAULT_AI_PROVIDER:', process.env.DEFAULT_AI_PROVIDER || 'Not set');
 
 const __filename = fileURLToPath(import.meta.url);
@@ -130,10 +145,20 @@ app.get('/health', (_req, res) => {
 });
 
 // Get available AI providers
-app.get('/api/providers', (_req, res) => {
+app.get('/api/providers', async (_req, res) => {
   try {
     const providers = ProviderFactory.getAvailableProviders();
     const defaultProvider = ProviderFactory.getDefaultProvider();
+
+    // Fetch actual models from Ollama if configured
+    const ollamaProvider = providers.find(p => p.id === 'ollama');
+    if (ollamaProvider) {
+      const { OllamaProvider } = await import('./providers/ollama-provider.js');
+      const models = await OllamaProvider.fetchAvailableModels();
+      if (models.length > 0) {
+        ollamaProvider.models = models;
+      }
+    }
 
     logger.info('Providers request', {
       availableCount: providers.length,
@@ -487,7 +512,7 @@ app.post('/api/analyze-stream', rateLimits.streaming, async (req, res) => {
     // Validate provider is configured
     if (!aiProvider.isConfigured()) {
       logger.error(`${selectedProvider} provider not properly configured`);
-      res.write(`data: ${JSON.stringify({ type: 'error', error: `${selectedProvider} provider not configured. Missing API key.` })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'error', error: `${selectedProvider} provider not properly configured. Check your environment variables.` })}\n\n`);
       res.end();
       return;
     }
@@ -582,9 +607,9 @@ app.post('/api/analyze-stream', rateLimits.streaming, async (req, res) => {
 
           // Analyze images with the selected provider
           if (processedImages.length > 0) {
-            logger.info(`Processing ${processedImages.length} images with ${selectedProvider} vision analysis`);
 
             try {
+              logger.info(`Processing ${processedImages.length} images with ${selectedProvider} vision analysis`);
               const visionResult = await aiProvider.analyzeVision(processedImages, finalText);
               visionAnalysis = visionResult.analysisText;
               logger.info(`Vision analysis complete: ${visionAnalysis.length} chars`);
@@ -1032,4 +1057,4 @@ if (process.env.NODE_ENV === 'production') {
 app.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
   logger.info(`Health check: http://localhost:${PORT}/health`);
-}); 
+});
