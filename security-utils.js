@@ -14,8 +14,8 @@ export function validateUrl(urlString) {
     // Block localhost and private IP ranges
     const hostname = url.hostname.toLowerCase();
     
-    // Block localhost variations
-    if (['localhost', '127.0.0.1', '::1'].includes(hostname)) {
+    // Block localhost variations (URL.hostname wraps IPv6 in brackets)
+    if (['localhost', '127.0.0.1', '::1', '[::1]'].includes(hostname)) {
       throw new Error('Localhost access is not allowed');
     }
     

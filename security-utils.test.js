@@ -49,9 +49,7 @@ describe('validateUrl', () => {
       .toThrow('Localhost access is not allowed');
   });
 
-  // Note: IPv6 loopback [::1] is listed in the block list but URL.hostname
-  // includes brackets for IPv6, so the check doesn't match. This is a known gap.
-  it.skip('blocks IPv6 loopback ::1', () => {
+  it('blocks IPv6 loopback ::1', () => {
     expect(() => validateUrl('http://[::1]/api'))
       .toThrow('Localhost access is not allowed');
   });
