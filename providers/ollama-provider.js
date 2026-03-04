@@ -53,10 +53,10 @@ export class OllamaProvider extends BaseProvider {
   async stream(params, res) {
     const { text, visionAnalysis, system } = params;
     const prompt = this.formatPrompt(text, visionAnalysis, system);
-    
+
     // Prepare the request to Ollama API
     const ollamaApiUrl = `${this.baseUrl}/api/generate`;
-    
+
     const aiResponse = await fetch(ollamaApiUrl, {
       method: 'POST',
       headers: {
@@ -65,10 +65,11 @@ export class OllamaProvider extends BaseProvider {
       body: JSON.stringify({
         model: this.textModel,
         prompt: prompt,
+        system: system || 'You are an expert in cyber threat intelligence analysis.',
         stream: true,
         options: {
           temperature: 0.1,
-          num_predict: 2000
+          num_predict: 8192
         }
       }),
     });
@@ -80,28 +81,46 @@ export class OllamaProvider extends BaseProvider {
     }
 
     // Stream response chunks to client
+    // Ollama streams newline-delimited JSON objects. A single data event
+    // may contain multiple lines or a partial line, so we buffer by newline.
     return new Promise((resolve, reject) => {
+      let buffer = '';
+
       aiResponse.body.on('data', (chunk) => {
-        const data = chunk.toString();
-        // Ollama returns JSON objects, so we need to parse them
-        try {
-          const parsed = JSON.parse(data);
-          if (parsed.response) {
-            // Send content delta in Claude-compatible format
-            this.sendContentDelta(res, parsed.response);
+        buffer += chunk.toString();
+        const lines = buffer.split('\n');
+        // Keep the last (possibly incomplete) line in the buffer
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const parsed = JSON.parse(line);
+            if (parsed.response) {
+              this.sendContentDelta(res, parsed.response);
+            }
+            if (parsed.done) {
+              this.sendSSEComplete(res);
+              resolve();
+            }
+          } catch (e) {
+            // Skip malformed lines
           }
-          if (parsed.done) {
-            // Send completion signal
-            this.sendSSEComplete(res);
-            resolve();
-          }
-        } catch (e) {
-          // If it's not a complete JSON object, send as-is
-          res.write(data);
         }
       });
 
       aiResponse.body.on('end', () => {
+        // Process any remaining buffered data
+        if (buffer.trim()) {
+          try {
+            const parsed = JSON.parse(buffer);
+            if (parsed.response) {
+              this.sendContentDelta(res, parsed.response);
+            }
+          } catch (e) {
+            // Ignore incomplete final chunk
+          }
+        }
         resolve();
       });
 
@@ -202,14 +221,27 @@ Article text:
   }
 
   /**
-   * Get supported models
+   * Get supported models (static fallback list)
    */
   static getSupportedModels() {
-    return [
-      'qwen3-vl',
-      'huggingface.co/TeichAI/Qwen3-14B-Claude-Sonnet-4.5-Reasoning-Distill-GGUF:latest',
-      'Qwen3-14B-Claude-Sonnet-4.5-Reasoning-Distill-GGUF-32768-context:latest',
-      'huggingface.co/Trendyol/Trendyol-Cybersecurity-LLM-v2-70B-Q4_K_M_65536_context_final:latest'
-    ];
+    return [];
+  }
+
+  /**
+   * Fetch available models from the local Ollama instance
+   * @returns {Promise<string[]>} Array of model names
+   */
+  static async fetchAvailableModels() {
+    const baseUrl = process.env.OLLAMA_BASE_URL;
+    if (!baseUrl) return [];
+
+    try {
+      const response = await fetch(`${baseUrl}/api/tags`);
+      if (!response.ok) return [];
+      const data = await response.json();
+      return (data.models || []).map(m => m.name);
+    } catch (e) {
+      return [];
+    }
   }
 }

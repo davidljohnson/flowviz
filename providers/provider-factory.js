@@ -93,7 +93,6 @@ export class ProviderFactory {
         return 'anthropic';
       }
       if (normalized === 'ollama') {
-        // console.log('[DEBUG] getDefaultProvider:', 'ollama');
         // Verify that Ollama is actually configured before returning it as default
         const providers = this.getAvailableProviders();
         const ollamaProvider = providers.find(p => p.id === 'ollama');

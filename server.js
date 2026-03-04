@@ -145,10 +145,20 @@ app.get('/health', (_req, res) => {
 });
 
 // Get available AI providers
-app.get('/api/providers', (_req, res) => {
+app.get('/api/providers', async (_req, res) => {
   try {
     const providers = ProviderFactory.getAvailableProviders();
     const defaultProvider = ProviderFactory.getDefaultProvider();
+
+    // Fetch actual models from Ollama if configured
+    const ollamaProvider = providers.find(p => p.id === 'ollama');
+    if (ollamaProvider) {
+      const { OllamaProvider } = await import('./providers/ollama-provider.js');
+      const models = await OllamaProvider.fetchAvailableModels();
+      if (models.length > 0) {
+        ollamaProvider.models = models;
+      }
+    }
 
     logger.info('Providers request', {
       availableCount: providers.length,
@@ -477,10 +487,7 @@ app.post('/api/analyze-stream', rateLimits.streaming, async (req, res) => {
     logger.debug('Request body received', { provider, model, hasUrl: !!url, hasText: !!text });
 
     // Determine which provider to use
-    // const selectedProvider = provider || ProviderFactory.getDefaultProvider();
-    const selectedProvider = ProviderFactory.getDefaultProvider();
-
-    // console.log('[DEBUG] server.js - selectedProvider:', selectedProvider) ;
+    const selectedProvider = provider || ProviderFactory.getDefaultProvider();
 
     if (!selectedProvider) {
       logger.error('No AI providers configured');
@@ -505,7 +512,7 @@ app.post('/api/analyze-stream', rateLimits.streaming, async (req, res) => {
     // Validate provider is configured
     if (!aiProvider.isConfigured()) {
       logger.error(`${selectedProvider} provider not properly configured`);
-      res.write(`data: ${JSON.stringify({ type: 'error', error: `${selectedProvider} provider not configured. Missing API key.` })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'error', error: `${selectedProvider} provider not properly configured. Check your environment variables.` })}\n\n`);
       res.end();
       return;
     }
@@ -602,16 +609,10 @@ app.post('/api/analyze-stream', rateLimits.streaming, async (req, res) => {
           if (processedImages.length > 0) {
 
             try {
-              // Skip vision analysis for Ollama with Qwen3-VL as it doesn't work properly
-              if (selectedProvider === 'ollama') {
-                logger.info('Skipping vision analysis for Ollama (currently not supported, results are better with just text analysis)');
-                visionAnalysis = 'Vision analysis is not supported with the current Ollama configuration.';
-              } else {
-                logger.info(`Processing ${processedImages.length} images with ${selectedProvider} vision analysis`);
-                const visionResult = await aiProvider.analyzeVision(processedImages, finalText);
-                visionAnalysis = visionResult.analysisText;
-                logger.info(`Vision analysis complete: ${visionAnalysis.length} chars`);
-              }
+              logger.info(`Processing ${processedImages.length} images with ${selectedProvider} vision analysis`);
+              const visionResult = await aiProvider.analyzeVision(processedImages, finalText);
+              visionAnalysis = visionResult.analysisText;
+              logger.info(`Vision analysis complete: ${visionAnalysis.length} chars`);
             } catch (visionError) {
               logger.warn(`Vision analysis failed with ${selectedProvider}:`, visionError.message);
               // Continue without vision analysis
