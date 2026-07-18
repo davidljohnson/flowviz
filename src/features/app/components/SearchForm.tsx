@@ -78,7 +78,9 @@ export default function SearchForm({
   // through the existing text path via onTextChange.
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pdfFileName, setPdfFileName] = useState<string | null>(null);
-  const [pdfStatus, setPdfStatus] = useState<'idle' | 'processing' | 'done' | 'error'>('idle');
+  const [pdfStatus, setPdfStatus] = useState<
+    'idle' | 'processing' | 'vision' | 'done' | 'error'
+  >('idle');
   const [pdfProgress, setPdfProgress] = useState<{ page: number; total: number } | null>(null);
   const [pdfError, setPdfError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
@@ -92,13 +94,39 @@ export default function SearchForm({
 
     try {
       // Dynamic import keeps pdf.js out of the initial bundle.
-      const { extractPdfText } = await import(
+      const { extractPdfText, renderPdfImagePages } = await import(
         '../../../shared/services/pdf/pdfExtractor'
       );
       const result = await extractPdfText(file, (p) =>
         setPdfProgress({ page: p.page, total: p.totalPages })
       );
-      onTextChange(result.text);
+
+      let finalText = result.text;
+
+      // Phase 2: analyze diagrams/screenshots. Only pages with raster images
+      // are rendered, so a text-only report makes no vision call. Best-effort —
+      // if it fails (e.g. Anthropic key not set), fall back to text only.
+      try {
+        const images = await renderPdfImagePages(file, 3);
+        if (images.length > 0) {
+          setPdfStatus('vision');
+          const resp = await fetch('/api/vision-analysis', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ images, articleText: result.text }),
+          });
+          if (resp.ok) {
+            const { analysisText } = await resp.json();
+            if (analysisText) {
+              finalText = `## Diagram Analysis\n\n${analysisText}\n\n## Report Text\n\n${result.text}`;
+            }
+          }
+        }
+      } catch {
+        // Keep the text-only extraction on any vision failure.
+      }
+
+      onTextChange(finalText);
       setPdfStatus('done');
     } catch (err) {
       onTextChange('');
@@ -108,6 +136,7 @@ export default function SearchForm({
   };
 
   const pdfTextStats = getTextStats(textContent);
+  const pdfBusy = pdfStatus === 'processing' || pdfStatus === 'vision';
 
   return (
     <Container
@@ -479,10 +508,10 @@ export default function SearchForm({
                 }}
               />
               <Box
-                onClick={() => pdfStatus !== 'processing' && fileInputRef.current?.click()}
+                onClick={() => !pdfBusy && fileInputRef.current?.click()}
                 onDragOver={(e) => {
                   e.preventDefault();
-                  if (pdfStatus !== 'processing') setIsDragging(true);
+                  if (!pdfBusy) setIsDragging(true);
                 }}
                 onDragLeave={(e) => {
                   e.preventDefault();
@@ -491,7 +520,7 @@ export default function SearchForm({
                 onDrop={(e) => {
                   e.preventDefault();
                   setIsDragging(false);
-                  if (pdfStatus === 'processing') return;
+                  if (pdfBusy) return;
                   const file = e.dataTransfer.files?.[0];
                   if (file) handlePdfFile(file);
                 }}
@@ -506,7 +535,7 @@ export default function SearchForm({
                   py: 6,
                   minHeight: 240,
                   borderRadius: 3,
-                  cursor: pdfStatus === 'processing' ? 'default' : 'pointer',
+                  cursor: pdfBusy ? 'default' : 'pointer',
                   border: `1.5px dashed ${
                     pdfStatus === 'error'
                       ? flowVizTheme.colors.status.error.border
@@ -520,26 +549,30 @@ export default function SearchForm({
                   transition: 'all 0.2s ease',
                   '&:hover': {
                     borderColor:
-                      pdfStatus === 'processing'
+                      pdfBusy
                         ? undefined
                         : flowVizTheme.colors.surface.border.default,
                     background:
-                      pdfStatus === 'processing'
+                      pdfBusy
                         ? undefined
                         : flowVizTheme.colors.surface.hover,
                   },
                 }}
               >
-                {pdfStatus === 'processing' ? (
+                {pdfBusy ? (
                   <>
                     <CircularProgress size={32} sx={{ color: flowVizTheme.colors.text.secondary }} />
                     <Typography sx={{ color: flowVizTheme.colors.text.primary, fontWeight: 500 }}>
-                      Extracting text{pdfFileName ? ` from ${pdfFileName}` : ''}…
+                      {pdfStatus === 'vision'
+                        ? 'Analyzing diagrams…'
+                        : `Extracting text${pdfFileName ? ` from ${pdfFileName}` : ''}…`}
                     </Typography>
                     <Typography variant="caption" sx={{ color: flowVizTheme.colors.text.tertiary }}>
-                      {pdfProgress
-                        ? `Page ${pdfProgress.page} of ${pdfProgress.total}`
-                        : 'Reading document…'}
+                      {pdfStatus === 'vision'
+                        ? 'Reading images with vision analysis'
+                        : pdfProgress
+                          ? `Page ${pdfProgress.page} of ${pdfProgress.total}`
+                          : 'Reading document…'}
                     </Typography>
                   </>
                 ) : pdfStatus === 'done' ? (
@@ -717,7 +750,7 @@ export default function SearchForm({
               disabled={
                 !hasConfiguredProviders ||
                 isLoading ||
-                pdfStatus === 'processing' ||
+                pdfBusy ||
                 (inputMode === 'pdf' && pdfStatus !== 'done') ||
                 ((inputMode === 'text' || inputMode === 'pdf') && pdfTextStats.isOverLimit)
               }
