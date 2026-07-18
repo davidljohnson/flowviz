@@ -4,6 +4,9 @@
   "description": "AI-powered cybersecurity attack flow visualization tool using MITRE ATT&CK",
   "license": "MIT",
   "type": "module",
+  "engines": {
+    "node": ">=22.15.0"
+  },
   "scripts": {
     "dev": "vite",
     "server": "node server.js",
