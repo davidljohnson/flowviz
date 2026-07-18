@@ -17,6 +17,9 @@ dist-ssr
 .env.*
 !.env.example
 
+# Local assistant notes (not part of the project)
+memory/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

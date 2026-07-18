@@ -1015,16 +1015,17 @@ app.use('/anthropic', createProxyMiddleware({
   pathRewrite: {
     '^/anthropic': '',
   },
-  onProxyReq: () => {
-    // CORS already handled by app.use(cors()) middleware - no need to override
-  },
-  onError: (err, _req, res) => {
-    logger.error('Proxy error:', err);
-    res.status(500).json({ 
-      error: 'Proxy error', 
-      message: err.message,
-      timestamp: new Date().toISOString()
-    });
+  // http-proxy-middleware v3 moved event handlers under `on`.
+  // CORS is already handled by app.use(cors()), so no proxyReq handler needed.
+  on: {
+    error: (err, _req, res) => {
+      logger.error('Proxy error:', err);
+      res.status(500).json({
+        error: 'Proxy error',
+        message: err.message,
+        timestamp: new Date().toISOString()
+      });
+    },
   },
 }));
 

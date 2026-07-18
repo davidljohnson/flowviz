@@ -23,13 +23,14 @@ export default defineConfig({
         pure_funcs: ['console.log', 'console.debug', 'console.info']
       }
     },
-    // Optimize bundle
+    // Optimize bundle via manualChunks (function form; works with Rollup).
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'reactflow'],
-          mui: ['@mui/material', '@mui/icons-material'],
-          anthropic: ['@anthropic-ai/sdk']
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return
+          if (/[\\/]node_modules[\\/]@mui[\\/]/.test(id)) return 'mui'
+          if (/[\\/]node_modules[\\/]@anthropic-ai[\\/]sdk[\\/]/.test(id)) return 'anthropic'
+          if (/[\\/]node_modules[\\/](react|react-dom|reactflow|@reactflow|scheduler)[\\/]/.test(id)) return 'vendor'
         }
       }
     }
