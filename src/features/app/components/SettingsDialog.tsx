@@ -391,8 +391,9 @@ export default function SettingsDialog({
                   label="Color"
                   MenuProps={dropdownMenuStylesDark}
                 >
-                  <DropdownMenuItem value="default">Default (Blue)</DropdownMenuItem>
-                  <DropdownMenuItem value="white">White</DropdownMenuItem>
+                  <DropdownMenuItem value="default">Default (Monochrome)</DropdownMenuItem>
+                  <DropdownMenuItem value="white">Bright White</DropdownMenuItem>
+                  <DropdownMenuItem value="blue">Blue</DropdownMenuItem>
                 </DropdownSelect>
               </DropdownFormControl>
               

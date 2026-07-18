@@ -1,103 +1,79 @@
-import { Node, Position } from 'reactflow';
+import { Position } from 'reactflow';
 
-// Helper to get the position of the handle based on node position and type
-function getHandlePosition(
-  nodeA: Node,
-  nodeB: Node,
-  sourceType?: string,
-  targetType?: string
-): { source: Position; target: Position } {
-  const centerA = {
-    x: nodeA.position.x + (nodeA.width || 200) / 2,
-    y: nodeA.position.y + (nodeA.height || 120) / 2,
-  };
-
-  const centerB = {
-    x: nodeB.position.x + (nodeB.width || 200) / 2,
-    y: nodeB.position.y + (nodeB.height || 120) / 2,
-  };
-
-  // For dagre layout, always use vertical connections (top/bottom)
-  // This ensures proper alignment with the hierarchical layout
-  if (centerA.y > centerB.y) {
-    return { source: Position.Top, target: Position.Bottom };
-  } else {
-    return { source: Position.Bottom, target: Position.Top };
-  }
+interface NodeGeometry {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
-// Get the actual coordinates for the edge connection points
+function getGeometry(node: any): NodeGeometry {
+  // Handle internal node structure from useStore - fallback to positionAbsolute
+  const pos = node.position || node.positionAbsolute || node.internals?.positionAbsolute || { x: 0, y: 0 };
+  const width = node.width || 200;
+  const height = node.height || 120;
+  // The flow renders with nodeOrigin [0.5, 0.5], so a node's position is its
+  // CENTER - convert to top-left for the edge anchor math below
+  return {
+    x: pos.x - width / 2,
+    y: pos.y - height / 2,
+    width,
+    height,
+  };
+}
+
+// Get the coordinates and sides for an edge between two nodes.
+// Vertical (parent -> child) edges connect bottom -> top as usual; nodes on
+// the same rank connect side-to-side so the edge doesn't squeeze an S-curve
+// through the narrow gap between sibling cards.
 export function getEdgeParams(sourceNode: any, targetNode: any) {
-  // Handle internal node structure from useStore - fallback to positionAbsolute if position is not available
-  const sourcePos = sourceNode.position || sourceNode.positionAbsolute;
-  const targetPos = targetNode.position || targetNode.positionAbsolute;
-  
-  const sourceNodeData = {
-    position: sourcePos,
-    width: sourceNode.width || 200,
-    height: sourceNode.height || 120,
-  };
-  
-  const targetNodeData = {
-    position: targetPos,
-    width: targetNode.width || 200,
-    height: targetNode.height || 120,
-  };
+  const s = getGeometry(sourceNode);
+  const t = getGeometry(targetNode);
 
-  const { source: sourceHandlePos, target: targetHandlePos } = getHandlePosition(
-    sourceNodeData as Node,
-    targetNodeData as Node,
-    sourceNode.type,
-    targetNode.type
-  );
+  const sourceCenter = { x: s.x + s.width / 2, y: s.y + s.height / 2 };
+  const targetCenter = { x: t.x + t.width / 2, y: t.y + t.height / 2 };
 
-  const sourceWidth = sourceNode.width || 200;
-  const sourceHeight = sourceNode.height || 120;
-  const targetWidth = targetNode.width || 200;
-  const targetHeight = targetNode.height || 120;
+  const isLateral =
+    Math.abs(sourceCenter.y - targetCenter.y) < Math.max(s.height, t.height) / 2;
 
-  const sourceX = sourcePos.x;
-  const sourceY = sourcePos.y;
-  const targetX = targetPos.x;
-  const targetY = targetPos.y;
-
-  // Calculate handle positions based on the determined positions
-  let sx = sourceX;
-  let sy = sourceY;
-  let tx = targetX;
-  let ty = targetY;
-
-  switch (sourceHandlePos) {
-    case Position.Top:
-      sx = sourceX + sourceWidth / 2;
-      sy = sourceY;
-      break;
-    case Position.Bottom:
-      sx = sourceX + sourceWidth / 2;
-      sy = sourceY + sourceHeight;
-      break;
-    default:
-      // Fallback to bottom for any unexpected case
-      sx = sourceX + sourceWidth / 2;
-      sy = sourceY + sourceHeight;
-      break;
+  if (isLateral) {
+    if (sourceCenter.x <= targetCenter.x) {
+      return {
+        sx: s.x + s.width,
+        sy: sourceCenter.y,
+        tx: t.x,
+        ty: targetCenter.y,
+        sourcePos: Position.Right,
+        targetPos: Position.Left,
+      };
+    }
+    return {
+      sx: s.x,
+      sy: sourceCenter.y,
+      tx: t.x + t.width,
+      ty: targetCenter.y,
+      sourcePos: Position.Left,
+      targetPos: Position.Right,
+    };
   }
 
-  switch (targetHandlePos) {
-    case Position.Top:
-      tx = targetX + targetWidth / 2;
-      ty = targetY;
-      break;
-    case Position.Bottom:
-      tx = targetX + targetWidth / 2;
-      ty = targetY + targetHeight;
-      break;
-    default:
-      // Fallback to top for any unexpected case
-      tx = targetX + targetWidth / 2;
-      ty = targetY;
-      break;
+  if (sourceCenter.y > targetCenter.y) {
+    return {
+      sx: sourceCenter.x,
+      sy: s.y,
+      tx: targetCenter.x,
+      ty: t.y + t.height,
+      sourcePos: Position.Top,
+      targetPos: Position.Bottom,
+    };
   }
 
-  return { sx, sy, tx, ty, sourcePos: sourceHandlePos, targetPos: targetHandlePos };
+  return {
+    sx: sourceCenter.x,
+    sy: s.y + s.height,
+    tx: targetCenter.x,
+    ty: t.y,
+    sourcePos: Position.Bottom,
+    targetPos: Position.Top,
+  };
 }

@@ -82,13 +82,15 @@ export const LABEL_BG_STYLES = {
 
 export const LAYOUT_CONFIG = {
   rankdir: 'TB', // Top-to-bottom layout
-  ranksep: 200,  // Increased spacing between ranks
-  nodesep: 150,  // Increased spacing between nodes in same rank
-  edgesep: 60,   // Increased spacing between edges
-  marginx: 80,   // Increased margin around graph
-  marginy: 80,   // Increased margin around graph
-  nodeWidth: 220,
-  nodeHeight: 130,
+  ranksep: 110,  // Vertical gap between ranks (leaves room for edge labels)
+  nodesep: 60,   // Horizontal gap between siblings in the same rank
+  edgesep: 30,   // Spacing between parallel edges
+  marginx: 60,   // Margin around graph
+  marginy: 60,   // Margin around graph
+  // Match the real rendered card size (max-width 280 + shadow, ~150px tall)
+  // so Dagre's gaps are true gaps - undersized dims force oversized spacing
+  nodeWidth: 270,
+  nodeHeight: 150,
   paddingLeft: 25,
   paddingRight: 25,
 } as const;

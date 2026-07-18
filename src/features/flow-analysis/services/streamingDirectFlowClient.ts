@@ -21,6 +21,39 @@ export class StreamingDirectFlowClient {
   private pendingEdges: Array<{edge: Edge, source: string, target: string}> = [];
   private emittedNodeIds = new Set<string>();
 
+  /**
+   * Normalize node data as it comes off the stream.
+   * For AND/OR operators the model tends to bake the gate word into the name
+   * ("Environment Checks AND") even when told not to - strip it here once so
+   * display, saves, and exports all see the clean name. Also backfill
+   * data.operator, which the STIX exporter reads but the model rarely emits.
+   */
+  private buildNodeData(node: any) {
+    const nodeData = {
+      ...node.data,
+      type: node.type,
+      id: node.id
+    };
+
+    if (node.type === 'AND_operator' || node.type === 'OR_operator') {
+      const gate = node.type === 'AND_operator' ? 'AND' : 'OR';
+      if (typeof nodeData.name === 'string') {
+        const cleaned = nodeData.name
+          .replace(new RegExp(`^${gate}\\b[\\s:,-]*`, 'i'), '')
+          .replace(new RegExp(`[\\s:,-]*\\b${gate}$`, 'i'), '')
+          .trim();
+        if (cleaned) {
+          nodeData.name = cleaned;
+        }
+      }
+      if (!nodeData.operator) {
+        nodeData.operator = gate;
+      }
+    }
+
+    return nodeData;
+  }
+
   async extractDirectFlowStreaming(
     input: string,
     callbacks: StreamingDirectFlowCallbacks,
@@ -188,14 +221,10 @@ export class StreamingDirectFlowClient {
           
           this.processedNodeIds.add(nodeId);
           this.emittedNodeIds.add(nodeId);
-          
+
           // Ensure all properties are at the root of data
-          const nodeData = {
-            ...node.data,
-            type: node.type,
-            id: node.id
-          };
-          
+          const nodeData = this.buildNodeData(node);
+
           const flowNode: Node = {
             id: node.id,
             type: node.type,
@@ -287,14 +316,10 @@ export class StreamingDirectFlowClient {
           if (!this.processedNodeIds.has(node.id)) {
             this.processedNodeIds.add(node.id);
             this.emittedNodeIds.add(node.id);
-            
+
             // Ensure all properties are at the root of data
-            const nodeData = {
-              ...node.data,
-              type: node.type,
-              id: node.id
-            };
-            
+            const nodeData = this.buildNodeData(node);
+
             const flowNode: Node = {
               id: node.id,
               type: node.type,

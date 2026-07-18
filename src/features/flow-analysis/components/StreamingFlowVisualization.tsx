@@ -23,11 +23,11 @@ import ErrorBoundary from '../../../shared/components/ErrorBoundary';
 import { THEME, NODE_TYPES } from './constants';
 import { useNodeSelection } from './hooks/useNodeSelection';
 import { StreamingDirectFlowClient } from '../services/streamingDirectFlowClient';
-import { ArticleContent } from '../services/types';
 import { getLayoutedElements } from './utils/layoutUtils';
 
 import NodeDetailsPanel from './components/NodeDetailsPanel/NodeDetailsPanel';
 import FloatingConnectionLine from './edges/FloatingConnectionLine';
+import FloatingEdge from './edges/FloatingEdge';
 import { useStoryMode } from './hooks/useStoryMode';
 import LoadingIndicator from '../../../shared/components/LoadingIndicator';
 
@@ -90,20 +90,21 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
     return url.startsWith('http://') || url.startsWith('https://') ? 'url' : 'text';
   }, [url]);
   
-  // Helper function to generate edge style and type based on settings
+  // Helper function to generate edge style and type based on settings.
+  // All edges use the 'floating' type, which picks connection sides from node
+  // geometry (side-to-side for same-rank nodes); the curve preference travels
+  // in edge data.
   const getEdgeConfig = useCallback(() => {
-    const strokeColor = edgeColor === 'white' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(59, 130, 246, 0.8)';
+    const strokeColor = edgeColor === 'blue'
+      ? 'rgba(59, 130, 246, 0.8)'
+      : edgeColor === 'white'
+        ? 'rgba(255, 255, 255, 0.8)'
+        : 'rgba(255, 255, 255, 0.55)'; // default: soft monochrome
     const strokeDasharray = edgeStyle === 'dashed' ? '5 5' : undefined;
-    
-    let type = 'default'; // smooth/curved
-    if (edgeCurve === 'straight') {
-      type = 'straight';
-    } else if (edgeCurve === 'step') {
-      type = 'step';
-    }
-    
+
     return {
-      type,
+      type: 'floating',
+      data: { curve: edgeCurve },
       style: {
         stroke: strokeColor,
         strokeWidth: 2,
@@ -111,14 +112,15 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       }
     };
   }, [edgeColor, edgeStyle, edgeCurve]);
-  
+
   // Update existing edges when style settings change
   useEffect(() => {
     const edgeConfig = getEdgeConfig();
-    setEdges((currentEdges) => 
+    setEdges((currentEdges) =>
       currentEdges.map(edge => ({
         ...edge,
         type: edgeConfig.type,
+        data: { ...edge.data, ...edgeConfig.data },
         style: edgeConfig.style
       }))
     );
@@ -153,6 +155,12 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   useEffect(() => {
     isStreamingRef.current = isStreaming;
   }, [isStreaming]);
+
+  // Live view of nodes for streaming callbacks (avoids stale closures)
+  const nodesRef = useRef<typeof nodes>([]);
+  useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
 
   const handleNodesChange = useCallback((changes: any) => {
     onNodesChange(changes);
@@ -217,6 +225,8 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
 
   const nodeTypes = useMemo(() => NODE_TYPES, []);
 
+  const edgeTypes = useMemo(() => ({ floating: FloatingEdge }), []);
+
 
   // Handle loading saved flow
   useEffect(() => {
@@ -229,6 +239,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       const styledEdges = loadedFlow.edges.map(edge => ({
         ...edge,
         type: edgeConfig.type,
+        data: { ...edge.data, ...edgeConfig.data },
         style: edgeConfig.style
       }));
       setEdges(styledEdges);
@@ -300,7 +311,9 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
             return [...prevEdges, {
               ...edge,
               type: edgeConfig.type,
-              style: edgeConfig.style
+              data: { ...edge.data, ...edgeConfig.data },
+              style: edgeConfig.style,
+              className: 'fv-edge-enter' // fade-in on arrival, final style from the start
             }];
           });
         },
@@ -311,9 +324,9 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
           setShowLoadingIndicator(false); // Hide loading indicator on complete
           onStreamingEnd?.(); // Notify parent that streaming has ended
           
-          // Clean up nodes - remove any streaming artifacts
+          // Clean up nodes and edges - remove any streaming artifacts
           setTimeout(() => {
-            setNodes((currentNodes) => 
+            setNodes((currentNodes) =>
               currentNodes.map(node => ({
                 ...node,
                 style: undefined, // Remove any inline styles
@@ -321,7 +334,43 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
                 selected: false,
               }))
             );
-            
+
+            // Drop the entrance class so culled edges don't re-fade when
+            // panning brings them back into view, and remove redundant
+            // operator-bypass edges: the model tends to emit A -> B alongside
+            // A -> OP and OP -> B, which doubles up the drawn path
+            setEdges((currentEdges) => {
+              const operatorIds = new Set(
+                nodesRef.current
+                  .filter(n => n.type === 'AND_operator' || n.type === 'OR_operator')
+                  .map(n => n.id)
+              );
+
+              const feedsOperators = new Map<string, string[]>();
+              const operatorTargets = new Map<string, Set<string>>();
+              currentEdges.forEach(e => {
+                if (operatorIds.has(e.target)) {
+                  feedsOperators.set(e.source, [...(feedsOperators.get(e.source) || []), e.target]);
+                }
+                if (operatorIds.has(e.source)) {
+                  if (!operatorTargets.has(e.source)) {
+                    operatorTargets.set(e.source, new Set());
+                  }
+                  operatorTargets.get(e.source)!.add(e.target);
+                }
+              });
+
+              return currentEdges
+                .filter(e => {
+                  const ops = feedsOperators.get(e.source);
+                  const isBypass = ops?.some(op => operatorTargets.get(op)?.has(e.target));
+                  return !isBypass;
+                })
+                .map(edge => ({
+                  ...edge,
+                  className: undefined,
+                }));
+            });
           }, 100);
           
           setTimeout(() => {
@@ -374,27 +423,35 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   useEffect(() => {
     if (needsLayout && nodes.length > 0 && isStreaming) {
       console.log(`🎨 Applying layout to ${nodes.length} nodes, ${edges.length} edges`);
-      // Apply Dagre layout with side-node post-processing
-      const layouted = getLayoutedElements(nodes, edges);
-      
-      // Update nodes with new positions and make them visible
-      const layoutedNodesWithStyle = layouted.nodes.map(n => ({
-        ...n,
-        style: {
-          opacity: 1,
-          transition: 'opacity 0.5s ease-in-out'
-        }
-      }));
-      
+      // Apply Dagre layout, chaining not-yet-connected nodes so streamed nodes
+      // cascade top-to-bottom instead of spreading into one horizontal rank
+      const layouted = getLayoutedElements(nodes, edges, { chainOrphans: true });
+
+      // Update nodes with new positions and make them visible.
+      // Nodes that were already visible glide to their new position; nodes being
+      // revealed for the first time only fade in (no slide from the origin).
+      const layoutedNodesWithStyle = layouted.nodes.map(n => {
+        const wasVisible = (n.style as React.CSSProperties | undefined)?.opacity === 1;
+        return {
+          ...n,
+          style: {
+            opacity: 1,
+            transition: wasVisible
+              ? 'opacity 0.5s ease-in-out, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1)'
+              : 'opacity 0.5s ease-in-out'
+          }
+        };
+      });
+
       setNodes(layoutedNodesWithStyle);
       // Don't override edges here - they are managed by the streaming callbacks
-      
+
       // Keep the view centered on the graph during streaming
       if (reactFlowInstance) {
         setTimeout(() => {
-          reactFlowInstance.fitView({ 
-            padding: 0.2, 
-            duration: 200,
+          reactFlowInstance.fitView({
+            padding: 0.2,
+            duration: 450,
             maxZoom: 1.2,
             minZoom: 0.1
           });
@@ -742,7 +799,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
 
   return (
     <Box
-      className="flow-visualization-container"
+      className={`flow-visualization-container${isStreaming ? ' fv-streaming' : ''}`}
       sx={{
         width: '100%',
         height: '100vh',
@@ -892,6 +949,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
           onNodesChange={handleNodesChange}
           onEdgesChange={handleEdgesChange}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           onNodeClick={handleNodeClick}
           onPaneClick={handlePaneClick}
           onNodeDragStart={handleNodeDragStart}

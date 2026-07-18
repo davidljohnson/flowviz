@@ -854,6 +854,13 @@ OUTPUT FORMAT: Create React Flow nodes and edges using ONLY these official AFB n
 - **AND_operator**: Logic gates requiring ALL conditions
 - **OR_operator**: Logic gates where ANY condition can be met
 
+OPERATOR RULES (AND_operator / OR_operator):
+- Only create operators when the source explicitly describes conditional logic (e.g. "only if all of the following", "either X or Y")
+- The "name" must be a short noun phrase describing WHAT is being gated (e.g. "Environment Checks", "Initial Access Path")
+- NEVER include the words "AND" or "OR" in the operator's name - the node type already conveys the gate logic
+- Connect each incoming condition/technique to the operator, and the operator to the action that follows
+- NEVER add a direct edge that bypasses an operator: if A connects to an operator and the operator connects to B, do NOT also create A -> B
+
 STRICT EXTRACTION RULES - NO SPECULATION OR INFERENCE:
 - ONLY extract information explicitly stated in the source text
 - Command-line executions → tool nodes ONLY if exact commands are quoted in the article
@@ -922,6 +929,18 @@ CRITICAL JSON FORMAT - Follow this EXACT structure:
         "description": "Target system compromised",
         "role": "Server",
         "source_excerpt": "2-3 complete sentences from the source describing this asset or target system",
+        "confidence": "high"
+      }
+    },
+    {
+      "id": "and-1",
+      "type": "AND_operator",
+      "data": {
+        "type": "AND_operator",
+        "operator": "AND",
+        "name": "Environment Checks",
+        "description": "All conditions must be satisfied before the payload executes",
+        "source_excerpt": "2-3 complete sentences from the source describing the conditional logic",
         "confidence": "high"
       }
     }
