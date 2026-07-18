@@ -18,7 +18,7 @@ export const useAppState = () => {
   const [submittedUrl, setSubmittedUrl] = useState('');
   const [textContent, setTextContent] = useState('');
   const [submittedText, setSubmittedText] = useState('');
-  const [inputMode, setInputMode] = useState<'url' | 'text'>('url');
+  const [inputMode, setInputMode] = useState<'url' | 'text' | 'pdf'>('url');
   
   // UI state
   const [showError, setShowError] = useState(false);

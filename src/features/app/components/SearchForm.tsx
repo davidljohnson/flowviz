@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import {
   Box,
   Container,
@@ -6,11 +7,14 @@ import {
   Alert,
   AlertTitle,
   Chip,
+  CircularProgress,
 } from '@mui/material';
 import LinkIcon from '@mui/icons-material/Link';
 import SearchIcon from '@mui/icons-material/Search';
 import TextFieldsIcon from '@mui/icons-material/TextFields';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { keyframes } from '@mui/system';
 import { SearchInputURL, SearchInputMultiline } from '../../../shared/components/SearchInput';
 import { HeroSubmitButton } from '../../../shared/components/Button';
@@ -43,12 +47,12 @@ const getTextStats = (text: string) => {
 interface SearchFormProps {
   isLoading: boolean;
   isStreaming: boolean;
-  inputMode: 'url' | 'text';
+  inputMode: 'url' | 'text' | 'pdf';
   url: string;
   textContent: string;
   urlError: boolean;
   urlHelperText: string;
-  onInputModeChange: (mode: 'url' | 'text') => void;
+  onInputModeChange: (mode: 'url' | 'text' | 'pdf') => void;
   onUrlChange: (url: string) => void;
   onTextChange: (text: string) => void;
   onSubmit: (e: React.FormEvent) => void;
@@ -69,6 +73,41 @@ export default function SearchForm({
 }: SearchFormProps) {
   // Check if any providers are configured
   const { hasConfiguredProviders, isLoading: providersLoading } = useProviderConfig();
+
+  // PDF ingestion (client-side): extract text in the browser, then feed it
+  // through the existing text path via onTextChange.
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pdfFileName, setPdfFileName] = useState<string | null>(null);
+  const [pdfStatus, setPdfStatus] = useState<'idle' | 'processing' | 'done' | 'error'>('idle');
+  const [pdfProgress, setPdfProgress] = useState<{ page: number; total: number } | null>(null);
+  const [pdfError, setPdfError] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handlePdfFile = async (file: File) => {
+    setPdfFileName(file.name);
+    setPdfStatus('processing');
+    setPdfProgress(null);
+    setPdfError('');
+    onTextChange('');
+
+    try {
+      // Dynamic import keeps pdf.js out of the initial bundle.
+      const { extractPdfText } = await import(
+        '../../../shared/services/pdf/pdfExtractor'
+      );
+      const result = await extractPdfText(file, (p) =>
+        setPdfProgress({ page: p.page, total: p.totalPages })
+      );
+      onTextChange(result.text);
+      setPdfStatus('done');
+    } catch (err) {
+      onTextChange('');
+      setPdfStatus('error');
+      setPdfError(err instanceof Error ? err.message : 'Could not read this PDF.');
+    }
+  };
+
+  const pdfTextStats = getTextStats(textContent);
 
   return (
     <Container
@@ -353,13 +392,62 @@ export default function SearchForm({
                 opacity: inputMode === 'text' ? 0.9 : 0.6,
                 transition: 'all 0.3s ease',
               }} />
-              <Typography sx={{ 
+              <Typography sx={{
                 fontSize: '15px',
                 fontWeight: 500,
                 letterSpacing: '0.01em',
                 transition: 'opacity 0.3s ease, color 0.3s ease',
               }}>
                 Paste Text
+              </Typography>
+            </Box>
+
+            <Box
+              onClick={() => onInputModeChange('pdf')}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.25,
+                px: 3.5,
+                py: 1.5,
+                borderRadius: '13px',
+                cursor: 'pointer',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                position: 'relative',
+                overflow: 'hidden',
+                background: inputMode === 'pdf'
+                  ? `linear-gradient(135deg, ${flowVizTheme.colors.surface.active} 0%, ${flowVizTheme.colors.surface.hover} 100%)`
+                  : 'transparent',
+                backdropFilter: inputMode === 'pdf' ? flowVizTheme.effects.blur.light : 'none',
+                boxShadow: inputMode === 'pdf' ? flowVizTheme.effects.shadows.sm : 'none',
+                border: inputMode === 'pdf'
+                  ? `1px solid ${flowVizTheme.colors.surface.border.subtle}`
+                  : '1px solid transparent',
+                color: inputMode === 'pdf'
+                  ? flowVizTheme.colors.text.primary
+                  : flowVizTheme.colors.text.tertiary,
+                '&:hover': {
+                  background: inputMode === 'pdf'
+                    ? `linear-gradient(135deg, ${flowVizTheme.colors.surface.active} 0%, ${flowVizTheme.colors.surface.hover} 100%)`
+                    : flowVizTheme.colors.surface.rest,
+                  color: inputMode === 'pdf'
+                    ? flowVizTheme.colors.text.primary
+                    : flowVizTheme.colors.text.secondary,
+                },
+              }}
+            >
+              <PictureAsPdfIcon sx={{
+                fontSize: '18px',
+                opacity: inputMode === 'pdf' ? 0.9 : 0.6,
+                transition: 'all 0.3s ease',
+              }} />
+              <Typography sx={{
+                fontSize: '15px',
+                fontWeight: 500,
+                letterSpacing: '0.01em',
+                transition: 'opacity 0.3s ease, color 0.3s ease',
+              }}>
+                PDF Report
               </Typography>
             </Box>
           </Box>
@@ -377,6 +465,130 @@ export default function SearchForm({
               helperText={urlHelperText}
               sx={{ mb: 3 }}
             />
+          ) : inputMode === 'pdf' ? (
+            <Box sx={{ mb: 3 }}>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handlePdfFile(file);
+                  e.target.value = '';
+                }}
+              />
+              <Box
+                onClick={() => pdfStatus !== 'processing' && fileInputRef.current?.click()}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (pdfStatus !== 'processing') setIsDragging(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  if (pdfStatus === 'processing') return;
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) handlePdfFile(file);
+                }}
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                  gap: 1.25,
+                  px: 3,
+                  py: 6,
+                  minHeight: 240,
+                  borderRadius: 3,
+                  cursor: pdfStatus === 'processing' ? 'default' : 'pointer',
+                  border: `1.5px dashed ${
+                    pdfStatus === 'error'
+                      ? flowVizTheme.colors.status.error.border
+                      : isDragging
+                        ? flowVizTheme.colors.surface.border.focus
+                        : flowVizTheme.colors.surface.border.subtle
+                  }`,
+                  background: isDragging
+                    ? flowVizTheme.colors.surface.hover
+                    : flowVizTheme.colors.surface.rest,
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    borderColor:
+                      pdfStatus === 'processing'
+                        ? undefined
+                        : flowVizTheme.colors.surface.border.default,
+                    background:
+                      pdfStatus === 'processing'
+                        ? undefined
+                        : flowVizTheme.colors.surface.hover,
+                  },
+                }}
+              >
+                {pdfStatus === 'processing' ? (
+                  <>
+                    <CircularProgress size={32} sx={{ color: flowVizTheme.colors.text.secondary }} />
+                    <Typography sx={{ color: flowVizTheme.colors.text.primary, fontWeight: 500 }}>
+                      Extracting text{pdfFileName ? ` from ${pdfFileName}` : ''}…
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: flowVizTheme.colors.text.tertiary }}>
+                      {pdfProgress
+                        ? `Page ${pdfProgress.page} of ${pdfProgress.total}`
+                        : 'Reading document…'}
+                    </Typography>
+                  </>
+                ) : pdfStatus === 'done' ? (
+                  <>
+                    <PictureAsPdfIcon
+                      sx={{ fontSize: 40, color: flowVizTheme.colors.status.success.accent }}
+                    />
+                    <Typography sx={{ color: flowVizTheme.colors.text.primary, fontWeight: 500 }}>
+                      {pdfFileName}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: flowVizTheme.colors.text.tertiary }}>
+                      {pdfTextStats.chars.toLocaleString()} characters extracted · click to choose a different file
+                    </Typography>
+                    {pdfTextStats.isOverLimit && (
+                      <Chip
+                        size="small"
+                        color="error"
+                        label={`Too long — reduce to under ${TEXT_LIMITS.MAX_CHARS.toLocaleString()} chars`}
+                        sx={{ mt: 0.5, fontSize: '0.7rem', height: '20px' }}
+                      />
+                    )}
+                  </>
+                ) : pdfStatus === 'error' ? (
+                  <>
+                    <WarningAmberIcon
+                      sx={{ fontSize: 40, color: flowVizTheme.colors.status.error.accent }}
+                    />
+                    <Typography sx={{ color: flowVizTheme.colors.status.error.text, fontWeight: 500 }}>
+                      {pdfError}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: flowVizTheme.colors.text.tertiary }}>
+                      Click to try another file
+                    </Typography>
+                  </>
+                ) : (
+                  <>
+                    <UploadFileIcon
+                      sx={{ fontSize: 40, color: flowVizTheme.colors.text.secondary }}
+                    />
+                    <Typography sx={{ color: flowVizTheme.colors.text.primary, fontWeight: 500 }}>
+                      Drop a PDF report here, or click to browse
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: flowVizTheme.colors.text.tertiary }}>
+                      Up to 20&nbsp;MB · 100 pages · text-based PDFs
+                    </Typography>
+                  </>
+                )}
+              </Box>
+            </Box>
           ) : (
             <Box sx={{ mb: 3 }}>
               <SearchInputMultiline
@@ -502,11 +714,23 @@ export default function SearchForm({
             <HeroSubmitButton
               variant="contained"
               type="submit"
-              disabled={!hasConfiguredProviders || isLoading || (inputMode === 'text' && getTextStats(textContent).isOverLimit)}
+              disabled={
+                !hasConfiguredProviders ||
+                isLoading ||
+                pdfStatus === 'processing' ||
+                (inputMode === 'pdf' && pdfStatus !== 'done') ||
+                ((inputMode === 'text' || inputMode === 'pdf') && pdfTextStats.isOverLimit)
+              }
               isLoading={isLoading}
             >
               <SearchIcon sx={{ fontSize: 20, color: flowVizTheme.colors.text.primary }} />
-              <span>{inputMode === 'url' ? 'Analyze Article' : 'Analyze Text'}</span>
+              <span>
+                {inputMode === 'url'
+                  ? 'Analyze Article'
+                  : inputMode === 'pdf'
+                    ? 'Analyze PDF'
+                    : 'Analyze Text'}
+              </span>
             </HeroSubmitButton>
           </Box>
         </Box>
