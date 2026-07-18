@@ -105,7 +105,7 @@ const LoadFlowDialog: React.FC<LoadFlowDialogProps> = ({
 
   // Filter and sort flows
   const filteredFlows = useMemo(() => {
-    let filtered = flows.filter(flow => {
+    const filtered = flows.filter(flow => {
       const matchesSearch = !searchTerm || 
         flow.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         flow.metadata.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
