@@ -77,3 +77,76 @@ button:focus-visible {
 .react-flow__edge-textbg {
   fill: rgba(13, 17, 23, 0.95) !important;
 }
+
+/* --- FlowViz streaming animations --- */
+
+/* Soft scale/settle entrance for node cards while a flow is streaming in.
+   Scoped to .fv-streaming so cards don't re-animate when panning/zooming
+   an already-rendered flow (onlyRenderVisibleElements remounts them). */
+@keyframes fvCardIn {
+  from {
+    transform: scale(0.92) translateY(10px);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.fv-streaming .react-flow__node .fv-card {
+  animation: fvCardIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Edges fade in as they arrive in the stream */
+@keyframes fvEdgeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.react-flow__edge.fv-edge-enter {
+  animation: fvEdgeIn 0.5s ease-out both;
+}
+
+/* --- FlowViz chrome polish --- */
+
+/* Subtle connection handles that sharpen on hover */
+.react-flow__node .react-flow__handle {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.react-flow__node:hover .react-flow__handle {
+  opacity: 1 !important;
+}
+
+/* Dark, glassy zoom controls to match the canvas */
+.react-flow__controls {
+  border-radius: 10px !important;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+}
+
+.react-flow__controls-button {
+  background: rgba(22, 27, 34, 0.95) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  width: 28px;
+  height: 28px;
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: none !important;
+}
+
+.react-flow__controls-button svg {
+  fill: rgba(255, 255, 255, 0.75);
+}
+
+.react-flow__controls-button:hover {
+  background: rgba(42, 50, 60, 0.95) !important;
+}
+
+.react-flow__controls-button:hover svg {
+  fill: #fff;
+}

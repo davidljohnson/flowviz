@@ -1,53 +1,40 @@
 import { memo } from 'react';
 import { NodeProps } from 'reactflow';
-import { Typography, Box } from '@mui/material';
+import { Typography, Box, Tooltip } from '@mui/material';
 import { getOperatorNodeStyle } from './shared/nodeStyles';
 import { NodeHandles } from './shared/NodeHandles';
-import { hasName } from './shared/nodeUtils';
+import { hasName, getNodeTypeDisplay } from './shared/nodeUtils';
 
 function OperatorNode({ data, selected }: NodeProps) {
   const isNewNode = data.isNewNode;
-  
+  const gate = getNodeTypeDisplay(data.type); // 'AND' | 'OR'
+
+  // AFB-style: the pill shows only the gate. The descriptive name stays in
+  // data (exports, details panel) and surfaces here as a tooltip.
+  const name = hasName(data) ? data.name.trim() : '';
+
   return (
-    <Box 
-      sx={{
-        ...getOperatorNodeStyle(selected, isNewNode),
-      }}
-    >
-      <Box sx={{ 
-        position: 'relative',
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        px: 2,
-      }}>
-        <Box
+    <Tooltip title={name} placement="top" disableInteractive>
+      <Box
+        className="fv-card"
+        sx={getOperatorNodeStyle(selected, isNewNode)}
+      >
+        <Typography
           component="span"
           sx={{
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            backgroundColor: 'rgb(245, 158, 11)',
-            boxShadow: '0 0 10px rgba(245, 158, 11, 0.5)',
-            mr: 1.5,
-          }}
-        />
-        <Typography
-          variant="body2"
-          sx={{
-            color: 'rgb(245, 158, 11)',
-            fontWeight: 600,
-            fontSize: '0.875rem',
-            letterSpacing: '0.01em',
-            textShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+            color: 'rgba(255, 255, 255, 0.9)',
+            fontWeight: 700,
+            fontSize: '0.8rem',
+            letterSpacing: '0.12em',
+            lineHeight: 1,
+            px: 2.25,
           }}
         >
-          {hasName(data) ? data.name : 'Network Access Check'}
+          {gate}
         </Typography>
+        <NodeHandles />
       </Box>
-      <NodeHandles type="operator" />
-    </Box>
+    </Tooltip>
   );
 }
 

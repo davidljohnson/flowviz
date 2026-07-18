@@ -16,31 +16,27 @@ export const getNodeColor = (type: string): string => {
 };
 
 export const getBaseNodeStyle = (
-  type: string, 
-  isSelected: boolean, 
+  type: string,
+  isSelected: boolean,
   isNewNode: boolean = false
 ) => {
   const nodeColor = getNodeColor(type);
-  const borderRadiusValue = '8px';
 
   return {
-    minWidth: 200,
+    minWidth: 210,
     maxWidth: 280,
-    backgroundColor: 'rgba(22, 27, 34, 0.95)',
-    backdropFilter: 'blur(10px)',
-    boxShadow: isSelected 
-      ? `0 0 0 2px ${nodeColor}80, 0 0 15px 2px ${nodeColor}40`
-      : '0 4px 20px rgba(0, 0, 0, 0.4)',
-    border: isSelected 
-      ? `2px solid ${nodeColor}` 
-      : '1px solid rgba(255, 255, 255, 0.12)',
-    borderLeft: isSelected 
-      ? `2px solid ${nodeColor}` 
-      : `4px solid ${nodeColor}`,
-    borderRadius: borderRadiusValue,
-    transition: isNewNode ? 'opacity 0.6s ease-out, transform 0.6s ease-out' : 'none',
+    background: 'linear-gradient(180deg, rgba(32, 38, 47, 0.94) 0%, rgba(19, 24, 31, 0.96) 100%)',
+    backdropFilter: 'blur(14px)',
+    borderRadius: '14px',
+    border: isSelected
+      ? `1px solid ${nodeColor}B3`
+      : '1px solid rgba(255, 255, 255, 0.09)',
+    boxShadow: '0 10px 30px -8px rgba(0, 0, 0, 0.5)',
+    transition: isNewNode
+      ? 'opacity 0.6s ease-out, transform 0.6s ease-out'
+      : 'box-shadow 0.25s ease, border-color 0.25s ease, transform 0.25s ease',
     opacity: isNewNode ? 0 : 1,
-    transform: isNewNode ? 'scale(0.8) translateY(-20px)' : 'scale(1) translateY(0px)',
+    transform: isNewNode ? 'scale(0.9) translateY(-16px)' : 'none',
     cursor: 'grab',
     pointerEvents: 'auto',
     userSelect: 'none',
@@ -51,43 +47,36 @@ export const getBaseNodeStyle = (
     position: 'relative',
     overflow: 'visible',
     '&:hover': {
-      boxShadow: isSelected 
-        ? `0 0 0 2px ${nodeColor}80`
-        : '0 6px 20px rgba(0, 0, 0, 0.5)',
-      border: isSelected 
-        ? `2px solid ${nodeColor}` 
-        : '1px solid rgba(255, 255, 255, 0.2)',
-      borderLeft: isSelected 
-        ? `2px solid ${nodeColor}` 
-        : `4px solid ${nodeColor}`,
+      border: isSelected
+        ? `1px solid ${nodeColor}B3`
+        : '1px solid rgba(255, 255, 255, 0.16)',
     }
   };
 };
 
 export const getOperatorNodeStyle = (
-  isSelected: boolean, 
+  isSelected: boolean,
   isNewNode: boolean = false
 ) => {
-  const borderRadiusValue = '8px';
-  
   return {
-    minWidth: 240,
-    maxWidth: 240,
-    height: 44,
-    backgroundColor: isSelected ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.1)',
-    backdropFilter: 'blur(10px)',
-    border: isSelected ? '2px solid rgba(245, 158, 11, 0.7)' : '1px solid rgba(245, 158, 11, 0.2)',
-    borderRadius: borderRadiusValue,
+    width: 'max-content',
+    minWidth: 64,
+    maxWidth: 300,
+    height: 40,
+    background: 'linear-gradient(180deg, rgba(32, 38, 47, 0.94) 0%, rgba(19, 24, 31, 0.96) 100%)',
+    backdropFilter: 'blur(14px)',
+    border: isSelected ? '1px solid rgba(255, 255, 255, 0.55)' : '1px solid rgba(255, 255, 255, 0.14)',
+    borderRadius: '999px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    transition: isNewNode ? 'opacity 0.6s ease-out, transform 0.6s ease-out' : 'none',
+    transition: isNewNode
+      ? 'opacity 0.6s ease-out, transform 0.6s ease-out'
+      : 'box-shadow 0.25s ease, border-color 0.25s ease, background 0.25s ease',
     opacity: isNewNode ? 0 : 1,
-    transform: isNewNode ? 'scale(0.8) translateY(-20px)' : 'scale(1) translateY(0px)',
-    boxShadow: isSelected 
-      ? '0 0 0 2px rgba(245, 158, 11, 0.4), 0 0 15px 2px rgba(245, 158, 11, 0.2)'
-      : '0 4px 20px rgba(0, 0, 0, 0.4)',
+    transform: isNewNode ? 'scale(0.9) translateY(-16px)' : 'none',
+    boxShadow: '0 8px 24px -6px rgba(0, 0, 0, 0.45)',
     zIndex: isSelected ? 10 : 'auto',
     overflow: 'visible',
     cursor: 'grab',
@@ -95,24 +84,7 @@ export const getOperatorNodeStyle = (
       cursor: 'grabbing',
     },
     '&:hover': {
-      boxShadow: isSelected 
-        ? '0 0 0 2px rgba(245, 158, 11, 0.4), 0 0 10px 2px rgba(245, 158, 11, 0.2)'
-        : '0 6px 20px rgba(0, 0, 0, 0.5)',
-      backgroundColor: isSelected ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.15)',
-      border: isSelected ? '2px solid rgba(245, 158, 11, 0.7)' : '1px solid rgba(245, 158, 11, 0.3)',
-    },
-    '&::before': {
-      content: '""',
-      position: 'absolute',
-      inset: 0,
-      borderRadius: 'inherit',
-      padding: '1px',
-      background: isSelected 
-        ? 'linear-gradient(90deg, rgba(245, 158, 11, 0.6), rgba(245, 158, 11, 0.8), rgba(245, 158, 11, 0.6))'
-        : 'linear-gradient(90deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.4), rgba(245, 158, 11, 0.2))',
-      WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-      WebkitMaskComposite: 'xor',
-      maskComposite: 'exclude',
+      border: isSelected ? '1px solid rgba(255, 255, 255, 0.55)' : '1px solid rgba(255, 255, 255, 0.28)',
     }
   };
 };
