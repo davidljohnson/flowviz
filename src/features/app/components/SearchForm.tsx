@@ -387,7 +387,7 @@ export default function SearchForm({
               sx={{ mb: 3 }}
             />
           ) : inputMode === 'pdf' ? (
-            <Box sx={{ mb: 3 }}>
+            <Box key="pdf" sx={{ mb: 3 }}>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -426,29 +426,28 @@ export default function SearchForm({
                   px: 3,
                   py: 6,
                   minHeight: 240,
-                  borderRadius: 3,
+                  borderRadius: `${flowVizTheme.borderRadius.md}px`,
                   cursor: pdfBusy ? 'default' : 'pointer',
+                  // Match the URL/Text input fields: same glass background and
+                  // border treatment (default → emphasis on hover, focus on drag).
                   border: `1.5px dashed ${
                     pdfStatus === 'error'
                       ? flowVizTheme.colors.surface.border.emphasis
                       : isDragging
                         ? flowVizTheme.colors.surface.border.focus
-                        : flowVizTheme.colors.surface.border.subtle
+                        : flowVizTheme.colors.surface.border.default
                   }`,
-                  background: isDragging
-                    ? flowVizTheme.colors.surface.hover
-                    : flowVizTheme.colors.surface.rest,
-                  transition: 'all 0.2s ease',
-                  '&:hover': {
-                    borderColor:
-                      pdfBusy
-                        ? undefined
-                        : flowVizTheme.colors.surface.border.default,
-                    background:
-                      pdfBusy
-                        ? undefined
-                        : flowVizTheme.colors.surface.hover,
-                  },
+                  backgroundColor: isDragging
+                    ? flowVizTheme.colors.background.glassLight
+                    : flowVizTheme.colors.background.glass,
+                  // Scope the transition (not `all`) so nothing flashes on toggle.
+                  transition: `border-color ${flowVizTheme.motion.fast}, background-color ${flowVizTheme.motion.fast}`,
+                  '&:hover': pdfBusy
+                    ? undefined
+                    : {
+                        borderColor: flowVizTheme.colors.surface.border.emphasis,
+                        backgroundColor: flowVizTheme.colors.background.glassLight,
+                      },
                 }}
               >
                 {pdfBusy ? (
@@ -516,7 +515,7 @@ export default function SearchForm({
               </Box>
             </Box>
           ) : (
-            <Box sx={{ mb: 3 }}>
+            <Box key="text" sx={{ mb: 3 }}>
               <SearchInputMultiline
                 fullWidth
                 multiline
@@ -527,29 +526,29 @@ export default function SearchForm({
                 onChange={(e) => onTextChange(e.target.value)}
                 sx={{
                   '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: getTextStats(textContent).isOverLimit 
-                      ? flowVizTheme.colors.status.error.border
-                      : getTextStats(textContent).isNearLimit 
-                        ? flowVizTheme.colors.status.warning.border
+                    borderColor: getTextStats(textContent).isOverLimit
+                      ? flowVizTheme.colors.surface.border.focus
+                      : getTextStats(textContent).isNearLimit
+                        ? flowVizTheme.colors.surface.border.emphasis
                         : flowVizTheme.colors.surface.border.default,
                   },
                 }}
               />
-              
+
               {/* Text Statistics */}
-              <Box sx={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
+              <Box sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
                 alignItems: 'center',
                 mt: 1,
                 px: 1
               }}>
                 <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                  <Typography variant="caption" sx={{ 
-                    color: getTextStats(textContent).isOverLimit 
-                      ? flowVizTheme.colors.status.error.text
-                      : getTextStats(textContent).isNearLimit 
-                        ? flowVizTheme.colors.status.warning.text
+                  <Typography variant="caption" sx={{
+                    color: getTextStats(textContent).isOverLimit
+                      ? flowVizTheme.colors.text.primary
+                      : getTextStats(textContent).isNearLimit
+                        ? flowVizTheme.colors.text.secondary
                         : flowVizTheme.colors.text.tertiary
                   }}>
                     {getTextStats(textContent).chars.toLocaleString()} / {TEXT_LIMITS.MAX_CHARS.toLocaleString()} characters
@@ -558,15 +557,17 @@ export default function SearchForm({
                     ~{getTextStats(textContent).words.toLocaleString()} words
                   </Typography>
                 </Box>
-                
+
                 {getTextStats(textContent).isNearLimit && (
                   <Chip
                     size="small"
                     label={getTextStats(textContent).isOverLimit ? "Too Long" : "Near Limit"}
-                    color={getTextStats(textContent).isOverLimit ? "error" : "warning"}
                     sx={{
                       fontSize: '0.7rem',
                       height: '20px',
+                      color: flowVizTheme.colors.text.secondary,
+                      backgroundColor: flowVizTheme.colors.surface.hover,
+                      border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,
                       '& .MuiChip-label': {
                         px: 1
                       }
