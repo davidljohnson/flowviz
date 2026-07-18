@@ -44,6 +44,12 @@ const getTextStats = (text: string) => {
   return { chars, words, isNearLimit, isOverLimit };
 };
 
+const INPUT_MODES = [
+  { value: 'url', label: 'URL', icon: LinkIcon },
+  { value: 'text', label: 'Text', icon: TextFieldsIcon },
+  { value: 'pdf', label: 'PDF', icon: PictureAsPdfIcon },
+] as const;
+
 interface SearchFormProps {
   isLoading: boolean;
   isStreaming: boolean;
@@ -313,172 +319,58 @@ export default function SearchForm({
           },
         }}
       >
-        {/* Input Mode Tabs */}
-        <Box sx={{ 
-          mb: 4,
-          display: 'flex',
-          justifyContent: 'center'
-        }}>
-          <Box sx={{
-            display: 'inline-flex',
-            gap: '2px',
-            p: '3px',
-            background: `linear-gradient(145deg, ${flowVizTheme.colors.surface.rest} 0%, ${flowVizTheme.colors.surface.rest} 100%)`,
-            borderRadius: '16px',
-            border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,
-            backdropFilter: flowVizTheme.effects.blur.heavy,
-            boxShadow: flowVizTheme.effects.shadows.sm,
-          }}>
-            <Box
-              onClick={() => onInputModeChange('url')}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.25,
-                px: 3.5,
-                py: 1.5,
-                borderRadius: '13px',
-                cursor: 'pointer',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                position: 'relative',
-                overflow: 'hidden',
-                background: inputMode === 'url' 
-                  ? `linear-gradient(135deg, ${flowVizTheme.colors.surface.active} 0%, ${flowVizTheme.colors.surface.hover} 100%)`
-                  : 'transparent',
-                backdropFilter: inputMode === 'url' ? flowVizTheme.effects.blur.light : 'none',
-                boxShadow: inputMode === 'url'
-                  ? flowVizTheme.effects.shadows.sm
-                  : 'none',
-                border: inputMode === 'url'
-                  ? `1px solid ${flowVizTheme.colors.surface.border.subtle}`
-                  : '1px solid transparent',
-                color: inputMode === 'url'
-                  ? flowVizTheme.colors.text.primary
-                  : flowVizTheme.colors.text.tertiary,
-                '&:hover': {
-                  background: inputMode === 'url'
-                    ? `linear-gradient(135deg, ${flowVizTheme.colors.surface.active} 0%, ${flowVizTheme.colors.surface.hover} 100%)`
-                    : flowVizTheme.colors.surface.rest,
-                  color: inputMode === 'url'
-                    ? flowVizTheme.colors.text.primary
-                    : flowVizTheme.colors.text.secondary,
-                },
-              }}
-            >
-              <LinkIcon sx={{ 
-                fontSize: '18px',
-                opacity: inputMode === 'url' ? 0.9 : 0.6,
-                transition: 'all 0.3s ease',
-              }} />
-              <Typography sx={{ 
-                fontSize: '15px',
-                fontWeight: 500,
-                letterSpacing: '0.01em',
-                transition: 'opacity 0.3s ease, color 0.3s ease',
-              }}>
-                Article URL
-              </Typography>
-            </Box>
-            
-            <Box
-              onClick={() => onInputModeChange('text')}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.25,
-                px: 3.5,
-                py: 1.5,
-                borderRadius: '13px',
-                cursor: 'pointer',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                position: 'relative',
-                overflow: 'hidden',
-                background: inputMode === 'text' 
-                  ? `linear-gradient(135deg, ${flowVizTheme.colors.surface.active} 0%, ${flowVizTheme.colors.surface.hover} 100%)`
-                  : 'transparent',
-                backdropFilter: inputMode === 'text' ? flowVizTheme.effects.blur.light : 'none',
-                boxShadow: inputMode === 'text'
-                  ? flowVizTheme.effects.shadows.sm
-                  : 'none',
-                border: inputMode === 'text'
-                  ? `1px solid ${flowVizTheme.colors.surface.border.subtle}`
-                  : '1px solid transparent',
-                color: inputMode === 'text'
-                  ? flowVizTheme.colors.text.primary
-                  : flowVizTheme.colors.text.tertiary,
-                '&:hover': {
-                  background: inputMode === 'text'
-                    ? `linear-gradient(135deg, ${flowVizTheme.colors.surface.active} 0%, ${flowVizTheme.colors.surface.hover} 100%)`
-                    : flowVizTheme.colors.surface.rest,
-                  color: inputMode === 'text'
-                    ? flowVizTheme.colors.text.primary
-                    : flowVizTheme.colors.text.secondary,
-                },
-              }}
-            >
-              <TextFieldsIcon sx={{ 
-                fontSize: '18px',
-                opacity: inputMode === 'text' ? 0.9 : 0.6,
-                transition: 'all 0.3s ease',
-              }} />
-              <Typography sx={{
-                fontSize: '15px',
-                fontWeight: 500,
-                letterSpacing: '0.01em',
-                transition: 'opacity 0.3s ease, color 0.3s ease',
-              }}>
-                Paste Text
-              </Typography>
-            </Box>
-
-            <Box
-              onClick={() => onInputModeChange('pdf')}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.25,
-                px: 3.5,
-                py: 1.5,
-                borderRadius: '13px',
-                cursor: 'pointer',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                position: 'relative',
-                overflow: 'hidden',
-                background: inputMode === 'pdf'
-                  ? `linear-gradient(135deg, ${flowVizTheme.colors.surface.active} 0%, ${flowVizTheme.colors.surface.hover} 100%)`
-                  : 'transparent',
-                backdropFilter: inputMode === 'pdf' ? flowVizTheme.effects.blur.light : 'none',
-                boxShadow: inputMode === 'pdf' ? flowVizTheme.effects.shadows.sm : 'none',
-                border: inputMode === 'pdf'
-                  ? `1px solid ${flowVizTheme.colors.surface.border.subtle}`
-                  : '1px solid transparent',
-                color: inputMode === 'pdf'
-                  ? flowVizTheme.colors.text.primary
-                  : flowVizTheme.colors.text.tertiary,
-                '&:hover': {
-                  background: inputMode === 'pdf'
-                    ? `linear-gradient(135deg, ${flowVizTheme.colors.surface.active} 0%, ${flowVizTheme.colors.surface.hover} 100%)`
-                    : flowVizTheme.colors.surface.rest,
-                  color: inputMode === 'pdf'
-                    ? flowVizTheme.colors.text.primary
-                    : flowVizTheme.colors.text.secondary,
-                },
-              }}
-            >
-              <PictureAsPdfIcon sx={{
-                fontSize: '18px',
-                opacity: inputMode === 'pdf' ? 0.9 : 0.6,
-                transition: 'all 0.3s ease',
-              }} />
-              <Typography sx={{
-                fontSize: '15px',
-                fontWeight: 500,
-                letterSpacing: '0.01em',
-                transition: 'opacity 0.3s ease, color 0.3s ease',
-              }}>
-                PDF Report
-              </Typography>
-            </Box>
+        {/* Input mode — compact monochrome segmented control */}
+        <Box sx={{ mb: 4, display: 'flex', justifyContent: 'center' }}>
+          <Box
+            role="tablist"
+            sx={{
+              display: 'inline-flex',
+              gap: '2px',
+              p: '3px',
+              backgroundColor: flowVizTheme.colors.surface.rest,
+              borderRadius: `${flowVizTheme.borderRadius.lg}px`,
+              border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,
+            }}
+          >
+            {INPUT_MODES.map(({ value, label, icon: Icon }) => {
+              const active = inputMode === value;
+              return (
+                <Box
+                  key={value}
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => onInputModeChange(value)}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.75,
+                    px: 1.75,
+                    py: 0.75,
+                    borderRadius: `${flowVizTheme.borderRadius.md}px`,
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    color: active
+                      ? flowVizTheme.colors.text.primary
+                      : flowVizTheme.colors.text.tertiary,
+                    backgroundColor: active ? flowVizTheme.colors.surface.hover : 'transparent',
+                    transition: `color ${flowVizTheme.motion.fast}, background-color ${flowVizTheme.motion.fast}`,
+                    '&:hover': {
+                      color: active
+                        ? flowVizTheme.colors.text.primary
+                        : flowVizTheme.colors.text.secondary,
+                      backgroundColor: active
+                        ? flowVizTheme.colors.surface.hover
+                        : flowVizTheme.colors.surface.rest,
+                    },
+                  }}
+                >
+                  <Icon sx={{ fontSize: 16 }} />
+                  <Typography sx={{ fontSize: 13, fontWeight: 500, letterSpacing: '0.01em' }}>
+                    {label}
+                  </Typography>
+                </Box>
+              );
+            })}
           </Box>
         </Box>
 
@@ -538,7 +430,7 @@ export default function SearchForm({
                   cursor: pdfBusy ? 'default' : 'pointer',
                   border: `1.5px dashed ${
                     pdfStatus === 'error'
-                      ? flowVizTheme.colors.status.error.border
+                      ? flowVizTheme.colors.surface.border.emphasis
                       : isDragging
                         ? flowVizTheme.colors.surface.border.focus
                         : flowVizTheme.colors.surface.border.subtle
@@ -561,7 +453,7 @@ export default function SearchForm({
               >
                 {pdfBusy ? (
                   <>
-                    <CircularProgress size={32} sx={{ color: flowVizTheme.colors.text.secondary }} />
+                    <CircularProgress size={28} thickness={4} sx={{ color: flowVizTheme.colors.text.tertiary }} />
                     <Typography sx={{ color: flowVizTheme.colors.text.primary, fontWeight: 500 }}>
                       {pdfStatus === 'vision'
                         ? 'Analyzing diagrams…'
@@ -578,29 +470,30 @@ export default function SearchForm({
                 ) : pdfStatus === 'done' ? (
                   <>
                     <PictureAsPdfIcon
-                      sx={{ fontSize: 40, color: flowVizTheme.colors.status.success.accent }}
+                      sx={{ fontSize: 36, color: flowVizTheme.colors.text.secondary }}
                     />
                     <Typography sx={{ color: flowVizTheme.colors.text.primary, fontWeight: 500 }}>
                       {pdfFileName}
                     </Typography>
-                    <Typography variant="caption" sx={{ color: flowVizTheme.colors.text.tertiary }}>
-                      {pdfTextStats.chars.toLocaleString()} characters extracted · click to choose a different file
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: pdfTextStats.isOverLimit
+                          ? flowVizTheme.colors.text.secondary
+                          : flowVizTheme.colors.text.tertiary,
+                      }}
+                    >
+                      {pdfTextStats.isOverLimit
+                        ? `Too long — reduce to under ${TEXT_LIMITS.MAX_CHARS.toLocaleString()} characters`
+                        : `${pdfTextStats.chars.toLocaleString()} characters extracted · click to replace`}
                     </Typography>
-                    {pdfTextStats.isOverLimit && (
-                      <Chip
-                        size="small"
-                        color="error"
-                        label={`Too long — reduce to under ${TEXT_LIMITS.MAX_CHARS.toLocaleString()} chars`}
-                        sx={{ mt: 0.5, fontSize: '0.7rem', height: '20px' }}
-                      />
-                    )}
                   </>
                 ) : pdfStatus === 'error' ? (
                   <>
                     <WarningAmberIcon
-                      sx={{ fontSize: 40, color: flowVizTheme.colors.status.error.accent }}
+                      sx={{ fontSize: 36, color: flowVizTheme.colors.text.secondary }}
                     />
-                    <Typography sx={{ color: flowVizTheme.colors.status.error.text, fontWeight: 500 }}>
+                    <Typography sx={{ color: flowVizTheme.colors.text.primary, fontWeight: 500 }}>
                       {pdfError}
                     </Typography>
                     <Typography variant="caption" sx={{ color: flowVizTheme.colors.text.tertiary }}>
@@ -610,9 +503,9 @@ export default function SearchForm({
                 ) : (
                   <>
                     <UploadFileIcon
-                      sx={{ fontSize: 40, color: flowVizTheme.colors.text.secondary }}
+                      sx={{ fontSize: 36, color: flowVizTheme.colors.text.tertiary }}
                     />
-                    <Typography sx={{ color: flowVizTheme.colors.text.primary, fontWeight: 500 }}>
+                    <Typography sx={{ color: flowVizTheme.colors.text.secondary, fontWeight: 500 }}>
                       Drop a PDF report here, or click to browse
                     </Typography>
                     <Typography variant="caption" sx={{ color: flowVizTheme.colors.text.tertiary }}>
