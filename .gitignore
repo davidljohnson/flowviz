@@ -19,6 +19,7 @@ dist-ssr
 
 # Local assistant notes (not part of the project)
 memory/
+.claude/
 
 # Editor directories and files
 .vscode/*

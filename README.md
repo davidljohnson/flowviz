@@ -2,6 +2,8 @@
 
 Open-source tool that analyzes cybersecurity articles and generates interactive attack flow visualizations using MITRE ATT&CK.
 
+![FlowViz attack flow visualization](assets/sample.png)
+
 ## Features
 
 - Multi-provider AI support (Anthropic Claude, OpenAI GPT, Ollama)
