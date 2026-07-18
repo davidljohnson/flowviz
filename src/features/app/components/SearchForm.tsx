@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import {
   Box,
   Container,
@@ -6,11 +7,14 @@ import {
   Alert,
   AlertTitle,
   Chip,
+  CircularProgress,
 } from '@mui/material';
 import LinkIcon from '@mui/icons-material/Link';
 import SearchIcon from '@mui/icons-material/Search';
 import TextFieldsIcon from '@mui/icons-material/TextFields';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { keyframes } from '@mui/system';
 import { SearchInputURL, SearchInputMultiline } from '../../../shared/components/SearchInput';
 import { HeroSubmitButton } from '../../../shared/components/Button';
@@ -40,15 +44,21 @@ const getTextStats = (text: string) => {
   return { chars, words, isNearLimit, isOverLimit };
 };
 
+const INPUT_MODES = [
+  { value: 'url', label: 'URL', icon: LinkIcon },
+  { value: 'text', label: 'Text', icon: TextFieldsIcon },
+  { value: 'pdf', label: 'PDF', icon: PictureAsPdfIcon },
+] as const;
+
 interface SearchFormProps {
   isLoading: boolean;
   isStreaming: boolean;
-  inputMode: 'url' | 'text';
+  inputMode: 'url' | 'text' | 'pdf';
   url: string;
   textContent: string;
   urlError: boolean;
   urlHelperText: string;
-  onInputModeChange: (mode: 'url' | 'text') => void;
+  onInputModeChange: (mode: 'url' | 'text' | 'pdf') => void;
   onUrlChange: (url: string) => void;
   onTextChange: (text: string) => void;
   onSubmit: (e: React.FormEvent) => void;
@@ -69,6 +79,70 @@ export default function SearchForm({
 }: SearchFormProps) {
   // Check if any providers are configured
   const { hasConfiguredProviders, isLoading: providersLoading } = useProviderConfig();
+
+  // PDF ingestion (client-side): extract text in the browser, then feed it
+  // through the existing text path via onTextChange.
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pdfFileName, setPdfFileName] = useState<string | null>(null);
+  const [pdfStatus, setPdfStatus] = useState<
+    'idle' | 'processing' | 'vision' | 'done' | 'error'
+  >('idle');
+  const [pdfProgress, setPdfProgress] = useState<{ page: number; total: number } | null>(null);
+  const [pdfError, setPdfError] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handlePdfFile = async (file: File) => {
+    setPdfFileName(file.name);
+    setPdfStatus('processing');
+    setPdfProgress(null);
+    setPdfError('');
+    onTextChange('');
+
+    try {
+      // Dynamic import keeps pdf.js out of the initial bundle.
+      const { extractPdfText, renderPdfImagePages } = await import(
+        '../../../shared/services/pdf/pdfExtractor'
+      );
+      const result = await extractPdfText(file, (p) =>
+        setPdfProgress({ page: p.page, total: p.totalPages })
+      );
+
+      let finalText = result.text;
+
+      // Phase 2: analyze diagrams/screenshots. Only pages with raster images
+      // are rendered, so a text-only report makes no vision call. Best-effort —
+      // if it fails (e.g. Anthropic key not set), fall back to text only.
+      try {
+        const images = await renderPdfImagePages(file, 3);
+        if (images.length > 0) {
+          setPdfStatus('vision');
+          const resp = await fetch('/api/vision-analysis', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ images, articleText: result.text }),
+          });
+          if (resp.ok) {
+            const { analysisText } = await resp.json();
+            if (analysisText) {
+              finalText = `## Diagram Analysis\n\n${analysisText}\n\n## Report Text\n\n${result.text}`;
+            }
+          }
+        }
+      } catch {
+        // Keep the text-only extraction on any vision failure.
+      }
+
+      onTextChange(finalText);
+      setPdfStatus('done');
+    } catch (err) {
+      onTextChange('');
+      setPdfStatus('error');
+      setPdfError(err instanceof Error ? err.message : 'Could not read this PDF.');
+    }
+  };
+
+  const pdfTextStats = getTextStats(textContent);
+  const pdfBusy = pdfStatus === 'processing' || pdfStatus === 'vision';
 
   return (
     <Container
@@ -245,123 +319,58 @@ export default function SearchForm({
           },
         }}
       >
-        {/* Input Mode Tabs */}
-        <Box sx={{ 
-          mb: 4,
-          display: 'flex',
-          justifyContent: 'center'
-        }}>
-          <Box sx={{
-            display: 'inline-flex',
-            gap: '2px',
-            p: '3px',
-            background: `linear-gradient(145deg, ${flowVizTheme.colors.surface.rest} 0%, ${flowVizTheme.colors.surface.rest} 100%)`,
-            borderRadius: '16px',
-            border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,
-            backdropFilter: flowVizTheme.effects.blur.heavy,
-            boxShadow: flowVizTheme.effects.shadows.sm,
-          }}>
-            <Box
-              onClick={() => onInputModeChange('url')}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.25,
-                px: 3.5,
-                py: 1.5,
-                borderRadius: '13px',
-                cursor: 'pointer',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                position: 'relative',
-                overflow: 'hidden',
-                background: inputMode === 'url' 
-                  ? `linear-gradient(135deg, ${flowVizTheme.colors.surface.active} 0%, ${flowVizTheme.colors.surface.hover} 100%)`
-                  : 'transparent',
-                backdropFilter: inputMode === 'url' ? flowVizTheme.effects.blur.light : 'none',
-                boxShadow: inputMode === 'url'
-                  ? flowVizTheme.effects.shadows.sm
-                  : 'none',
-                border: inputMode === 'url'
-                  ? `1px solid ${flowVizTheme.colors.surface.border.subtle}`
-                  : '1px solid transparent',
-                color: inputMode === 'url'
-                  ? flowVizTheme.colors.text.primary
-                  : flowVizTheme.colors.text.tertiary,
-                '&:hover': {
-                  background: inputMode === 'url'
-                    ? `linear-gradient(135deg, ${flowVizTheme.colors.surface.active} 0%, ${flowVizTheme.colors.surface.hover} 100%)`
-                    : flowVizTheme.colors.surface.rest,
-                  color: inputMode === 'url'
-                    ? flowVizTheme.colors.text.primary
-                    : flowVizTheme.colors.text.secondary,
-                },
-              }}
-            >
-              <LinkIcon sx={{ 
-                fontSize: '18px',
-                opacity: inputMode === 'url' ? 0.9 : 0.6,
-                transition: 'all 0.3s ease',
-              }} />
-              <Typography sx={{ 
-                fontSize: '15px',
-                fontWeight: 500,
-                letterSpacing: '0.01em',
-                transition: 'opacity 0.3s ease, color 0.3s ease',
-              }}>
-                Article URL
-              </Typography>
-            </Box>
-            
-            <Box
-              onClick={() => onInputModeChange('text')}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.25,
-                px: 3.5,
-                py: 1.5,
-                borderRadius: '13px',
-                cursor: 'pointer',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                position: 'relative',
-                overflow: 'hidden',
-                background: inputMode === 'text' 
-                  ? `linear-gradient(135deg, ${flowVizTheme.colors.surface.active} 0%, ${flowVizTheme.colors.surface.hover} 100%)`
-                  : 'transparent',
-                backdropFilter: inputMode === 'text' ? flowVizTheme.effects.blur.light : 'none',
-                boxShadow: inputMode === 'text'
-                  ? flowVizTheme.effects.shadows.sm
-                  : 'none',
-                border: inputMode === 'text'
-                  ? `1px solid ${flowVizTheme.colors.surface.border.subtle}`
-                  : '1px solid transparent',
-                color: inputMode === 'text'
-                  ? flowVizTheme.colors.text.primary
-                  : flowVizTheme.colors.text.tertiary,
-                '&:hover': {
-                  background: inputMode === 'text'
-                    ? `linear-gradient(135deg, ${flowVizTheme.colors.surface.active} 0%, ${flowVizTheme.colors.surface.hover} 100%)`
-                    : flowVizTheme.colors.surface.rest,
-                  color: inputMode === 'text'
-                    ? flowVizTheme.colors.text.primary
-                    : flowVizTheme.colors.text.secondary,
-                },
-              }}
-            >
-              <TextFieldsIcon sx={{ 
-                fontSize: '18px',
-                opacity: inputMode === 'text' ? 0.9 : 0.6,
-                transition: 'all 0.3s ease',
-              }} />
-              <Typography sx={{ 
-                fontSize: '15px',
-                fontWeight: 500,
-                letterSpacing: '0.01em',
-                transition: 'opacity 0.3s ease, color 0.3s ease',
-              }}>
-                Paste Text
-              </Typography>
-            </Box>
+        {/* Input mode — compact monochrome segmented control */}
+        <Box sx={{ mb: 4, display: 'flex', justifyContent: 'center' }}>
+          <Box
+            role="tablist"
+            sx={{
+              display: 'inline-flex',
+              gap: '2px',
+              p: '3px',
+              backgroundColor: flowVizTheme.colors.surface.rest,
+              borderRadius: `${flowVizTheme.borderRadius.lg}px`,
+              border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,
+            }}
+          >
+            {INPUT_MODES.map(({ value, label, icon: Icon }) => {
+              const active = inputMode === value;
+              return (
+                <Box
+                  key={value}
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => onInputModeChange(value)}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.75,
+                    px: 1.75,
+                    py: 0.75,
+                    borderRadius: `${flowVizTheme.borderRadius.md}px`,
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    color: active
+                      ? flowVizTheme.colors.text.primary
+                      : flowVizTheme.colors.text.tertiary,
+                    backgroundColor: active ? flowVizTheme.colors.surface.hover : 'transparent',
+                    transition: `color ${flowVizTheme.motion.fast}, background-color ${flowVizTheme.motion.fast}`,
+                    '&:hover': {
+                      color: active
+                        ? flowVizTheme.colors.text.primary
+                        : flowVizTheme.colors.text.secondary,
+                      backgroundColor: active
+                        ? flowVizTheme.colors.surface.hover
+                        : flowVizTheme.colors.surface.rest,
+                    },
+                  }}
+                >
+                  <Icon sx={{ fontSize: 16 }} />
+                  <Typography sx={{ fontSize: 13, fontWeight: 500, letterSpacing: '0.01em' }}>
+                    {label}
+                  </Typography>
+                </Box>
+              );
+            })}
           </Box>
         </Box>
 
@@ -377,8 +386,136 @@ export default function SearchForm({
               helperText={urlHelperText}
               sx={{ mb: 3 }}
             />
+          ) : inputMode === 'pdf' ? (
+            <Box key="pdf" sx={{ mb: 3 }}>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handlePdfFile(file);
+                  e.target.value = '';
+                }}
+              />
+              <Box
+                onClick={() => !pdfBusy && fileInputRef.current?.click()}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (!pdfBusy) setIsDragging(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  if (pdfBusy) return;
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) handlePdfFile(file);
+                }}
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                  gap: 1.25,
+                  px: 3,
+                  py: 6,
+                  minHeight: 240,
+                  borderRadius: `${flowVizTheme.borderRadius.md}px`,
+                  cursor: pdfBusy ? 'default' : 'pointer',
+                  // Match the URL/Text input fields: same glass background and
+                  // border treatment (default → emphasis on hover, focus on drag).
+                  border: `1.5px dashed ${
+                    pdfStatus === 'error'
+                      ? flowVizTheme.colors.surface.border.emphasis
+                      : isDragging
+                        ? flowVizTheme.colors.surface.border.focus
+                        : flowVizTheme.colors.surface.border.default
+                  }`,
+                  backgroundColor: isDragging
+                    ? flowVizTheme.colors.background.glassLight
+                    : flowVizTheme.colors.background.glass,
+                  // Scope the transition (not `all`) so nothing flashes on toggle.
+                  transition: `border-color ${flowVizTheme.motion.fast}, background-color ${flowVizTheme.motion.fast}`,
+                  '&:hover': pdfBusy
+                    ? undefined
+                    : {
+                        borderColor: flowVizTheme.colors.surface.border.emphasis,
+                        backgroundColor: flowVizTheme.colors.background.glassLight,
+                      },
+                }}
+              >
+                {pdfBusy ? (
+                  <>
+                    <CircularProgress size={28} thickness={4} sx={{ color: flowVizTheme.colors.text.tertiary }} />
+                    <Typography sx={{ color: flowVizTheme.colors.text.primary, fontWeight: 500 }}>
+                      {pdfStatus === 'vision'
+                        ? 'Analyzing diagrams…'
+                        : `Extracting text${pdfFileName ? ` from ${pdfFileName}` : ''}…`}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: flowVizTheme.colors.text.tertiary }}>
+                      {pdfStatus === 'vision'
+                        ? 'Reading images with vision analysis'
+                        : pdfProgress
+                          ? `Page ${pdfProgress.page} of ${pdfProgress.total}`
+                          : 'Reading document…'}
+                    </Typography>
+                  </>
+                ) : pdfStatus === 'done' ? (
+                  <>
+                    <PictureAsPdfIcon
+                      sx={{ fontSize: 36, color: flowVizTheme.colors.text.secondary }}
+                    />
+                    <Typography sx={{ color: flowVizTheme.colors.text.primary, fontWeight: 500 }}>
+                      {pdfFileName}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: pdfTextStats.isOverLimit
+                          ? flowVizTheme.colors.text.secondary
+                          : flowVizTheme.colors.text.tertiary,
+                      }}
+                    >
+                      {pdfTextStats.isOverLimit
+                        ? `Too long — reduce to under ${TEXT_LIMITS.MAX_CHARS.toLocaleString()} characters`
+                        : `${pdfTextStats.chars.toLocaleString()} characters extracted · click to replace`}
+                    </Typography>
+                  </>
+                ) : pdfStatus === 'error' ? (
+                  <>
+                    <WarningAmberIcon
+                      sx={{ fontSize: 36, color: flowVizTheme.colors.text.secondary }}
+                    />
+                    <Typography sx={{ color: flowVizTheme.colors.text.primary, fontWeight: 500 }}>
+                      {pdfError}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: flowVizTheme.colors.text.tertiary }}>
+                      Click to try another file
+                    </Typography>
+                  </>
+                ) : (
+                  <>
+                    <UploadFileIcon
+                      sx={{ fontSize: 36, color: flowVizTheme.colors.text.tertiary }}
+                    />
+                    <Typography sx={{ color: flowVizTheme.colors.text.secondary, fontWeight: 500 }}>
+                      Drop a PDF report here, or click to browse
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: flowVizTheme.colors.text.tertiary }}>
+                      Up to 20&nbsp;MB · 100 pages · text-based PDFs
+                    </Typography>
+                  </>
+                )}
+              </Box>
+            </Box>
           ) : (
-            <Box sx={{ mb: 3 }}>
+            <Box key="text" sx={{ mb: 3 }}>
               <SearchInputMultiline
                 fullWidth
                 multiline
@@ -389,29 +526,29 @@ export default function SearchForm({
                 onChange={(e) => onTextChange(e.target.value)}
                 sx={{
                   '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: getTextStats(textContent).isOverLimit 
-                      ? flowVizTheme.colors.status.error.border
-                      : getTextStats(textContent).isNearLimit 
-                        ? flowVizTheme.colors.status.warning.border
+                    borderColor: getTextStats(textContent).isOverLimit
+                      ? flowVizTheme.colors.surface.border.focus
+                      : getTextStats(textContent).isNearLimit
+                        ? flowVizTheme.colors.surface.border.emphasis
                         : flowVizTheme.colors.surface.border.default,
                   },
                 }}
               />
-              
+
               {/* Text Statistics */}
-              <Box sx={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
+              <Box sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
                 alignItems: 'center',
                 mt: 1,
                 px: 1
               }}>
                 <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                  <Typography variant="caption" sx={{ 
-                    color: getTextStats(textContent).isOverLimit 
-                      ? flowVizTheme.colors.status.error.text
-                      : getTextStats(textContent).isNearLimit 
-                        ? flowVizTheme.colors.status.warning.text
+                  <Typography variant="caption" sx={{
+                    color: getTextStats(textContent).isOverLimit
+                      ? flowVizTheme.colors.text.primary
+                      : getTextStats(textContent).isNearLimit
+                        ? flowVizTheme.colors.text.secondary
                         : flowVizTheme.colors.text.tertiary
                   }}>
                     {getTextStats(textContent).chars.toLocaleString()} / {TEXT_LIMITS.MAX_CHARS.toLocaleString()} characters
@@ -420,15 +557,17 @@ export default function SearchForm({
                     ~{getTextStats(textContent).words.toLocaleString()} words
                   </Typography>
                 </Box>
-                
+
                 {getTextStats(textContent).isNearLimit && (
                   <Chip
                     size="small"
                     label={getTextStats(textContent).isOverLimit ? "Too Long" : "Near Limit"}
-                    color={getTextStats(textContent).isOverLimit ? "error" : "warning"}
                     sx={{
                       fontSize: '0.7rem',
                       height: '20px',
+                      color: flowVizTheme.colors.text.secondary,
+                      backgroundColor: flowVizTheme.colors.surface.hover,
+                      border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,
                       '& .MuiChip-label': {
                         px: 1
                       }
@@ -502,11 +641,23 @@ export default function SearchForm({
             <HeroSubmitButton
               variant="contained"
               type="submit"
-              disabled={!hasConfiguredProviders || isLoading || (inputMode === 'text' && getTextStats(textContent).isOverLimit)}
+              disabled={
+                !hasConfiguredProviders ||
+                isLoading ||
+                pdfBusy ||
+                (inputMode === 'pdf' && pdfStatus !== 'done') ||
+                ((inputMode === 'text' || inputMode === 'pdf') && pdfTextStats.isOverLimit)
+              }
               isLoading={isLoading}
             >
               <SearchIcon sx={{ fontSize: 20, color: flowVizTheme.colors.text.primary }} />
-              <span>{inputMode === 'url' ? 'Analyze Article' : 'Analyze Text'}</span>
+              <span>
+                {inputMode === 'url'
+                  ? 'Analyze Article'
+                  : inputMode === 'pdf'
+                    ? 'Analyze PDF'
+                    : 'Analyze Text'}
+              </span>
             </HeroSubmitButton>
           </Box>
         </Box>
