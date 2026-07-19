@@ -62,6 +62,8 @@ interface SearchFormProps {
   onUrlChange: (url: string) => void;
   onTextChange: (text: string) => void;
   onSubmit: (e: React.FormEvent) => void;
+  /** Opens the editor with an empty canvas - no AI analysis or provider needed. */
+  onBlankFlow?: () => void;
 }
 
 export default function SearchForm({
@@ -76,6 +78,7 @@ export default function SearchForm({
   onUrlChange,
   onTextChange,
   onSubmit,
+  onBlankFlow,
 }: SearchFormProps) {
   // Check if any providers are configured
   const { hasConfiguredProviders, isLoading: providersLoading } = useProviderConfig();
@@ -662,6 +665,33 @@ export default function SearchForm({
           </Box>
         </Box>
       </Paper>
+
+      {/* Blank-canvas entry point - works without any configured provider */}
+      {onBlankFlow && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+          <Typography
+            component="button"
+            type="button"
+            onClick={onBlankFlow}
+            sx={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+              color: flowVizTheme.colors.text.tertiary,
+              textDecoration: 'underline',
+              textUnderlineOffset: '3px',
+              textDecorationColor: flowVizTheme.colors.surface.border.emphasis,
+              transition: flowVizTheme.motion.normal,
+              '&:hover': {
+                color: flowVizTheme.colors.text.primary,
+              },
+            }}
+          >
+            or start with a blank canvas
+          </Typography>
+        </Box>
+      )}
     </Container>
   );
 }

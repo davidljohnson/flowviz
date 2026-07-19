@@ -25,7 +25,6 @@ function ActionNode({ data, selected }: NodeProps) {
       <NodeContent
         data={data}
         showTechniqueLink={true}
-        showTacticId={true}
       />
 
       <NodeHandles />

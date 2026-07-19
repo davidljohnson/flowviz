@@ -5,6 +5,7 @@ import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
 import App from './App';
 import ErrorBoundary from './shared/components/ErrorBoundary';
 import { flowVizTheme } from './shared/theme/flowviz-theme';
+import './features/flow-editing/editing.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {

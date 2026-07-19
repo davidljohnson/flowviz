@@ -1,0 +1,140 @@
+/* FlowViz graph styles — editing interactions, streaming animations, and
+   canvas chrome. Imported from main.tsx (this is the app's global stylesheet;
+   the old src/index.css held dead Vite boilerplate and was removed). */
+
+/* Connection handles: dim by default, sharpen and grow on hover so it's clear
+   you can drag from them to connect / branch a new node. */
+.react-flow__node .react-flow__handle {
+  transition: opacity 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.react-flow__node:hover .react-flow__handle {
+  opacity: 1 !important;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.12);
+}
+
+.react-flow__node .react-flow__handle:hover {
+  opacity: 1 !important;
+  cursor: crosshair;
+  background: #fff;
+  box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.3);
+}
+
+/* --- Edge label affordance ---
+   A midpoint control (rendered via EdgeLabelRenderer) that shows an edge's
+   label and a hover "＋ Label" affordance so the label is
+   discoverable-and-editable without guessing. */
+.fv-edge-label {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  pointer-events: all;
+  /* transform is set inline per-edge to position at the midpoint */
+}
+
+/* Label pill: the actual label, click to re-edit. Reset the button chrome. */
+.fv-edge-pill {
+  appearance: none;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(13, 17, 23, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 2px 8px;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: color 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+
+.fv-edge-pill:hover {
+  color: #fff;
+  background: rgba(30, 37, 46, 0.95);
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+/* Ghost variant: the "add a label" prompt shown on edge hover. Dashed so it
+   reads as a placeholder, not existing content. */
+.fv-edge-pill--ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(13, 17, 23, 0.75);
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.22);
+  padding: 2px 7px 2px 5px;
+}
+
+.fv-edge-pill--ghost:hover {
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(30, 37, 46, 0.9);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* --- Streaming animations --- */
+
+/* Soft scale/settle entrance for node cards while a flow is streaming in.
+   Scoped to .fv-streaming so cards don't re-animate when panning/zooming an
+   already-rendered flow (onlyRenderVisibleElements remounts them). */
+@keyframes fvCardIn {
+  from {
+    transform: scale(0.92) translateY(10px);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.fv-streaming .react-flow__node .fv-card {
+  animation: fvCardIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Edges fade in as they arrive in the stream */
+@keyframes fvEdgeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.react-flow__edge.fv-edge-enter {
+  animation: fvEdgeIn 0.5s ease-out both;
+}
+
+/* --- Dark, glassy zoom controls to match the canvas --- */
+.react-flow__controls {
+  border-radius: 10px !important;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+}
+
+.react-flow__controls-button {
+  background: rgba(22, 27, 34, 0.95) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  width: 28px;
+  height: 28px;
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: none !important;
+}
+
+.react-flow__controls-button svg {
+  fill: rgba(255, 255, 255, 0.75);
+}
+
+.react-flow__controls-button:hover {
+  background: rgba(42, 50, 60, 0.95) !important;
+}
+
+.react-flow__controls-button:hover svg {
+  fill: #fff;
+}

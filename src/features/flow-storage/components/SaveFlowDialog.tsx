@@ -28,6 +28,8 @@ interface SaveFlowDialogProps {
   sourceText?: string;
   inputMode: 'url' | 'text';
   viewport?: Viewport;
+  /** When set, offers updating that stored flow in place besides save-as-copy. */
+  existingFlowId?: string | null;
   onSave: (flow: SavedFlow) => void;
 }
 
@@ -40,21 +42,46 @@ const SaveFlowDialog: React.FC<SaveFlowDialogProps> = ({
   sourceText,
   inputMode,
   viewport,
+  existingFlowId,
   onSave
 }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+  const [existingFlow, setExistingFlow] = useState<SavedFlow | null>(null);
+
   const storageService = new LocalStorageService();
 
-  // Auto-generate title based on source when dialog opens
+  // Load the flow being updated (prefills title/description) or
+  // auto-generate a title for a fresh save
   useEffect(() => {
-    if (open && !title) {
+    if (!open) return;
+    let cancelled = false;
+
+    if (existingFlowId) {
+      new LocalStorageService().loadFlow(existingFlowId)
+        .then(flow => {
+          if (cancelled) return;
+          setExistingFlow(flow);
+          setTitle(prev => prev || flow.title);
+          setDescription(prev => prev || flow.metadata.description || '');
+        })
+        .catch(() => {
+          // Stored flow is gone (deleted); fall back to save-as-new
+          if (!cancelled) {
+            setExistingFlow(null);
+            generateTitle();
+          }
+        });
+    } else if (!title) {
       generateTitle();
     }
-  }, [open, sourceUrl, inputMode]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, existingFlowId, sourceUrl, inputMode]);
 
   // Reset form when dialog closes
   useEffect(() => {
@@ -63,6 +90,7 @@ const SaveFlowDialog: React.FC<SaveFlowDialogProps> = ({
       setDescription('');
       setError(null);
       setSaving(false);
+      setExistingFlow(null);
     }
   }, [open]);
 
@@ -101,7 +129,7 @@ const SaveFlowDialog: React.FC<SaveFlowDialogProps> = ({
     };
   };
 
-  const handleSave = async () => {
+  const handleSave = async (mode: 'new' | 'update' = 'new') => {
     if (!title.trim()) {
       setError('Title is required');
       return;
@@ -112,21 +140,24 @@ const SaveFlowDialog: React.FC<SaveFlowDialogProps> = ({
 
     try {
       const { techniques, tactics } = extractTechniquesAndTactics();
-      
+      const updating = mode === 'update' && existingFlow;
+
+      // Updating keeps the stored id (LocalStorageService upserts by id) and
+      // original creation date; save-as-copy mints a fresh record
       const flow: SavedFlow = {
-        id: crypto.randomUUID(),
+        id: updating ? existingFlow.id : crypto.randomUUID(),
         title: title.trim(),
-        sourceUrl,
-        sourceText,
-        inputMode,
+        sourceUrl: updating ? (sourceUrl || existingFlow.sourceUrl) : sourceUrl,
+        sourceText: updating ? (sourceText || existingFlow.sourceText) : sourceText,
+        inputMode: updating ? existingFlow.inputMode : inputMode,
         nodes,
         edges,
         metadata: {
-          createdAt: new Date().toISOString(),
+          createdAt: updating ? existingFlow.metadata.createdAt : new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           version: '1.0.0',
           description: description.trim() || undefined,
-          tags: [],
+          tags: updating ? existingFlow.metadata.tags : [],
           nodeCount: nodes.length,
           edgeCount: edges.length,
         },
@@ -246,17 +277,25 @@ const SaveFlowDialog: React.FC<SaveFlowDialogProps> = ({
       </EnhancedDialogContent>
       
       <EnhancedDialogActions>
-        <SecondaryButton 
+        <SecondaryButton
           onClick={onClose}
           disabled={saving}
         >
           Cancel
         </SecondaryButton>
-        <PrimaryButton 
-          onClick={handleSave}
+        {existingFlow && (
+          <SecondaryButton
+            onClick={() => handleSave('new')}
+            disabled={saving || !title.trim()}
+          >
+            Save as Copy
+          </SecondaryButton>
+        )}
+        <PrimaryButton
+          onClick={() => handleSave(existingFlow ? 'update' : 'new')}
           disabled={saving || !title.trim()}
         >
-          {saving ? 'Saving...' : 'Save Flow'}
+          {saving ? 'Saving...' : existingFlow ? 'Update' : 'Save Flow'}
         </PrimaryButton>
       </EnhancedDialogActions>
     </EnhancedDialog>

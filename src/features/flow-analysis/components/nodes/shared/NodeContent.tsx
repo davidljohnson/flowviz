@@ -1,4 +1,4 @@
-import { Box, Typography, Link, Tooltip } from '@mui/material';
+import { Box, Typography, Link } from '@mui/material';
 import { getTextStyle, getMitreLink, hasDescription, hasName, isAttackAction } from './nodeUtils';
 import { TACTIC_NAMES } from '../../constants';
 
@@ -22,12 +22,7 @@ export function NodeContent({
   return (
     <>
       {/* Node Name/Title */}
-      <Tooltip
-        title={displayText}
-        placement="top"
-        disableInteractive
-      >
-        <Typography variant="h6" component="div" sx={{
+      <Typography variant="h6" component="div" sx={{
           color: 'rgba(255, 255, 255, 0.95)',
           mb: 0.75,
           fontSize: '0.9rem',
@@ -58,8 +53,7 @@ export function NodeContent({
               {data.technique_id}
             </Link>
           )}
-        </Typography>
-      </Tooltip>
+      </Typography>
 
       {/* Description */}
       {hasDescription(data) && (

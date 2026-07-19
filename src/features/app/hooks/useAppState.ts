@@ -94,6 +94,11 @@ export const useAppState = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isLoadedFlow, setIsLoadedFlow] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+  // Storage id of the currently open flow (loaded or saved) - lets Save
+  // update in place instead of always duplicating
+  const [currentFlowId, setCurrentFlowId] = useState<string | null>(null);
+  // Blank-canvas editing mode: visualization without any AI analysis
+  const [isBlankFlow, setIsBlankFlow] = useState(false);
   
   // Toast notification state
   const [toastOpen, setToastOpen] = useState(false);
@@ -103,7 +108,7 @@ export const useAppState = () => {
   // Add browser refresh protection for unsaved changes
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges && !isLoadedFlow) {
+      if (hasUnsavedChanges) {
         e.preventDefault();
         e.returnValue = '';
         return '';
@@ -112,7 +117,7 @@ export const useAppState = () => {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [hasUnsavedChanges, isLoadedFlow]);
+  }, [hasUnsavedChanges]);
 
   // URL change handler with validation
   const handleUrlChange = (newUrl: string) => {
@@ -190,7 +195,9 @@ export const useAppState = () => {
     setLoadedFlow(undefined);
     setHasUnsavedChanges(false);
     setIsLoadedFlow(false);
-    
+    setCurrentFlowId(null);
+    setIsBlankFlow(false);
+
     if (clearVisualization) {
       clearVisualization();
     }
@@ -234,6 +241,8 @@ export const useAppState = () => {
     hasUnsavedChanges,
     isLoadedFlow,
     isStreaming,
+    currentFlowId,
+    isBlankFlow,
     
     // Toast
     toastOpen,
@@ -270,6 +279,8 @@ export const useAppState = () => {
     setHasUnsavedChanges,
     setIsLoadedFlow,
     setIsStreaming,
+    setCurrentFlowId,
+    setIsBlankFlow,
     setToastOpen,
     setToastMessage,
     setToastSeverity,

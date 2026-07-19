@@ -16,7 +16,8 @@
     "preview": "vite preview",
     "start": "node server.js",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "attack:update": "node scripts/generate-attack-dataset.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.3",

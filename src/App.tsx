@@ -66,6 +66,8 @@ export default function App() {
     hasUnsavedChanges,
     isLoadedFlow,
     isStreaming,
+    currentFlowId,
+    isBlankFlow,
 
     // Toast
     toastOpen,
@@ -98,6 +100,8 @@ export default function App() {
     setHasUnsavedChanges,
     setIsLoadedFlow,
     setIsStreaming,
+    setCurrentFlowId,
+    setIsBlankFlow,
     setToastOpen,
 
     // Handlers
@@ -268,6 +272,8 @@ export default function App() {
       setSubmittedText('');
       setLoadedFlow(undefined);
       setIsLoadedFlow(false);
+      setCurrentFlowId(null);
+      setIsBlankFlow(false);
     } else {
       if (!textContent.trim()) {
         setShowError(true);
@@ -283,7 +289,22 @@ export default function App() {
       setSubmittedUrl('');
       setLoadedFlow(undefined);
       setIsLoadedFlow(false);
+      setCurrentFlowId(null);
+      setIsBlankFlow(false);
     }
+  };
+
+  // Blank-canvas mode: open the editor with an empty graph, no AI analysis.
+  // Reuses the loadedFlow path, which skips streaming entirely.
+  const handleNewBlankFlow = () => {
+    setArticleContent(null);
+    setSubmittedUrl('');
+    setSubmittedText('');
+    setLoadedFlow({ nodes: [], edges: [] });
+    setIsLoadedFlow(false);
+    setCurrentFlowId(null);
+    setHasUnsavedChanges(false);
+    setIsBlankFlow(true);
   };
 
   const handleNewSearch = () => {
@@ -324,9 +345,13 @@ export default function App() {
 
   const handleSaveAvailable = (saveFn: () => { nodes: any[], edges: any[], viewport: any }) => {
     setGetSaveData(() => saveFn);
-    if (!isLoadedFlow) {
-      setHasUnsavedChanges(true);
-    }
+  };
+
+  // Fired by the visualization whenever graph content actually changes
+  // (manual edits, undo/redo) - drives the dirty flag for ALL flows,
+  // including loaded ones
+  const handleContentChanged = () => {
+    setHasUnsavedChanges(true);
   };
 
   const handleDownloadClick = (format: 'png' | 'json' | 'afb' | 'flowviz') => {
@@ -339,10 +364,13 @@ export default function App() {
   const handleSaveFlow = (flow: SavedFlow) => {
     setHasUnsavedChanges(false);
     setIsLoadedFlow(true);
+    setCurrentFlowId(flow.id);
     showToast(`Analysis "${flow.title}" saved successfully`, 'success');
   };
 
   const handleLoadFlow = (flow: SavedFlow) => {
+    setCurrentFlowId(flow.id);
+    setIsBlankFlow(false);
     setLoadedFlow({
       nodes: flow.nodes,
       edges: flow.edges,
@@ -403,7 +431,7 @@ export default function App() {
         isStreaming={isStreaming}
         exportFunction={exportFunction}
         storyModeData={storyModeData}
-        showGraphActions={Boolean(articleContent) && Boolean(submittedUrl || submittedText)}
+        showGraphActions={(Boolean(articleContent) && Boolean(submittedUrl || submittedText)) || isBlankFlow}
         onNewSearch={handleNewSearch}
         onDownloadClick={handleDownloadClick}
         onSaveClick={() => setSaveFlowDialogOpen(true)}
@@ -414,8 +442,8 @@ export default function App() {
       <StreamingProgressBar isVisible={isStreaming} />
 
 
-      {/* Show main form when no content is submitted */}
-      {!submittedUrl && !submittedText && (
+      {/* Show main form when no content is submitted and not editing a blank flow */}
+      {!submittedUrl && !submittedText && !isBlankFlow && !articleContent && (
         <SearchForm
           isLoading={isLoading}
           isStreaming={isStreaming}
@@ -428,11 +456,12 @@ export default function App() {
           onUrlChange={handleUrlChange}
           onTextChange={setTextContent}
           onSubmit={handleSubmit}
+          onBlankFlow={handleNewBlankFlow}
         />
       )}
 
-      {/* Show streaming visualization when we have content and settings are loaded */}
-      {articleContent && settingsLoaded && (
+      {/* Show visualization for analyses, loaded flows, and blank-canvas editing */}
+      {(articleContent || isBlankFlow) && settingsLoaded && (
         <StreamingFlowVisualization
           url={submittedUrl || submittedText || ''}
           loadedFlow={loadedFlow}
@@ -449,8 +478,13 @@ export default function App() {
             setTextContent(''); // Clear text input
           }}
           onSaveAvailable={handleSaveAvailable}
+          onContentChanged={handleContentChanged}
           onStreamingStart={() => setIsStreaming(true)}
-          onStreamingEnd={() => setIsStreaming(false)}
+          onStreamingEnd={() => {
+            setIsStreaming(false);
+            // A freshly generated analysis is unsaved content
+            setHasUnsavedChanges(true);
+          }}
           cinematicMode={cinematicMode}
           edgeColor={edgeColor}
           edgeStyle={edgeStyle}
@@ -553,8 +587,9 @@ export default function App() {
           edges={getSaveData().edges}
           sourceUrl={submittedUrl}
           sourceText={submittedText}
-          inputMode={inputMode}
+          inputMode={inputMode === 'pdf' ? 'text' : inputMode}
           viewport={getSaveData().viewport}
+          existingFlowId={currentFlowId}
           onSave={handleSaveFlow}
         />
       )}

@@ -3,6 +3,7 @@ import {
   ReactFlow,
   Background,
   Controls,
+  ControlButton,
   ReactFlowProvider,
   BackgroundVariant,
   useNodesState,
@@ -10,7 +11,8 @@ import {
   MarkerType,
   useReactFlow,
   getNodesBounds,
-  getViewportForBounds
+  getViewportForBounds,
+  ConnectionMode
 } from 'reactflow';
 import { toPng } from 'html-to-image';
 import { STIXBundleExporter } from '../../flow-export/services/stixBundleExporter';
@@ -21,15 +23,29 @@ import { Box } from '@mui/material';
 import ErrorBoundary from '../../../shared/components/ErrorBoundary';
 
 import { THEME, NODE_TYPES } from './constants';
-import { useNodeSelection } from './hooks/useNodeSelection';
 import { StreamingDirectFlowClient } from '../services/streamingDirectFlowClient';
 import { getLayoutedElements } from './utils/layoutUtils';
 
-import NodeDetailsPanel from './components/NodeDetailsPanel/NodeDetailsPanel';
 import FloatingConnectionLine from './edges/FloatingConnectionLine';
 import FloatingEdge from './edges/FloatingEdge';
 import { useStoryMode } from './hooks/useStoryMode';
 import LoadingIndicator from '../../../shared/components/LoadingIndicator';
+import { useFlowEditor, useEditorKeyboard, EdgeLabelEditor } from '../../flow-editing';
+import type { EdgeLabelEditorState } from '../../flow-editing';
+import { EdgeActionsProvider } from '../../flow-editing/context/EdgeActionsContext';
+import NodeInspector from '../../flow-editing/components/NodeInspector';
+import EmptyCanvasState from '../../flow-editing/components/EmptyCanvasState';
+import NodeTypePickerMenu, { NodePickerState } from '../../flow-editing/components/NodeTypePickerMenu';
+import { EditorNodeType } from '../../flow-editing/utils/nodeFactoryDefaults';
+import UndoIcon from '@mui/icons-material/Undo';
+import RedoIcon from '@mui/icons-material/Redo';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import GridOnIcon from '@mui/icons-material/GridOn';
+import GridOffIcon from '@mui/icons-material/GridOff';
+
+// Spacing of the background dot grid; the snap-to-grid step matches it so
+// dragged nodes land on the visible dots.
+const GRID_SIZE = 20;
 
 export interface StreamingFlowVisualizationProps {
   url: string; // Can be URL or text content
@@ -51,6 +67,7 @@ export interface StreamingFlowVisualizationProps {
   onStreamingEnd?: () => void;
   onProgress?: (stage: string, message: string) => void;
   onError?: (error: Error) => void;
+  onContentChanged?: () => void;
   cinematicMode?: boolean;
   edgeColor?: string;
   edgeStyle?: string;
@@ -71,6 +88,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   onStreamingEnd,
   onProgress,
   onError,
+  onContentChanged,
   cinematicMode = true,
   edgeColor = 'default',
   edgeStyle = 'solid',
@@ -167,18 +185,8 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   }, [onNodesChange]);
 
   const handleEdgesChange = useCallback((changes: any) => {
-    if (isStreamingRef.current) {
-      onEdgesChange(changes);
-    }
-    // After streaming: ignore all edge changes for performance
+    onEdgesChange(changes);
   }, [onEdgesChange]);
-
-  const {
-    selectedNode,
-    handleNodeClick,
-    handlePaneClick,
-    closeNodeDetails
-  } = useNodeSelection();
 
   // Story mode hook
   const {
@@ -217,7 +225,21 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
     },
   }), []);
 
-  const snapGrid = useMemo(() => [15, 15] as [number, number], []);
+  // Snap grid matches the background dot gap so nodes land on the visible dots.
+  const snapGrid = useMemo(() => [GRID_SIZE, GRID_SIZE] as [number, number], []);
+
+  // Snap-to-grid, on by default; the choice persists across sessions.
+  const [snapEnabled, setSnapEnabled] = useState(() => {
+    const stored = localStorage.getItem('flowviz_snap_to_grid');
+    return stored === null ? true : stored === 'true';
+  });
+  const toggleSnap = useCallback(() => {
+    setSnapEnabled(prev => {
+      const next = !prev;
+      localStorage.setItem('flowviz_snap_to_grid', String(next));
+      return next;
+    });
+  }, []);
 
   const reactFlowStyle = useMemo(() => ({
     backgroundColor: THEME.background.primary
@@ -227,10 +249,167 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
 
   const edgeTypes = useMemo(() => ({ floating: FloatingEdge }), []);
 
+  const editorFitView = useCallback(() => {
+    reactFlowInstance?.fitView({ padding: 0.15, duration: 600, maxZoom: 1.5, minZoom: 0.1 });
+  }, [reactFlowInstance]);
 
-  // Handle loading saved flow
+  // Semantic edit operations + undo/redo. All manual graph mutations go
+  // through these ops; streaming writes bypass them and reset the history
+  // baseline when they settle.
+  const editor = useFlowEditor({
+    nodes,
+    edges,
+    setNodes,
+    setEdges,
+    isStreaming,
+    getEdgeConfig,
+    fitView: editorFitView,
+    onContentChanged,
+  });
+
+  // Node selection drives the editable inspector. Single click selects and
+  // opens it; double click (or a freshly created node) opens it with the name
+  // focused for a quick rename.
+  const [inspectorNodeId, setInspectorNodeId] = useState<string | null>(null);
+  const [inspectorFocusName, setInspectorFocusName] = useState(false);
+
+  const openInspector = useCallback((nodeId: string, focusName = false) => {
+    if (isStreamingRef.current) return;
+    setInspectorNodeId(nodeId);
+    setInspectorFocusName(focusName);
+  }, []);
+
+  const closeInspector = useCallback(() => {
+    setInspectorNodeId(null);
+    setInspectorFocusName(false);
+  }, []);
+
+  const handleNodeClick = useCallback((_event: React.MouseEvent, node: any) => {
+    openInspector(node.id, false);
+  }, [openInspector]);
+
+  const handleNodeDoubleClick = useCallback((event: React.MouseEvent, node: any) => {
+    event.stopPropagation();
+    openInspector(node.id, true);
+  }, [openInspector]);
+
+  const handlePaneClick = useCallback(() => {
+    closeInspector();
+  }, [closeInspector]);
+
+  // Live node backing the inspector; unmounts if the node is deleted
+  const inspectorNode = useMemo(
+    () => (inspectorNodeId ? nodes.find(n => n.id === inspectorNodeId) ?? null : null),
+    [inspectorNodeId, nodes]
+  );
+
+  // Add-node flows: drag-from-handle onto the pane, or toolbar Add button
+  const [nodePicker, setNodePicker] = useState<NodePickerState | null>(null);
+  const connectStartRef = useRef<{ nodeId: string; handleType: 'source' | 'target' } | null>(null);
+
+  const handleConnectStart = useCallback((_event: any, params: { nodeId: string | null; handleType: string | null }) => {
+    connectStartRef.current = params.nodeId
+      ? { nodeId: params.nodeId, handleType: (params.handleType as 'source' | 'target') ?? 'source' }
+      : null;
+  }, []);
+
+  const handleConnectEnd = useCallback((event: MouseEvent | TouchEvent) => {
+    const connectFrom = connectStartRef.current;
+    connectStartRef.current = null;
+    if (!connectFrom || isStreamingRef.current) return;
+
+    // Only open the picker when the connection was dropped on empty canvas
+    const target = event.target as HTMLElement | null;
+    if (!target?.classList.contains('react-flow__pane')) return;
+
+    const { clientX, clientY } =
+      'changedTouches' in event ? event.changedTouches[0] : event;
+    const flowPosition = reactFlowInstance.screenToFlowPosition({ x: clientX, y: clientY });
+    setNodePicker({ x: clientX, y: clientY, flowPosition, connectFrom });
+  }, [reactFlowInstance]);
+
+  const handleAddNodeFromToolbar = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    const { clientX, clientY } = event;
+    // New nodes land at the center of the current view
+    const container = document.querySelector('.flow-visualization-container');
+    const rect = container?.getBoundingClientRect();
+    const centerX = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
+    const centerY = rect ? rect.top + rect.height / 2 : window.innerHeight / 2;
+    const flowPosition = reactFlowInstance.screenToFlowPosition({ x: centerX, y: centerY });
+    setNodePicker({ x: clientX, y: clientY, flowPosition });
+  }, [reactFlowInstance]);
+
+  // Right-click empty canvas to drop a standalone node at the cursor
+  const handlePaneContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
+    if (isStreamingRef.current) return;
+    event.preventDefault();
+    const flowPosition = reactFlowInstance.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    setNodePicker({ x: event.clientX, y: event.clientY, flowPosition });
+  }, [reactFlowInstance]);
+
+  const handlePickNodeType = useCallback((type: EditorNodeType, picker: NodePickerState) => {
+    setNodePicker(null);
+    const newNodeId = picker.connectFrom
+      ? editor.addConnectedNode(type, picker.flowPosition, picker.connectFrom)
+      : editor.addNode(type, picker.flowPosition);
+    // Open the inspector focused on the name so the node is immediately nameable
+    if (newNodeId) {
+      openInspector(newNodeId, true);
+    }
+  }, [editor.addConnectedNode, editor.addNode, openInspector]);
+
+  // Keyboard-first: Tab on a selected node opens the command menu anchored below
+  // it, creating a connected child (no mouse needed).
+  const handleAddChildFromSelection = useCallback(() => {
+    if (isStreamingRef.current || !inspectorNode) return;
+    const el = document.querySelector(`.react-flow__node[data-id="${inspectorNode.id}"]`);
+    const rect = el?.getBoundingClientRect();
+    const x = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
+    const y = rect ? rect.bottom + 8 : window.innerHeight / 2;
+    setNodePicker({
+      x, y,
+      flowPosition: { x: inspectorNode.position.x, y: inspectorNode.position.y + 190 },
+      connectFrom: { nodeId: inspectorNode.id, handleType: 'source' },
+    });
+  }, [inspectorNode]);
+
+  useEditorKeyboard({
+    enabled: !isStreaming,
+    onUndo: editor.undo,
+    onRedo: editor.redo,
+    onDelete: editor.deleteSelection,
+    canAddChild: Boolean(inspectorNode),
+    onAddChild: handleAddChildFromSelection,
+  });
+
+  // Edge label editing (double-click an edge)
+  const [edgeLabelEdit, setEdgeLabelEdit] = useState<EdgeLabelEditorState | null>(null);
+
+  const handleEdgeDoubleClick = useCallback((event: React.MouseEvent, edge: any) => {
+    if (isStreamingRef.current) return;
+    event.stopPropagation();
+    setEdgeLabelEdit({
+      edgeId: edge.id,
+      label: typeof edge.label === 'string' ? edge.label : '',
+      x: event.clientX,
+      y: event.clientY,
+    });
+  }, []);
+
+  // Lets a FloatingEdge's hover "＋ Label" affordance open the same popover.
+  const edgeActions = useMemo(() => ({
+    onEditLabel: (edgeId: string, label: string, anchor: { x: number; y: number }) => {
+      if (isStreamingRef.current) return;
+      setEdgeLabelEdit({ edgeId, label, x: anchor.x, y: anchor.y });
+    },
+  }), []);
+
+  // Handle loading saved flow — keyed by identity so settings changes don't
+  // clobber in-progress edits by re-applying the saved snapshot
+  const lastLoadedFlowRef = useRef<typeof loadedFlow>(undefined);
   useEffect(() => {
-    if (loadedFlow) {
+    if (loadedFlow && lastLoadedFlowRef.current !== loadedFlow) {
+      lastLoadedFlowRef.current = loadedFlow;
       console.log('📂 Loading saved flow with', loadedFlow.nodes.length, 'nodes and', loadedFlow.edges.length, 'edges');
       setNodes(loadedFlow.nodes);
       
@@ -255,10 +434,13 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
           reactFlowInstance.fitView({ duration: 800, padding: 0.1 });
         }, 100);
       }
-      
+
+      // Loaded state is the undo baseline
+      editor.resetHistory();
+
       return; // Skip streaming if loading saved flow
     }
-  }, [loadedFlow, reactFlowInstance, setNodes, setEdges, getEdgeConfig]);
+  }, [loadedFlow, reactFlowInstance, setNodes, setEdges, getEdgeConfig, editor.resetHistory]);
 
   // Start streaming when URL is provided
   useEffect(() => {
@@ -371,6 +553,10 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
                   className: undefined,
                 }));
             });
+
+            // The cleaned-up graph is the undo baseline: nothing from the
+            // streaming pipeline itself should be undoable
+            editor.resetHistory();
           }, 100);
           
           setTimeout(() => {
@@ -464,18 +650,11 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
 
   // Remove mouse enter handler for better performance
 
-  // Memoized drag handlers with completely stable dependencies
-  const handleNodeDragStart = useCallback(() => {
-  }, []);
-
-  const handleNodeDragStop = useCallback(() => {
-  }, []);
-
-  const handleSelectionDragStart = useCallback(() => {
-  }, []);
-
-  const handleSelectionDragStop = useCallback(() => {
-  }, []);
+  // Drag handlers coalesce a whole drag into a single undo entry
+  const handleNodeDragStart = editor.beginMove;
+  const handleNodeDragStop = editor.endMove;
+  const handleSelectionDragStart = editor.beginMove;
+  const handleSelectionDragStop = editor.endMove;
 
   const handleExport = useCallback(async (format: 'png' | 'json' | 'afb' | 'flowviz') => {
     const filename = `attack-flow-${Date.now()}`;
@@ -484,8 +663,8 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       // For high-resolution PNG export, we need to capture the flow at full scale
       // not at the current zoom level
 
-      if (selectedNode) {
-        // If a node is selected, export the container with the details panel
+      if (inspectorNode) {
+        // If a node is selected, export the container with the inspector panel
         const element = document.querySelector('.flow-visualization-container') as HTMLElement;
         if (!element) {
           console.error('Visualization container not found');
@@ -679,19 +858,20 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
 
       URL.revokeObjectURL(objectUrl);
     }
-  }, [nodes, edges, reactFlowInstance, contentType, url]);
+  }, [nodes, edges, reactFlowInstance, contentType, url, inspectorNode]);
 
   const handleClear = useCallback(() => {
     console.log('🧹 Clearing streaming visualization');
     setNodes([]);
     setEdges([]);
     setIsStreaming(false);
-    
+    editor.resetHistory();
+
     // Reset streaming client
     if (streamingClientRef.current) {
       streamingClientRef.current = null;
     }
-  }, [setNodes, setEdges]);
+  }, [setNodes, setEdges, editor.resetHistory]);
 
   const handleGetSaveData = useCallback(() => {
     return {
@@ -798,11 +978,16 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   }, [storyState, storyControls, showKeyIndicator]);
 
   return (
+    <EdgeActionsProvider value={edgeActions}>
     <Box
       className={`flow-visualization-container${isStreaming ? ' fv-streaming' : ''}`}
       sx={{
         width: '100%',
-        height: '100vh',
+        // Fill exactly the space under the static 64px AppBar. A plain 100vh
+        // overflowed the viewport (AppBar + 100vh) and pushed the bottom-left
+        // controls below the fold. A definite height (not flex) is required so
+        // the graph box / ReactFlow height:100% resolve and fill the canvas.
+        height: 'calc(100vh - 64px)',
         backgroundColor: THEME.background.primary,
         position: 'relative'
       }}
@@ -940,32 +1125,54 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
           </Box>
         </Box>
       )}
-      
+
+      {/* Node type picker (contextual +, connect-drop, right-click) */}
+      <NodeTypePickerMenu
+        state={nodePicker}
+        onSelect={handlePickNodeType}
+        onClose={() => setNodePicker(null)}
+      />
+
+      {/* Edge label editor popover */}
+      <EdgeLabelEditor
+        state={edgeLabelEdit}
+        onCommit={editor.updateEdgeLabel}
+        onClose={() => setEdgeLabelEdit(null)}
+      />
+
+
       {/* React Flow Graph */}
       <Box sx={{ height: '100%' }}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
+          connectionMode={ConnectionMode.Loose}
           onNodesChange={handleNodesChange}
           onEdgesChange={handleEdgesChange}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           onNodeClick={handleNodeClick}
           onPaneClick={handlePaneClick}
+          onPaneContextMenu={handlePaneContextMenu}
           onNodeDragStart={handleNodeDragStart}
           onNodeDragStop={handleNodeDragStop}
           onSelectionDragStart={handleSelectionDragStart}
           onSelectionDragStop={handleSelectionDragStop}
+          onConnect={editor.connect}
+          onConnectStart={handleConnectStart}
+          onConnectEnd={handleConnectEnd}
+          onEdgeDoubleClick={handleEdgeDoubleClick}
+          onNodeDoubleClick={handleNodeDoubleClick}
           nodesDraggable={!isStreaming}
-          nodesConnectable={false}
+          nodesConnectable={!isStreaming}
           elementsSelectable={true}
           fitView={false}
-          attributionPosition="bottom-left"
+          proOptions={{ hideAttribution: true }}
           connectionLineComponent={FloatingConnectionLine}
-          snapToGrid={false}
+          snapToGrid={snapEnabled}
           snapGrid={snapGrid}
           deleteKeyCode={null}
-          multiSelectionKeyCode={null}
+          multiSelectionKeyCode="Shift"
           panOnDrag={true}
           selectNodesOnDrag={false}
           elevateEdgesOnSelect={false}
@@ -978,13 +1185,13 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
           maxZoom={4}
           zoomOnScroll={true}
           zoomOnPinch={true}
-          zoomOnDoubleClick={true}
+          zoomOnDoubleClick={false}
         >
           <Background
-            color="rgba(255, 255, 255, 0.1)"
+            color="rgba(255, 255, 255, 0.22)"
             variant={BackgroundVariant.Dots}
-            gap={20}
-            size={1}
+            gap={GRID_SIZE}
+            size={2}
           />
           <Controls
             style={{
@@ -992,22 +1199,56 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
               border: THEME.border.default,
               borderRadius: '8px'
             }}
-          />
+          >
+            {/* Editing controls live with the zoom cluster, not a floating bar */}
+            {!isStreaming && (
+              <>
+                <ControlButton onClick={editor.undo} disabled={!editor.canUndo} title="Undo (Ctrl+Z)">
+                  <UndoIcon sx={{ fontSize: 14 }} />
+                </ControlButton>
+                <ControlButton onClick={editor.redo} disabled={!editor.canRedo} title="Redo (Ctrl+Y)">
+                  <RedoIcon sx={{ fontSize: 14 }} />
+                </ControlButton>
+                <ControlButton onClick={editor.relayout} title="Clean up layout">
+                  <AutoFixHighIcon sx={{ fontSize: 14 }} />
+                </ControlButton>
+                <ControlButton
+                  onClick={toggleSnap}
+                  title={snapEnabled ? 'Snap to grid: on' : 'Snap to grid: off'}
+                >
+                  {snapEnabled
+                    ? <GridOnIcon sx={{ fontSize: 14 }} />
+                    : <GridOffIcon sx={{ fontSize: 14, opacity: 0.5 }} />}
+                </ControlButton>
+              </>
+            )}
+          </Controls>
         </ReactFlow>
         
         {/* Loading Indicator - centered in the graph during loading */}
         <LoadingIndicator isVisible={showLoadingIndicator} contentType={contentType} />
+
+        {/* Empty-canvas guidance — only for a blank flow (no analysis pending),
+            not the brief pre-stream moment of a URL/text analysis */}
+        {!isStreaming && nodes.length === 0 && !url && (
+          <EmptyCanvasState onAddNode={handleAddNodeFromToolbar} />
+        )}
       </Box>
 
-      {/* Node Details Panel */}      
-      {selectedNode && (
-        <NodeDetailsPanel
-          node={selectedNode}
-          onClose={closeNodeDetails}
+      {/* Editable node inspector */}
+      {inspectorNode && (
+        <NodeInspector
+          key={inspectorNode.id}
+          node={inspectorNode}
+          focusName={inspectorFocusName}
+          onChange={(patch) => editor.updateNodeData(inspectorNode.id, patch)}
+          onDelete={() => { editor.deleteNode(inspectorNode.id); closeInspector(); }}
+          onClose={closeInspector}
         />
       )}
 
     </Box>
+    </EdgeActionsProvider>
   );
 };
 

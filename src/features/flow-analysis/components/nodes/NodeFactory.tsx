@@ -14,19 +14,19 @@ function NodeFactory(props: NodeProps) {
   if (isOperator(data)) {
     return <OperatorNode {...props} />;
   }
-  
+
   if (isAttackAction(data)) {
     return <ActionNode {...props} />;
   }
-  
+
   if (data.type === 'tool') {
     return <ToolNode {...props} />;
   }
-  
+
   if (data.type === 'malware') {
     return <MalwareNode {...props} />;
   }
-  
+
   // Default to GenericNode for asset, infrastructure, url, vulnerability, etc.
   return <GenericNode {...props} />;
 }
