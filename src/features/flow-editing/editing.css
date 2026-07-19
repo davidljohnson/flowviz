@@ -18,7 +18,8 @@
   opacity: 1 !important;
   cursor: crosshair;
   background: #fff;
-  box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.3);
+  /* Glow matches the node's type color (set per-node via --fv-node-glow). */
+  box-shadow: 0 0 0 6px var(--fv-node-glow, rgba(59, 130, 246, 0.3));
 }
 
 /* --- Edge label affordance ---
@@ -42,39 +43,37 @@
   font-weight: 500;
   line-height: 1.4;
   white-space: nowrap;
-  color: rgba(255, 255, 255, 0.85);
-  background: rgba(13, 17, 23, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.88);
+  /* Solid dark surface matching the node body — no border; a soft shadow
+     gives it depth and separates it from the edge line behind. */
+  background: #20262f;
+  border: none;
   border-radius: 6px;
-  padding: 2px 8px;
+  padding: 3px 9px;
   cursor: pointer;
-  backdrop-filter: blur(4px);
-  transition: color 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  transition: color 0.12s ease, background 0.12s ease;
 }
 
 .fv-edge-pill:hover {
   color: #fff;
-  background: rgba(30, 37, 46, 0.95);
-  border-color: rgba(255, 255, 255, 0.45);
+  background: #2a323d;
 }
 
-/* Ghost variant: the "add a label" prompt shown on edge hover. Dashed so it
-   reads as a placeholder, not existing content. */
+/* Ghost variant: the "add a label" prompt shown on edge hover. Muted (not
+   bordered) so it reads as a placeholder rather than existing content. */
 .fv-edge-pill--ghost {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  color: rgba(255, 255, 255, 0.55);
-  background: rgba(13, 17, 23, 0.75);
-  border-style: dashed;
-  border-color: rgba(255, 255, 255, 0.22);
-  padding: 2px 7px 2px 5px;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(32, 38, 47, 0.9);
+  padding: 3px 9px 3px 7px;
 }
 
 .fv-edge-pill--ghost:hover {
-  color: rgba(255, 255, 255, 0.9);
-  background: rgba(30, 37, 46, 0.9);
-  border-color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.92);
+  background: #2a323d;
 }
 
 /* --- Streaming animations --- */

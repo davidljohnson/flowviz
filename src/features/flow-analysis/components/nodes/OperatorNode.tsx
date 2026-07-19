@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { NodeProps } from 'reactflow';
 import { Typography, Box } from '@mui/material';
-import { getOperatorNodeStyle } from './shared/nodeStyles';
+import { getOperatorNodeStyle, getNodeColor } from './shared/nodeStyles';
 import { NodeHandles } from './shared/NodeHandles';
 import { getNodeTypeDisplay } from './shared/nodeUtils';
 
@@ -14,7 +14,7 @@ function OperatorNode({ data, selected }: NodeProps) {
   return (
     <Box
       className="fv-card"
-      sx={getOperatorNodeStyle(selected, isNewNode)}
+      sx={{ ...getOperatorNodeStyle(selected, isNewNode), '--fv-node-glow': `${getNodeColor(data.type)}4D` }}
     >
       <Typography
         component="span"

@@ -3,6 +3,8 @@ import {
   Box,
   IconButton,
   InputBase,
+  MenuItem,
+  Select,
   Tooltip,
   Typography,
 } from '@mui/material';
@@ -12,6 +14,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { Node } from 'reactflow';
 import { flowVizTheme, createScrollbarStyle } from '../../../shared/theme/flowviz-theme';
 import { NodeHeader } from '../../flow-analysis/components/nodes/shared/NodeHeader';
+import { getNodeColor, getContrastText } from '../../flow-analysis/components/nodes/shared/nodeStyles';
 import { isAttackAction, isOperator, getMitreLink } from '../../flow-analysis/components/nodes/shared/nodeUtils';
 import { AttackTechnique } from '../data/attackTechniques';
 import TechniqueAutocomplete from './TechniqueAutocomplete';
@@ -30,11 +33,21 @@ const CONFIDENCE_OPTIONS = ['low', 'medium', 'high'] as const;
 const INDICATOR_TYPES = [
   'ip-address',
   'domain',
-  'file-hash',
+  'hostname',
   'url',
+  'email-address',
+  'file-hash',
+  'file-path',
+  'file-name',
+  'mac-address',
   'user-account',
   'registry-key',
+  'process',
+  'mutex',
   'network-port',
+  'autonomous-system',
+  'certificate',
+  'user-agent',
 ];
 
 const labelSx = {
@@ -117,6 +130,10 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
   const type = data.type as string;
   const nameRef = useRef<HTMLInputElement>(null);
 
+  // Ink + hover overlay for the actions that sit on the colored type banner.
+  const bannerInk = getContrastText(getNodeColor(type));
+  const bannerHover = bannerInk === '#ffffff' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.14)';
+
   // Local draft keyed on node id; re-init when the selected node changes
   const [draft, setDraft] = useState<Record<string, any>>(data);
   useEffect(() => {
@@ -190,56 +207,54 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
         zIndex: 12,
         backgroundColor: flowVizTheme.colors.background.glass,
         border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
-        borderRadius: `${flowVizTheme.borderRadius.lg}px`,
+        borderRadius: '10px', // match the node corner radius
         backdropFilter: flowVizTheme.effects.blur.heavy,
         boxShadow: flowVizTheme.effects.shadows.lg,
         overflow: 'hidden',
       }}
     >
-      {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, pt: 2, pb: 1 }}>
-        <NodeHeader nodeType={type} />
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-          <Tooltip title="Delete node (Del)">
-            <IconButton
-              onClick={onDelete}
-              size="small"
-              sx={{
-                color: flowVizTheme.colors.text.tertiary,
-                borderRadius: `${flowVizTheme.borderRadius.sm}px`,
-                transition: flowVizTheme.motion.fast,
-                '&:hover': {
-                  color: flowVizTheme.colors.status.error.text,
-                  backgroundColor: flowVizTheme.colors.status.error.bg,
-                },
-              }}
-            >
-              <DeleteOutlineIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Close (Esc)">
-            <IconButton
-              onClick={onClose}
-              size="small"
-              className="node-details-close-button"
-              sx={{
-                color: flowVizTheme.colors.text.tertiary,
-                borderRadius: `${flowVizTheme.borderRadius.sm}px`,
-                transition: flowVizTheme.motion.fast,
-                '&:hover': {
-                  color: flowVizTheme.colors.text.primary,
-                  backgroundColor: flowVizTheme.colors.surface.hover,
-                },
-              }}
-            >
-              <CloseIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      </Box>
+      {/* Type banner — mirrors the node card's banner (corners clipped by the
+          panel's overflow: hidden) so the inspector reads as the same object. */}
+      <NodeHeader
+        nodeType={type}
+        prominent
+        endSlot={
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+            <Tooltip title="Delete node (Del)">
+              <IconButton
+                onClick={onDelete}
+                size="small"
+                sx={{
+                  color: bannerInk,
+                  borderRadius: `${flowVizTheme.borderRadius.sm}px`,
+                  transition: flowVizTheme.motion.fast,
+                  '&:hover': { backgroundColor: bannerHover },
+                }}
+              >
+                <DeleteOutlineIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Close (Esc)">
+              <IconButton
+                onClick={onClose}
+                size="small"
+                className="node-details-close-button"
+                sx={{
+                  color: bannerInk,
+                  borderRadius: `${flowVizTheme.borderRadius.sm}px`,
+                  transition: flowVizTheme.motion.fast,
+                  '&:hover': { backgroundColor: bannerHover },
+                }}
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        }
+      />
 
       {/* Scrollable body */}
-      <Box sx={{ px: 2, pb: 2, overflowY: 'auto', ...createScrollbarStyle() }}>
+      <Box sx={{ px: 2, pt: 2, pb: 2, overflowY: 'auto', ...createScrollbarStyle() }}>
         {/* Name — the hero field, borderless until focus */}
         {!isOp && (
           <InputBase
@@ -340,18 +355,50 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
         )}
         {type === 'asset' && (
           <>
-            <Field label="Indicator type">
-              <Box
-                component="select"
+            <Field label="Type">
+              <Select
                 value={draft.indicator_type ?? ''}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { set('indicator_type', e.target.value); commit('indicator_type', e.target.value); }}
-                sx={{ ...inputSx, appearance: 'auto', cursor: 'pointer', '& option': { color: '#000' } }}
+                onChange={(e) => { set('indicator_type', e.target.value); commit('indicator_type', e.target.value); }}
+                displayEmpty
+                fullWidth
+                MenuProps={{
+                  PaperProps: {
+                    sx: {
+                      mt: 0.5,
+                      backgroundColor: flowVizTheme.colors.menu.dialog,
+                      backdropFilter: flowVizTheme.effects.blur.heavy,
+                      border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
+                      borderRadius: `${flowVizTheme.borderRadius.md}px`,
+                      '& .MuiMenuItem-root': {
+                        fontSize: '0.85rem',
+                        color: flowVizTheme.colors.text.secondary,
+                        '&:hover': { backgroundColor: flowVizTheme.colors.surface.hover },
+                        '&.Mui-selected': {
+                          backgroundColor: flowVizTheme.colors.surface.active,
+                          '&:hover': { backgroundColor: flowVizTheme.colors.surface.hover },
+                        },
+                      },
+                      '& .MuiList-root': createScrollbarStyle(),
+                    },
+                  },
+                }}
+                sx={{
+                  color: flowVizTheme.colors.text.primary,
+                  fontSize: '0.85rem',
+                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                  borderRadius: `${flowVizTheme.borderRadius.md}px`,
+                  '& .MuiSelect-select': { py: 0.9, px: 1.25 },
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: flowVizTheme.colors.surface.border.subtle },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: flowVizTheme.colors.surface.border.default },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: flowVizTheme.colors.surface.border.focus },
+                  '& .MuiSelect-icon': { color: flowVizTheme.colors.text.tertiary },
+                }}
               >
-                <option value="">—</option>
-                {INDICATOR_TYPES.map(t => <option key={t} value={t}>{t.replace('-', ' ')}</option>)}
-              </Box>
+                <MenuItem value=""><Box component="span" sx={{ color: flowVizTheme.colors.text.tertiary }}>—</Box></MenuItem>
+                {INDICATOR_TYPES.map(t => <MenuItem key={t} value={t}>{t.replace('-', ' ')}</MenuItem>)}
+              </Select>
             </Field>
-            <Field label="Indicator value">{textField('indicator_value', 'e.g. 10.0.0.1', { mono: true })}</Field>
+            <Field label="Value">{textField('indicator_value', 'e.g. 10.0.0.1', { mono: true })}</Field>
           </>
         )}
         {type === 'url' && (
@@ -399,7 +446,21 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
 
         {/* Source excerpt (non-operator) */}
         {!isOp && (
-          <Field label="Source text">{textField('source_excerpt', 'Quote from the source report...', { multiline: true })}</Field>
+          <Field label="Excerpt">{textField('source_excerpt', 'Quote from the source report...', { multiline: true })}</Field>
+        )}
+
+        {/* Source — link or citation for where this node came from */}
+        {!isOp && (
+          <Field label="Source">
+            <>
+              {textField('source_url', 'https://... or a citation')}
+              {typeof draft.source_url === 'string' && /^https?:\/\//i.test(draft.source_url.trim()) && (
+                <Box sx={{ mt: 1 }}>
+                  <Chip href={draft.source_url.trim()} label="Open link" />
+                </Box>
+              )}
+            </>
+          </Field>
         )}
       </Box>
     </Box>

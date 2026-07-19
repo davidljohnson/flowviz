@@ -1,4 +1,4 @@
-import { ComponentType } from 'react';
+import { ComponentType, ReactNode } from 'react';
 import { Box, Typography } from '@mui/material';
 import { createSvgIcon } from '@mui/material/utils';
 import BuildRoundedIcon from '@mui/icons-material/BuildRounded';
@@ -8,7 +8,7 @@ import DnsRoundedIcon from '@mui/icons-material/DnsRounded';
 import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
 import GppMaybeRoundedIcon from '@mui/icons-material/GppMaybeRounded';
 import { getNodeTypeDisplay } from './nodeUtils';
-import { getNodeColor } from './nodeStyles';
+import { getNodeColor, getContrastText } from './nodeStyles';
 
 // Crossed-swords glyph (Material Design Icons "sword-cross") — MUI ships no sword
 const SwordCrossIcon = createSvgIcon(
@@ -29,41 +29,51 @@ const NODE_ICONS: Record<string, ComponentType<{ sx?: object }>> = {
 
 interface NodeHeaderProps {
   nodeType: string;
+  /** Right-aligned content (e.g. the inspector's delete/close actions). */
+  endSlot?: ReactNode;
+  /** Larger type label for the inspector header (a title, not a compact chip). */
+  prominent?: boolean;
 }
 
-export function NodeHeader({ nodeType }: NodeHeaderProps) {
+// Full-width banner in the node-type color. Caps the node card (clipped by the
+// card's surface) and also tops the inspector, so the two read as the same
+// object. The type label (with its icon) uses an auto-picked contrast ink.
+export function NodeHeader({ nodeType, endSlot, prominent = false }: NodeHeaderProps) {
   const accentColor = getNodeColor(nodeType);
+  const ink = getContrastText(accentColor);
   const Icon = NODE_ICONS[nodeType];
 
   return (
     <Box
       sx={{
-        display: 'inline-flex',
+        display: 'flex',
         alignItems: 'center',
-        gap: 0.5,
-        px: 1,
-        py: 0.25,
-        borderRadius: '999px',
-        backgroundColor: `${accentColor}1A`,
-        border: `1px solid ${accentColor}38`,
+        justifyContent: endSlot ? 'space-between' : 'flex-start',
+        gap: 0.6,
+        px: 1.25,
+        py: prominent ? 0.85 : 0.6,
+        backgroundColor: accentColor,
       }}
     >
-      {Icon && (
-        <Icon sx={{ fontSize: '0.85rem', color: accentColor }} />
-      )}
-      <Typography
-        variant="caption"
-        sx={{
-          color: accentColor,
-          textTransform: 'uppercase',
-          fontSize: '0.65rem',
-          letterSpacing: '0.08em',
-          fontWeight: 700,
-          lineHeight: 1.6,
-        }}
-      >
-        {getNodeTypeDisplay(nodeType)}
-      </Typography>
+      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6, minWidth: 0 }}>
+        {Icon && (
+          <Icon sx={{ fontSize: prominent ? '1rem' : '0.85rem', color: ink }} />
+        )}
+        <Typography
+          variant="caption"
+          sx={{
+            color: ink,
+            textTransform: 'uppercase',
+            fontSize: prominent ? '0.82rem' : '0.68rem',
+            letterSpacing: prominent ? '0.06em' : '0.07em',
+            fontWeight: 700,
+            lineHeight: 1.6,
+          }}
+        >
+          {getNodeTypeDisplay(nodeType)}
+        </Typography>
+      </Box>
+      {endSlot}
     </Box>
   );
 }
