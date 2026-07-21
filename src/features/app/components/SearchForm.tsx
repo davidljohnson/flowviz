@@ -17,6 +17,7 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { keyframes } from '@mui/system';
 import { SearchInputURL, SearchInputMultiline } from '../../../shared/components/SearchInput';
+import SegmentedControl from '../../../shared/components/SegmentedControl';
 import { HeroSubmitButton } from '../../../shared/components/Button';
 import { flowVizTheme } from '../../../shared/theme/flowviz-theme';
 import { useProviderConfig } from '../hooks/useProviderConfig';
@@ -324,57 +325,13 @@ export default function SearchForm({
       >
         {/* Input mode — compact monochrome segmented control */}
         <Box sx={{ mb: 4, display: 'flex', justifyContent: 'center' }}>
-          <Box
-            role="tablist"
-            sx={{
-              display: 'inline-flex',
-              gap: '2px',
-              p: '3px',
-              backgroundColor: flowVizTheme.colors.surface.rest,
-              borderRadius: `${flowVizTheme.borderRadius.lg}px`,
-              border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,
-            }}
-          >
-            {INPUT_MODES.map(({ value, label, icon: Icon }) => {
-              const active = inputMode === value;
-              return (
-                <Box
-                  key={value}
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => onInputModeChange(value)}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.75,
-                    px: 1.75,
-                    py: 0.75,
-                    borderRadius: `${flowVizTheme.borderRadius.md}px`,
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    color: active
-                      ? flowVizTheme.colors.text.primary
-                      : flowVizTheme.colors.text.tertiary,
-                    backgroundColor: active ? flowVizTheme.colors.surface.hover : 'transparent',
-                    transition: `color ${flowVizTheme.motion.fast}, background-color ${flowVizTheme.motion.fast}`,
-                    '&:hover': {
-                      color: active
-                        ? flowVizTheme.colors.text.primary
-                        : flowVizTheme.colors.text.secondary,
-                      backgroundColor: active
-                        ? flowVizTheme.colors.surface.hover
-                        : flowVizTheme.colors.surface.rest,
-                    },
-                  }}
-                >
-                  <Icon sx={{ fontSize: 16 }} />
-                  <Typography sx={{ fontSize: 13, fontWeight: 500, letterSpacing: '0.01em' }}>
-                    {label}
-                  </Typography>
-                </Box>
-              );
-            })}
-          </Box>
+          <SegmentedControl
+            size="md"
+            aria-label="Input mode"
+            options={INPUT_MODES}
+            value={inputMode}
+            onChange={onInputModeChange}
+          />
         </Box>
 
         <Box component="form" onSubmit={onSubmit}>

@@ -2,6 +2,10 @@ import React from 'react';
 import { getBezierPath, ConnectionLineComponentProps } from 'reactflow';
 import { getEdgeParams } from './floatingEdgeHelpers';
 
+// The preview line while dragging a new connection. ReactFlow can't tell which
+// of a node's several same-type handles you grabbed (its fromX/fromY always
+// report the first handle), so instead of pinning to a wrong handle we anchor
+// the source to the side of the node nearest the cursor — it follows the drag.
 const FloatingConnectionLine: React.FC<ConnectionLineComponentProps> = ({
   toX,
   toY,
@@ -13,7 +17,7 @@ const FloatingConnectionLine: React.FC<ConnectionLineComponentProps> = ({
     return null;
   }
 
-  // Create a mock target node at the cursor position
+  // Mock a 1x1 target at the cursor so getEdgeParams picks the nearest source side.
   const targetNode = {
     id: 'connection-target',
     width: 1,
@@ -24,10 +28,7 @@ const FloatingConnectionLine: React.FC<ConnectionLineComponentProps> = ({
     },
   };
 
-  const { sx, sy, tx, ty, sourcePos, targetPos } = getEdgeParams(
-    fromNode,
-    targetNode,
-  );
+  const { sx, sy, tx, ty, sourcePos, targetPos } = getEdgeParams(fromNode, targetNode);
 
   const [edgePath] = getBezierPath({
     sourceX: sx,

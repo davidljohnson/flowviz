@@ -34,6 +34,7 @@ import { useFlowEditor, useEditorKeyboard, EdgeLabelEditor } from '../../flow-ed
 import type { EdgeLabelEditorState } from '../../flow-editing';
 import { EdgeActionsProvider } from '../../flow-editing/context/EdgeActionsContext';
 import NodeInspector from '../../flow-editing/components/NodeInspector';
+import EdgeInspector from '../../flow-editing/components/EdgeInspector';
 import EmptyCanvasState from '../../flow-editing/components/EmptyCanvasState';
 import NodeTypePickerMenu, { NodePickerState } from '../../flow-editing/components/NodeTypePickerMenu';
 import { EditorNodeType } from '../../flow-editing/utils/nodeFactoryDefaults';
@@ -42,6 +43,10 @@ import RedoIcon from '@mui/icons-material/Redo';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import GridOffIcon from '@mui/icons-material/GridOff';
+// Dot-pattern glyphs, so showing the dots doesn't wear the same icon as
+// snapping to them — they're independent settings.
+import BlurOnIcon from '@mui/icons-material/BlurOn';
+import BlurOffIcon from '@mui/icons-material/BlurOff';
 
 // Spacing of the background dot grid; the snap-to-grid step matches it so
 // dragged nodes land on the visible dots.
@@ -204,10 +209,13 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   const defaultEdgeOptions = useMemo(() => ({
     type: 'default',
     markerEnd: {
+      // Opaque so the edge line (which runs under the arrow body, since the
+      // marker's tip sits at the path end) doesn't show through it. The shade
+      // roughly matches the translucent line's rendered appearance.
       type: MarkerType.ArrowClosed,
       width: 15,
       height: 15,
-      color: 'rgba(255, 255, 255, 0.5)',
+      color: 'rgb(150, 153, 158)',
     },
     style: {
       stroke: 'rgba(255, 255, 255, 0.5)',
@@ -237,6 +245,21 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
     setSnapEnabled(prev => {
       const next = !prev;
       localStorage.setItem('flowviz_snap_to_grid', String(next));
+      return next;
+    });
+  }, []);
+
+  // Grid dots, on by default and persisted like the snap choice. Independent of
+  // snapping: hiding the dots keeps nodes landing on the same 20px lattice, it
+  // just stops drawing it — useful for a clean export or a dense flow.
+  const [gridVisible, setGridVisible] = useState(() => {
+    const stored = localStorage.getItem('flowviz_show_grid');
+    return stored === null ? true : stored === 'true';
+  });
+  const toggleGrid = useCallback(() => {
+    setGridVisible(prev => {
+      const next = !prev;
+      localStorage.setItem('flowviz_show_grid', String(next));
       return next;
     });
   }, []);
@@ -272,9 +295,12 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   // focused for a quick rename.
   const [inspectorNodeId, setInspectorNodeId] = useState<string | null>(null);
   const [inspectorFocusName, setInspectorFocusName] = useState(false);
+  // Selected edge drives the edge inspector; only one inspector shows at a time.
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
 
   const openInspector = useCallback((nodeId: string, focusName = false) => {
     if (isStreamingRef.current) return;
+    setSelectedEdgeId(null);
     setInspectorNodeId(nodeId);
     setInspectorFocusName(focusName);
   }, []);
@@ -293,8 +319,16 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
     openInspector(node.id, true);
   }, [openInspector]);
 
+  const handleEdgeClick = useCallback((_event: React.MouseEvent, edge: any) => {
+    if (isStreamingRef.current) return;
+    setInspectorNodeId(null);
+    setInspectorFocusName(false);
+    setSelectedEdgeId(edge.id);
+  }, []);
+
   const handlePaneClick = useCallback(() => {
     closeInspector();
+    setSelectedEdgeId(null);
   }, [closeInspector]);
 
   // Live node backing the inspector; unmounts if the node is deleted
@@ -302,6 +336,16 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
     () => (inspectorNodeId ? nodes.find(n => n.id === inspectorNodeId) ?? null : null),
     [inspectorNodeId, nodes]
   );
+
+  // Live edge backing the edge inspector (+ its endpoint node labels)
+  const selectedEdge = useMemo(
+    () => (selectedEdgeId ? edges.find(e => e.id === selectedEdgeId) ?? null : null),
+    [selectedEdgeId, edges]
+  );
+  const nodeLabel = useCallback((nodeId: string) => {
+    const n = nodes.find(x => x.id === nodeId);
+    return (n?.data?.name as string) || (n?.data?.type as string) || 'Node';
+  }, [nodes]);
 
   // Add-node flows: drag-from-handle onto the pane, or toolbar Add button
   const [nodePicker, setNodePicker] = useState<NodePickerState | null>(null);
@@ -312,6 +356,19 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       ? { nodeId: params.nodeId, handleType: (params.handleType as 'source' | 'target') ?? 'source' }
       : null;
   }, []);
+
+  // Edge direction follows the drag: the node you started dragging from is the
+  // source, so the arrow points at the node you dropped on — regardless of
+  // which side's handle you grabbed. (In loose connection mode ReactFlow would
+  // otherwise pick source/target by handle type, flipping top/left drags.)
+  const handleConnect = useCallback((connection: { source: string | null; target: string | null }) => {
+    const startId = connectStartRef.current?.nodeId;
+    let { source, target } = connection;
+    if (startId && target === startId && source) {
+      [source, target] = [target, source];
+    }
+    editor.connect({ source, target });
+  }, [editor.connect]);
 
   const handleConnectEnd = useCallback((event: MouseEvent | TouchEvent) => {
     const connectFrom = connectStartRef.current;
@@ -1158,9 +1215,10 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
           onNodeDragStop={handleNodeDragStop}
           onSelectionDragStart={handleSelectionDragStart}
           onSelectionDragStop={handleSelectionDragStop}
-          onConnect={editor.connect}
+          onConnect={handleConnect}
           onConnectStart={handleConnectStart}
           onConnectEnd={handleConnectEnd}
+          onEdgeClick={handleEdgeClick}
           onEdgeDoubleClick={handleEdgeDoubleClick}
           onNodeDoubleClick={handleNodeDoubleClick}
           nodesDraggable={!isStreaming}
@@ -1169,6 +1227,10 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
           fitView={false}
           proOptions={{ hideAttribution: true }}
           connectionLineComponent={FloatingConnectionLine}
+          // Snap distance when releasing a connection (default 20). Nudged up so
+          // landing an edge is as forgiving as starting one — but kept modest,
+          // since dropping on empty canvas is what opens the add-node picker.
+          connectionRadius={28}
           snapToGrid={snapEnabled}
           snapGrid={snapGrid}
           deleteKeyCode={null}
@@ -1187,12 +1249,14 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
           zoomOnPinch={true}
           zoomOnDoubleClick={false}
         >
-          <Background
-            color="rgba(255, 255, 255, 0.22)"
-            variant={BackgroundVariant.Dots}
-            gap={GRID_SIZE}
-            size={2}
-          />
+          {gridVisible && (
+            <Background
+              color="rgba(255, 255, 255, 0.22)"
+              variant={BackgroundVariant.Dots}
+              gap={GRID_SIZE}
+              size={2}
+            />
+          )}
           <Controls
             style={{
               backgroundColor: THEME.background.secondary,
@@ -1222,6 +1286,16 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
                 </ControlButton>
               </>
             )}
+            {/* Outside the editing group: showing the dots is a view preference,
+                so it stays available while a flow streams in. */}
+            <ControlButton
+              onClick={toggleGrid}
+              title={gridVisible ? 'Grid dots: on' : 'Grid dots: off'}
+            >
+              {gridVisible
+                ? <BlurOnIcon sx={{ fontSize: 14 }} />
+                : <BlurOffIcon sx={{ fontSize: 14, opacity: 0.5 }} />}
+            </ControlButton>
           </Controls>
         </ReactFlow>
         
@@ -1244,6 +1318,21 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
           onChange={(patch) => editor.updateNodeData(inspectorNode.id, patch)}
           onDelete={() => { editor.deleteNode(inspectorNode.id); closeInspector(); }}
           onClose={closeInspector}
+        />
+      )}
+
+      {/* Editable edge inspector */}
+      {selectedEdge && (
+        <EdgeInspector
+          key={selectedEdge.id}
+          edge={selectedEdge}
+          sourceLabel={nodeLabel(selectedEdge.source)}
+          targetLabel={nodeLabel(selectedEdge.target)}
+          onUpdateLabel={editor.updateEdgeLabel}
+          onUpdateEdge={editor.updateEdge}
+          onReverse={editor.reverseEdge}
+          onDelete={(id) => { editor.deleteEdge(id); setSelectedEdgeId(null); }}
+          onClose={() => setSelectedEdgeId(null)}
         />
       )}
 

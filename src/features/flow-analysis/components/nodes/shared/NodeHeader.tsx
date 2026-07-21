@@ -1,4 +1,4 @@
-import { ComponentType, ReactNode } from 'react';
+import React, { ComponentType, ReactNode } from 'react';
 import { Box, Typography } from '@mui/material';
 import { createSvgIcon } from '@mui/material/utils';
 import BuildRoundedIcon from '@mui/icons-material/BuildRounded';
@@ -7,8 +7,10 @@ import StorageRoundedIcon from '@mui/icons-material/StorageRounded';
 import DnsRoundedIcon from '@mui/icons-material/DnsRounded';
 import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
 import GppMaybeRoundedIcon from '@mui/icons-material/GppMaybeRounded';
+import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
 import { getNodeTypeDisplay } from './nodeUtils';
 import { getNodeColor, getContrastText } from './nodeStyles';
+import { flowVizTheme } from '../../../../../shared/theme/flowviz-theme';
 
 // Crossed-swords glyph (Material Design Icons "sword-cross") — MUI ships no sword
 const SwordCrossIcon = createSvgIcon(
@@ -33,15 +35,24 @@ interface NodeHeaderProps {
   endSlot?: ReactNode;
   /** Larger type label for the inspector header (a title, not a compact chip). */
   prominent?: boolean;
+  /**
+   * Makes the type label itself the change-type control (inspector only). The
+   * banner already *is* the type indicator, so the indicator doubles as the
+   * trigger rather than introducing a second place to read the type from. Node
+   * cards leave this unset and stay inert.
+   */
+  onTypeClick?: (event: React.MouseEvent<HTMLElement>) => void;
 }
 
 // Full-width banner in the node-type color. Caps the node card (clipped by the
 // card's surface) and also tops the inspector, so the two read as the same
 // object. The type label (with its icon) uses an auto-picked contrast ink.
-export function NodeHeader({ nodeType, endSlot, prominent = false }: NodeHeaderProps) {
+export function NodeHeader({ nodeType, endSlot, prominent = false, onTypeClick }: NodeHeaderProps) {
   const accentColor = getNodeColor(nodeType);
   const ink = getContrastText(accentColor);
   const Icon = NODE_ICONS[nodeType];
+  // Wash tuned to the banner's own ink so it reads on light and dark accents alike.
+  const inkHover = ink === '#ffffff' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.14)';
 
   return (
     <Box
@@ -55,7 +66,37 @@ export function NodeHeader({ nodeType, endSlot, prominent = false }: NodeHeaderP
         backgroundColor: accentColor,
       }}
     >
-      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6, minWidth: 0 }}>
+      <Box
+        {...(onTypeClick && {
+          component: 'button' as const,
+          onClick: onTypeClick,
+          title: 'Change type',
+        })}
+        sx={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 0.6,
+          minWidth: 0,
+          ...(onTypeClick && {
+            // Reset the button chrome, then re-earn a hit area around the label.
+            appearance: 'none',
+            font: 'inherit',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            mx: -0.75,
+            px: 0.75,
+            py: 0.25,
+            borderRadius: `${flowVizTheme.borderRadius.sm}px`,
+            transition: `background-color ${flowVizTheme.motion.fast}`,
+            '&:hover': { backgroundColor: inkHover },
+            // The chevron is the only always-on hint that this is actionable;
+            // it firms up on hover rather than appearing from nothing, so the
+            // banner doesn't change shape under the cursor.
+            '&:hover .fv-type-caret': { opacity: 1 },
+          }),
+        }}
+      >
         {Icon && (
           <Icon sx={{ fontSize: prominent ? '1rem' : '0.85rem', color: ink }} />
         )}
@@ -72,6 +113,17 @@ export function NodeHeader({ nodeType, endSlot, prominent = false }: NodeHeaderP
         >
           {getNodeTypeDisplay(nodeType)}
         </Typography>
+        {onTypeClick && (
+          <KeyboardArrowDownRoundedIcon
+            className="fv-type-caret"
+            sx={{
+              fontSize: '1rem',
+              color: ink,
+              opacity: 0.55,
+              transition: `opacity ${flowVizTheme.motion.fast}`,
+            }}
+          />
+        )}
       </Box>
       {endSlot}
     </Box>

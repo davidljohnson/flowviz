@@ -160,10 +160,9 @@ export function useFlowEditor({
 
     const before = currentSnapshot();
     const node = createFlowNode(type, position);
-    // Dragging from a source handle connects origin -> new node; from a
-    // target handle the new node feeds the origin
-    const [sourceNode, targetNode] =
-      connectFrom.handleType === 'source' ? [origin, node] : [node, origin];
+    // Edge follows the drag direction: the node you dragged from (origin) is
+    // the source, the new node is the target — regardless of which handle.
+    const [sourceNode, targetNode] = [origin, node];
     const edgeConfig = getEdgeConfigRef.current();
     const edge: Edge = {
       id: crypto.randomUUID(),
@@ -234,6 +233,42 @@ export function useFlowEditor({
     commit('Edit edge label', before);
   }, [setEdges, currentSnapshot, commit]);
 
+  // Merge per-edge overrides: data (curve), style (color/dash), markerEnd (arrow color).
+  const updateEdge = useCallback((
+    edgeId: string,
+    patch: { data?: Record<string, unknown>; style?: Record<string, unknown>; markerEnd?: unknown }
+  ) => {
+    if (isStreamingRef.current) return;
+    if (!edgesRef.current.some(e => e.id === edgeId)) return;
+    const before = currentSnapshot();
+    setEdges(prev => prev.map(e => e.id === edgeId ? {
+      ...e,
+      ...(patch.data ? { data: { ...e.data, ...patch.data } } : {}),
+      ...(patch.style ? { style: { ...e.style, ...patch.style } } : {}),
+      ...(patch.markerEnd !== undefined ? { markerEnd: patch.markerEnd as Edge['markerEnd'] } : {}),
+    } : e));
+    commit('Edit edge', before);
+  }, [setEdges, currentSnapshot, commit]);
+
+  const deleteEdge = useCallback((edgeId: string) => {
+    if (isStreamingRef.current) return;
+    if (!edgesRef.current.some(e => e.id === edgeId)) return;
+    const before = currentSnapshot();
+    setEdges(prev => prev.filter(e => e.id !== edgeId));
+    commit('Delete', before);
+  }, [setEdges, currentSnapshot, commit]);
+
+  // Swap source/target so the arrow points the other way.
+  const reverseEdge = useCallback((edgeId: string) => {
+    if (isStreamingRef.current) return;
+    if (!edgesRef.current.some(e => e.id === edgeId)) return;
+    const before = currentSnapshot();
+    setEdges(prev => prev.map(e =>
+      e.id === edgeId ? { ...e, source: e.target, target: e.source } : e
+    ));
+    commit('Reverse edge', before);
+  }, [setEdges, currentSnapshot, commit]);
+
   const beginMove = useCallback(() => {
     if (isStreamingRef.current) return;
     pendingMoveRef.current = currentSnapshot();
@@ -265,6 +300,9 @@ export function useFlowEditor({
     relayout,
     connect,
     updateEdgeLabel,
+    updateEdge,
+    reverseEdge,
+    deleteEdge,
     updateNodeData,
     addNode,
     addConnectedNode,

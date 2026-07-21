@@ -49,6 +49,24 @@ const theme = createTheme({
   typography: {
     fontFamily: '"Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif',
   },
+  components: {
+    MuiTooltip: {
+      defaultProps: {
+        // Tooltips sit on rows of adjacent icon buttons (inspector headers, the
+        // app bar, story controls). With MUI's defaults, sweeping across such a
+        // row fires each one in turn, and because the outgoing tooltip's exit
+        // transition outlives the next one's entrance, two poppers are briefly
+        // on screen at once — read as a dark patch flashing under the buttons.
+        //
+        // A real intent-to-read pause is longer than a sweep, so hold entry
+        // long enough to tell them apart, and drop the interactive hover-bridge
+        // that kept a dismissed tooltip alive.
+        enterDelay: 400,
+        enterNextDelay: 400,
+        disableInteractive: true,
+      },
+    },
+  },
 });
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

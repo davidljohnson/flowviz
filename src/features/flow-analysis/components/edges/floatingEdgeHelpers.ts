@@ -22,6 +22,11 @@ function getGeometry(node: any): NodeGeometry {
   };
 }
 
+// Small gap between the target node and the edge endpoint so the arrowhead
+// (whose tip sits at the endpoint) isn't clipped by the node, which renders
+// above the edges layer.
+const TARGET_GAP = 5;
+
 // Get the coordinates and sides for an edge between two nodes.
 // Vertical (parent -> child) edges connect bottom -> top as usual; nodes on
 // the same rank connect side-to-side so the edge doesn't squeeze an S-curve
@@ -41,7 +46,7 @@ export function getEdgeParams(sourceNode: any, targetNode: any) {
       return {
         sx: s.x + s.width,
         sy: sourceCenter.y,
-        tx: t.x,
+        tx: t.x - TARGET_GAP,
         ty: targetCenter.y,
         sourcePos: Position.Right,
         targetPos: Position.Left,
@@ -50,7 +55,7 @@ export function getEdgeParams(sourceNode: any, targetNode: any) {
     return {
       sx: s.x,
       sy: sourceCenter.y,
-      tx: t.x + t.width,
+      tx: t.x + t.width + TARGET_GAP,
       ty: targetCenter.y,
       sourcePos: Position.Left,
       targetPos: Position.Right,
@@ -62,7 +67,7 @@ export function getEdgeParams(sourceNode: any, targetNode: any) {
       sx: sourceCenter.x,
       sy: s.y,
       tx: targetCenter.x,
-      ty: t.y + t.height,
+      ty: t.y + t.height + TARGET_GAP,
       sourcePos: Position.Top,
       targetPos: Position.Bottom,
     };
@@ -72,7 +77,7 @@ export function getEdgeParams(sourceNode: any, targetNode: any) {
     sx: sourceCenter.x,
     sy: s.y + s.height,
     tx: targetCenter.x,
-    ty: t.y,
+    ty: t.y - TARGET_GAP,
     sourcePos: Position.Bottom,
     targetPos: Position.Top,
   };

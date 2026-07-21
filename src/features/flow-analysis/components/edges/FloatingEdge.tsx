@@ -81,6 +81,11 @@ function FloatingEdge({
   // doesn't get pinched between the two cards
   const midY = isLateral ? labelY - 14 : labelY;
 
+  // Selected edges just get thicker — keep their own color and dash.
+  const edgeStyle: React.CSSProperties = selected
+    ? { ...style, strokeWidth: 3, opacity: 1 }
+    : (style ?? {});
+
   const openEditor = (event: React.MouseEvent) => {
     // Don't let the click bubble to the edge (which would select it)
     event.stopPropagation();
@@ -96,7 +101,7 @@ function FloatingEdge({
 
   return (
     <>
-      <BaseEdge id={id} path={edgePath} markerEnd={markerEnd} style={style ?? {}} />
+      <BaseEdge id={id} path={edgePath} markerEnd={markerEnd} style={edgeStyle} />
       {/* Invisible wide hover target over the line so hovering anywhere along
           the edge reveals the label affordance. No onClick — clicks bubble to
           ReactFlow so edge selection still works. */}
@@ -120,7 +125,11 @@ function FloatingEdge({
             onMouseLeave={() => setHovered(false)}
           >
             {hasLabel ? (
-              <button type="button" className="fv-edge-pill" onClick={openEditor}>
+              <button
+                type="button"
+                className={`fv-edge-pill${selected ? ' fv-edge-pill--selected' : ''}`}
+                onClick={openEditor}
+              >
                 {label}
               </button>
             ) : active ? (

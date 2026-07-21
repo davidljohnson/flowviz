@@ -32,31 +32,33 @@ const dotPattern = keyframes`
 
 // ============= Glass Icon Button =============
 
+// Hover deliberately matches the graph's zoom controls (.react-flow__controls-button
+// in editing.css): the surface lightens, the icon brightens, nothing moves. An
+// earlier version lifted the button (translateY(-1px)) and swapped its border on
+// hover while carrying a backdrop-filter. Transform + backdrop-filter puts the
+// button on its own composited layer and re-rasterizes the blur every frame of
+// the transition, which showed up as a shading artifact flickering across the
+// row as the cursor swept over it. The blur bought nothing anyway — the app bar
+// behind these is an opaque gradient — so it's gone, and the border now holds
+// steady so only colour animates.
 export const GlassIconButton = styled(IconButton)<IconButtonProps>({
   color: flowVizTheme.colors.text.secondary,
   backgroundColor: flowVizTheme.colors.surface.rest,
-  backdropFilter: flowVizTheme.effects.blur.light,
   border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,
   borderRadius: `${flowVizTheme.borderRadius.md}px`,
   padding: `${flowVizTheme.spacing.sm}px`,
-  transition: flowVizTheme.motion.normal,
-  
+  // Scoped to the two properties that actually change, so no future style
+  // addition silently animates as well.
+  transition: `background-color ${flowVizTheme.motion.fast}, color ${flowVizTheme.motion.fast}`,
+
   '&:hover': {
     color: flowVizTheme.colors.text.primary,
     backgroundColor: flowVizTheme.colors.surface.hover,
-    border: `1px solid ${flowVizTheme.colors.surface.border.emphasis}`,
-    transform: 'translateY(-1px)',
   },
-  
-  '&:active': {
-    transform: 'translateY(1px)',
-  },
-  
+
   '&:disabled': {
     color: flowVizTheme.colors.text.disabled,
     backgroundColor: flowVizTheme.colors.surface.rest,
-    border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,
-    transform: 'none',
   },
 });
 

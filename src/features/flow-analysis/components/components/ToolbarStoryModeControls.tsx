@@ -12,7 +12,7 @@ import {
   Pause,
   SkipNext,
   SkipPrevious,
-  CenterFocusStrong,
+  CropFree,
   Replay
 } from '@mui/icons-material';
 
@@ -269,7 +269,8 @@ const ToolbarStoryModeControls: React.FC<ToolbarStoryModeControlsProps> = ({
             transition: 'all 0.15s ease',
           }}
         >
-          <CenterFocusStrong sx={{ fontSize: '16px' }} />
+          {/* Corner brackets, matching the zoom cluster's built-in fit-view glyph. */}
+          <CropFree sx={{ fontSize: '16px' }} />
         </IconButton>
       </Tooltip>
     </Box>

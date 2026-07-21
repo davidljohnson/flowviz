@@ -4,12 +4,12 @@ import {
   IconButton,
   InputBase,
   MenuItem,
+  Popover,
   Select,
   Tooltip,
   Typography,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { Node } from 'reactflow';
 import { flowVizTheme, createScrollbarStyle } from '../../../shared/theme/flowviz-theme';
@@ -18,6 +18,10 @@ import { getNodeColor, getContrastText } from '../../flow-analysis/components/no
 import { isAttackAction, isOperator, getMitreLink } from '../../flow-analysis/components/nodes/shared/nodeUtils';
 import { AttackTechnique } from '../data/attackTechniques';
 import TechniqueAutocomplete from './TechniqueAutocomplete';
+import InspectorMenu from './InspectorMenu';
+import NodeTypeList from './NodeTypeList';
+import SegmentedControl from '../../../shared/components/SegmentedControl';
+import { EditorNodeType, createDefaultNodeData } from '../utils/nodeFactoryDefaults';
 
 interface NodeInspectorProps {
   node: Node;
@@ -28,7 +32,13 @@ interface NodeInspectorProps {
   focusName?: boolean;
 }
 
+// Stored lowercase (exporters read the raw value); displayed capitalised.
 const CONFIDENCE_OPTIONS = ['low', 'medium', 'high'] as const;
+const CONFIDENCE_LABELS: Record<typeof CONFIDENCE_OPTIONS[number], string> = {
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+};
 
 const INDICATOR_TYPES = [
   'ip-address',
@@ -134,6 +144,9 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
   const bannerInk = getContrastText(getNodeColor(type));
   const bannerHover = bannerInk === '#ffffff' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.14)';
 
+  // Anchor for the change-type switcher hung off the banner.
+  const [typeAnchor, setTypeAnchor] = useState<HTMLElement | null>(null);
+
   // Local draft keyed on node id; re-init when the selected node changes
   const [draft, setDraft] = useState<Record<string, any>>(data);
   useEffect(() => {
@@ -150,6 +163,35 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
       return () => clearTimeout(t);
     }
   }, [focusName, node.id]);
+
+  /**
+   * Re-type the node in place. Deliberately non-destructive: type-specific
+   * fields are left in data rather than cleared, because the inspector renders
+   * fields conditionally from one flat bag and the exporters switch on
+   * data.type — so a stale cve_id on a Tool is simply never read, and a
+   * Technique → Tool → Technique round-trip loses nothing. updateNodeData
+   * mirrors a type patch onto node.type and commits it to the undo stack.
+   */
+  const handleTypeChange = (next: EditorNodeType) => {
+    setTypeAnchor(null);
+    if (next === type) return;
+
+    const patch: Record<string, unknown> = { type: next };
+    if (next === 'AND_operator' || next === 'OR_operator') {
+      patch.operator = next === 'AND_operator' ? 'AND' : 'OR';
+    }
+    // Only refresh the name while it's still the placeholder the old type shipped
+    // with — a name the user actually wrote is theirs to keep, even if it's now
+    // hidden (operators don't show one).
+    const currentName = String(draft.name ?? '').trim();
+    const priorDefault = String(createDefaultNodeData(type as EditorNodeType)?.name ?? '');
+    if (!currentName || currentName === priorDefault) {
+      patch.name = createDefaultNodeData(next)?.name ?? '';
+    }
+
+    setDraft(prev => ({ ...prev, ...patch }));
+    onChange(patch);
+  };
 
   const set = (key: string, value: unknown) => setDraft(prev => ({ ...prev, [key]: value }));
   const commit = (key: string, value: unknown) => {
@@ -218,22 +260,10 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
       <NodeHeader
         nodeType={type}
         prominent
+        onTypeClick={(e) => setTypeAnchor(e.currentTarget)}
         endSlot={
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-            <Tooltip title="Delete node (Del)">
-              <IconButton
-                onClick={onDelete}
-                size="small"
-                sx={{
-                  color: bannerInk,
-                  borderRadius: `${flowVizTheme.borderRadius.sm}px`,
-                  transition: flowVizTheme.motion.fast,
-                  '&:hover': { backgroundColor: bannerHover },
-                }}
-              >
-                <DeleteOutlineIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+            <InspectorMenu deleteLabel="Delete node" onDelete={onDelete} ink={bannerInk} hoverBg={bannerHover} />
             <Tooltip title="Close (Esc)">
               <IconButton
                 onClick={onClose}
@@ -252,6 +282,36 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
           </Box>
         }
       />
+
+      {/* Change-type switcher — same list the add-node picker uses. */}
+      <Popover
+        open={Boolean(typeAnchor)}
+        anchorEl={typeAnchor}
+        onClose={() => setTypeAnchor(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        slotProps={{
+          paper: {
+            sx: {
+              mt: 0.5,
+              width: 236,
+              backgroundColor: flowVizTheme.colors.menu.appBar,
+              backdropFilter: flowVizTheme.effects.blur.heavy,
+              border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
+              borderRadius: `${flowVizTheme.borderRadius.md}px`,
+              boxShadow: flowVizTheme.effects.shadows.lg,
+              overflow: 'hidden',
+            },
+          },
+        }}
+      >
+        <NodeTypeList
+          placeholder="Change type…"
+          selectedType={type as EditorNodeType}
+          onChoose={handleTypeChange}
+          onDismiss={() => setTypeAnchor(null)}
+        />
+      </Popover>
 
       {/* Scrollable body */}
       <Box sx={{ px: 2, pt: 2, pb: 2, overflowY: 'auto', ...createScrollbarStyle() }}>
@@ -290,33 +350,15 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
         {/* Operator gate toggle */}
         {isOp && (
           <Field label="Logic gate">
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              {(['AND', 'OR'] as const).map(gate => {
-                const active = (type === 'AND_operator' ? 'AND' : 'OR') === gate;
-                return (
-                  <Box
-                    key={gate}
-                    component="button"
-                    onClick={() => onChange({ type: gate === 'AND' ? 'AND_operator' : 'OR_operator', operator: gate })}
-                    sx={{
-                      flex: 1,
-                      cursor: 'pointer',
-                      py: 1,
-                      fontSize: '0.8rem',
-                      fontWeight: 700,
-                      letterSpacing: '0.08em',
-                      borderRadius: `${flowVizTheme.borderRadius.md}px`,
-                      color: active ? flowVizTheme.colors.text.primary : flowVizTheme.colors.text.tertiary,
-                      backgroundColor: active ? flowVizTheme.colors.surface.active : 'rgba(255,255,255,0.03)',
-                      border: `1px solid ${active ? flowVizTheme.colors.surface.border.focus : flowVizTheme.colors.surface.border.subtle}`,
-                      transition: flowVizTheme.motion.fast,
-                    }}
-                  >
-                    {gate}
-                  </Box>
-                );
-              })}
-            </Box>
+            <SegmentedControl
+              fullWidth
+              aria-label="Logic gate"
+              options={[{ value: 'AND', label: 'AND' }, { value: 'OR', label: 'OR' }]}
+              value={type === 'AND_operator' ? 'AND' : 'OR'}
+              onChange={(gate) =>
+                onChange({ type: gate === 'AND' ? 'AND_operator' : 'OR_operator', operator: gate })
+              }
+            />
           </Field>
         )}
 
@@ -414,33 +456,18 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
         {/* Confidence (non-operator) */}
         {!isOp && (
           <Field label="Confidence">
-            <Box sx={{ display: 'flex', gap: 0.75 }}>
-              {CONFIDENCE_OPTIONS.map(level => {
-                const active = draft.confidence === level;
-                return (
-                  <Box
-                    key={level}
-                    component="button"
-                    onClick={() => { const next = active ? '' : level; set('confidence', next); commit('confidence', next); }}
-                    sx={{
-                      flex: 1,
-                      cursor: 'pointer',
-                      py: 0.6,
-                      fontSize: '0.72rem',
-                      fontWeight: 600,
-                      textTransform: 'capitalize',
-                      borderRadius: `${flowVizTheme.borderRadius.sm}px`,
-                      color: active ? flowVizTheme.colors.text.primary : flowVizTheme.colors.text.tertiary,
-                      backgroundColor: active ? flowVizTheme.colors.surface.active : 'rgba(255,255,255,0.03)',
-                      border: `1px solid ${active ? flowVizTheme.colors.surface.border.focus : flowVizTheme.colors.surface.border.subtle}`,
-                      transition: flowVizTheme.motion.fast,
-                    }}
-                  >
-                    {level}
-                  </Box>
-                );
-              })}
-            </Box>
+            <SegmentedControl
+              fullWidth
+              aria-label="Confidence"
+              options={CONFIDENCE_OPTIONS.map(level => ({ value: level, label: CONFIDENCE_LABELS[level] }))}
+              value={(draft.confidence as typeof CONFIDENCE_OPTIONS[number]) ?? ''}
+              // Confidence is optional, so re-picking the active level clears it.
+              onChange={(level) => {
+                const next = draft.confidence === level ? '' : level;
+                set('confidence', next);
+                commit('confidence', next);
+              }}
+            />
           </Field>
         )}
 

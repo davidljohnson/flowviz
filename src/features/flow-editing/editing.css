@@ -8,6 +8,39 @@
   transition: opacity 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
+/* Grab area, decoupled from the dot. The visible dot stays 10px (a bigger one
+   clutters the canvas), but 10px is far too small to hit — so an invisible
+   pseudo-element widens the target to 24px. The expansion is deliberately
+   lopsided: it reaches ~12px OUTWARD from the node, where there's nothing to
+   compete with, and only ~2px past the dot INWARD, so the strip of node you
+   grab to drag the card is barely touched. Hovering the invisible margin still
+   lights the dot, so the larger target announces itself. */
+.react-flow__node .react-flow__handle::before {
+  content: '';
+  position: absolute;
+}
+
+/* Insets below resolve to a 24x24 target. They look 2px larger than the reach
+   they describe because an absolutely-positioned ::before is placed against the
+   handle's PADDING box (6px, once the 2px border is taken off the 10px dot),
+   not its border box — so every value carries +2px of border compensation.
+   Reach from the visible dot edge is therefore 12px out / 2px in / 7px along. */
+.react-flow__node .react-flow__handle-top::before {
+  inset: -14px -9px -4px -9px;
+}
+
+.react-flow__node .react-flow__handle-bottom::before {
+  inset: -4px -9px -14px -9px;
+}
+
+.react-flow__node .react-flow__handle-left::before {
+  inset: -9px -4px -9px -14px;
+}
+
+.react-flow__node .react-flow__handle-right::before {
+  inset: -9px -14px -9px -4px;
+}
+
 .react-flow__node:hover .react-flow__handle {
   opacity: 1 !important;
   background: #fff;
@@ -58,6 +91,13 @@
 .fv-edge-pill:hover {
   color: #fff;
   background: #2a323d;
+}
+
+/* Selected edge's label pill — a bright ring to match the highlighted line. */
+.fv-edge-pill--selected {
+  color: #fff;
+  background: #2a323d;
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.75);
 }
 
 /* Ghost variant: the "add a label" prompt shown on edge hover. Muted (not

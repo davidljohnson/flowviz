@@ -28,6 +28,12 @@ export interface FlowEditorApi {
   /** Create an edge from a completed handle drag; duplicates are ignored. */
   connect: (connection: { source: string | null; target: string | null }) => void;
   updateEdgeLabel: (edgeId: string, label: string) => void;
+  /** Merge per-edge overrides: data (curve), style (color/dash), markerEnd. */
+  updateEdge: (edgeId: string, patch: { data?: Record<string, unknown>; style?: Record<string, unknown>; markerEnd?: unknown }) => void;
+  /** Swap an edge's source/target so the arrow points the other way. */
+  reverseEdge: (edgeId: string) => void;
+  /** Delete a specific edge. */
+  deleteEdge: (edgeId: string) => void;
   /** Patch node.data fields; a `type` entry also updates the node's renderer type. */
   updateNodeData: (nodeId: string, patch: Record<string, unknown>) => void;
   /** Create a node at the given flow position (center). Returns the new id. */

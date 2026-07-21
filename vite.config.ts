@@ -5,6 +5,9 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
+    // Honor an assigned PORT (dev-preview harnesses, container platforms);
+    // falls back to Vite's default for a plain `npm run dev`.
+    port: Number(process.env.PORT) || 5173,
     proxy: {
       '/api': {
         target: 'http://localhost:3001',
