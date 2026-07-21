@@ -138,7 +138,9 @@ class ErrorBoundary extends Component<Props, State> {
                   <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
                     {this.state.error.message}
                   </Typography>
-                  {process.env.NODE_ENV === 'development' && this.state.errorInfo && (
+                  {/* Vite's own flag — `process` is a Node global that does not
+                      exist in the browser bundle. */}
+                  {import.meta.env.DEV && this.state.errorInfo && (
                     <Box sx={{ mt: 2 }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
                         Component Stack:

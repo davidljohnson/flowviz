@@ -59,12 +59,7 @@ export default function AnalyzeDialog({
       open={open}
       onClose={onClose}
       title="Analyze a report"
-      // Explicit sizing rather than size="medium": the presets only carry
-      // heights and drop any width passed alongside them, which left the form
-      // squeezed into MUI's default column.
-      minWidth="560px"
-      dialogMaxWidth="640px"
-      maxHeight="85vh"
+      size="medium"
     >
       <EnhancedDialogContent>
         <AnalysisInput
@@ -73,7 +68,7 @@ export default function AnalyzeDialog({
           submitLabel={canvasHasContent && mode === 'merge' ? 'Add to canvas' : undefined}
         >
           {canvasHasContent && (
-            <Box sx={{ mb: 3 }}>
+            <Box sx={{ mb: 2.5 }}>
               <Typography
                 component="label"
                 sx={{

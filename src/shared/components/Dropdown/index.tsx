@@ -10,7 +10,6 @@ import {
   ListItemText,
   styled,
   FormControl,
-  InputLabel,
 } from '@mui/material';
 import { flowVizTheme } from '../../theme/flowviz-theme';
 
@@ -95,7 +94,10 @@ export const DropdownMenuItemDanger = styled(DropdownMenuItem)({
 
 // ============= Dropdown Menu Component =============
 
-interface DropdownMenuProps extends Omit<MenuProps, 'PaperProps' | 'MenuListProps'> {
+// `variant` is omitted as well as the slot props: MUI's Menu already has one
+// ('menu' | 'selectedMenu') and this component redefines it as a theme choice,
+// so the two were structurally incompatible. It isn't forwarded to Menu below.
+interface DropdownMenuProps extends Omit<MenuProps, 'PaperProps' | 'MenuListProps' | 'variant'> {
   variant?: 'default' | 'dark';
   minWidth?: number | string;
 }

@@ -4,8 +4,7 @@ import {
   IconButton,
   Typography,
   LinearProgress,
-  Tooltip,
-  Chip
+  Tooltip
 } from '@mui/material';
 import {
   PlayArrow,
@@ -26,7 +25,7 @@ interface ToolbarStoryModeControlsProps {
 const ToolbarStoryModeControls: React.FC<ToolbarStoryModeControlsProps> = ({
   storyState,
   controls,
-  currentStepData,
+  currentStepData: _currentStepData,
   onResetView
 }) => {
   const { isPlaying, currentStep, steps, progress } = storyState;

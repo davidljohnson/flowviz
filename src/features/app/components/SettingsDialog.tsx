@@ -1,10 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Typography,
   Box,
-  FormControlLabel,
-  Switch,
-  MenuItem,
   InputLabel,
   ListSubheader,
   Chip,
@@ -27,12 +24,23 @@ import {
   DropdownMenuItem,
   dropdownMenuStylesDark
 } from '../../../shared/components/Dropdown';
+import SegmentedControl from '../../../shared/components/SegmentedControl';
 import { useProviderConfig } from '../hooks/useProviderConfig';
 import { createScrollbarStyle, flowVizTheme } from '../../../shared/theme/flowviz-theme';
 
+/** Field label, matching the inspector's uppercase micro-label. */
+const fieldLabelSx = {
+  display: 'block',
+  color: flowVizTheme.colors.text.tertiary,
+  fontSize: '0.68rem',
+  fontWeight: 600,
+  letterSpacing: '0.06em',
+  textTransform: 'uppercase' as const,
+  mb: 0.75,
+};
+
 interface SettingsDialogProps {
   open: boolean;
-  cinematicMode: boolean;
   edgeColor: string;
   edgeStyle: string;
   edgeCurve: string;
@@ -40,7 +48,6 @@ interface SettingsDialogProps {
   selectedProvider: string;
   selectedModel: string;
   onClose: () => void;
-  onCinematicModeChange: (enabled: boolean) => void;
   onEdgeColorChange: (color: string) => void;
   onEdgeStyleChange: (style: string) => void;
   onEdgeCurveChange: (curve: string) => void;
@@ -48,7 +55,6 @@ interface SettingsDialogProps {
   onProviderChange: (provider: string) => void;
   onModelChange: (model: string) => void;
   onSave: (settings: {
-    cinematicMode: boolean;
     edgeColor: string;
     edgeStyle: string;
     edgeCurve: string;
@@ -60,7 +66,6 @@ interface SettingsDialogProps {
 
 export default function SettingsDialog({
   open,
-  cinematicMode,
   edgeColor,
   edgeStyle,
   edgeCurve,
@@ -68,7 +73,6 @@ export default function SettingsDialog({
   selectedProvider,
   selectedModel,
   onClose,
-  onCinematicModeChange,
   onEdgeColorChange,
   onEdgeStyleChange,
   onEdgeCurveChange,
@@ -80,15 +84,12 @@ export default function SettingsDialog({
   // Get provider configuration
   const {
     providers,
-    availableModels,
     selectedProvider: defaultProvider,
     selectedModel: defaultModel,
     setSelectedProvider: setProviderConfigProvider,
-    setSelectedModel: setProviderConfigModel,
   } = useProviderConfig();
 
   // Local state for dialog - only apply on save
-  const [localCinematicMode, setLocalCinematicMode] = useState(cinematicMode);
   const [localEdgeColor, setLocalEdgeColor] = useState(edgeColor);
   const [localEdgeStyle, setLocalEdgeStyle] = useState(edgeStyle);
   const [localEdgeCurve, setLocalEdgeCurve] = useState(edgeCurve);
@@ -98,7 +99,6 @@ export default function SettingsDialog({
 
   // Update local state when props change (when dialog opens)
   useEffect(() => {
-    setLocalCinematicMode(cinematicMode);
     setLocalEdgeColor(edgeColor);
     setLocalEdgeStyle(edgeStyle);
     setLocalEdgeCurve(edgeCurve);
@@ -120,11 +120,10 @@ export default function SettingsDialog({
       setLocalSelectedProvider(providerToUse);
       setLocalSelectedModel(modelToUse);
     }
-  }, [cinematicMode, edgeColor, edgeStyle, edgeCurve, storyModeSpeed, selectedProvider, selectedModel, defaultProvider, defaultModel, providers, open]);
+  }, [edgeColor, edgeStyle, edgeCurve, storyModeSpeed, selectedProvider, selectedModel, defaultProvider, defaultModel, providers, open]);
 
   const handleSave = () => {
     // Apply all settings at once by passing the local values directly
-    onCinematicModeChange(localCinematicMode);
     onEdgeColorChange(localEdgeColor);
     onEdgeStyleChange(localEdgeStyle);
     onEdgeCurveChange(localEdgeCurve);
@@ -134,7 +133,6 @@ export default function SettingsDialog({
 
     // Pass the values to save immediately
     onSave({
-      cinematicMode: localCinematicMode,
       edgeColor: localEdgeColor,
       edgeStyle: localEdgeStyle,
       edgeCurve: localEdgeCurve,
@@ -146,7 +144,6 @@ export default function SettingsDialog({
 
   const handleCancel = () => {
     // Reset local state to current values
-    setLocalCinematicMode(cinematicMode);
     setLocalEdgeColor(edgeColor);
     setLocalEdgeStyle(edgeStyle);
     setLocalEdgeCurve(edgeCurve);
@@ -298,50 +295,7 @@ export default function SettingsDialog({
           <FormSection>
             <FormSectionTitle>
               Story Mode
-            </FormSectionTitle>
-            
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={localCinematicMode}
-                  onChange={(e) => setLocalCinematicMode(e.target.checked)}
-                  sx={{
-                    '& .MuiSwitch-switchBase': {
-                      color: 'rgba(255, 255, 255, 0.7)',
-                      '&.Mui-checked': {
-                        color: 'rgba(255, 255, 255, 0.9)',
-                      },
-                      '&.Mui-checked + .MuiSwitch-track': {
-                        backgroundColor: 'rgba(255, 255, 255, 0.3)',
-                      },
-                    },
-                    '& .MuiSwitch-track': {
-                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    },
-                  }}
-                />
-              }
-              label={
-                <Box>
-                  <Typography sx={{ 
-                    color: 'rgba(255, 255, 255, 0.9)', 
-                    fontSize: '0.9rem',
-                    fontWeight: 500 
-                  }}>
-                    Cinematic Mode
-                  </Typography>
-                  <Typography sx={{ 
-                    color: 'rgba(255, 255, 255, 0.6)', 
-                    fontSize: '0.75rem',
-                    mt: 0.5 
-                  }}>
-                    Fade top and bottom edges during story mode playback
-                  </Typography>
-                </Box>
-              }
-              sx={{ alignItems: 'flex-start', ml: 0 }}
-            />
-            
+            </FormSectionTitle>            
             <Box sx={{ mt: 3 }}>
               <FormSectionTitle sx={{ 
                 fontSize: '0.9rem',
@@ -382,47 +336,53 @@ export default function SettingsDialog({
               Edge Styling
             </FormSectionTitle>
             
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <DropdownFormControl size="small" fullWidth>
-                <InputLabel>Color</InputLabel>
-                <DropdownSelect
+            {/* The edge inspector offers these same three choices per edge, as
+                segmented controls with the label above. Matching it means the
+                defaults here look like the thing they set. */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+              <Box>
+                <Typography component="label" sx={fieldLabelSx}>Color</Typography>
+                <SegmentedControl
+                  fullWidth
+                  aria-label="Default edge color"
+                  options={[
+                    { value: 'default', label: 'Default' },
+                    { value: 'white', label: 'White' },
+                    { value: 'blue', label: 'Blue' },
+                  ]}
                   value={localEdgeColor}
-                  onChange={(e) => setLocalEdgeColor(e.target.value as string)}
-                  label="Color"
-                  MenuProps={dropdownMenuStylesDark}
-                >
-                  <DropdownMenuItem value="default">Default (Monochrome)</DropdownMenuItem>
-                  <DropdownMenuItem value="white">Bright White</DropdownMenuItem>
-                  <DropdownMenuItem value="blue">Blue</DropdownMenuItem>
-                </DropdownSelect>
-              </DropdownFormControl>
-              
-              <DropdownFormControl size="small" fullWidth>
-                <InputLabel>Style</InputLabel>
-                <DropdownSelect
+                  onChange={setLocalEdgeColor}
+                />
+              </Box>
+
+              <Box>
+                <Typography component="label" sx={fieldLabelSx}>Style</Typography>
+                <SegmentedControl
+                  fullWidth
+                  aria-label="Default edge style"
+                  options={[
+                    { value: 'solid', label: 'Solid' },
+                    { value: 'dashed', label: 'Dashed' },
+                  ]}
                   value={localEdgeStyle}
-                  onChange={(e) => setLocalEdgeStyle(e.target.value as string)}
-                  label="Style"
-                  MenuProps={dropdownMenuStylesDark}
-                >
-                  <DropdownMenuItem value="solid">Solid</DropdownMenuItem>
-                  <DropdownMenuItem value="dashed">Dashed</DropdownMenuItem>
-                </DropdownSelect>
-              </DropdownFormControl>
-              
-              <DropdownFormControl size="small" fullWidth>
-                <InputLabel>Curve</InputLabel>
-                <DropdownSelect
+                  onChange={setLocalEdgeStyle}
+                />
+              </Box>
+
+              <Box>
+                <Typography component="label" sx={fieldLabelSx}>Shape</Typography>
+                <SegmentedControl
+                  fullWidth
+                  aria-label="Default edge shape"
+                  options={[
+                    { value: 'smooth', label: 'Curved' },
+                    { value: 'straight', label: 'Straight' },
+                    { value: 'step', label: 'Stepped' },
+                  ]}
                   value={localEdgeCurve}
-                  onChange={(e) => setLocalEdgeCurve(e.target.value as string)}
-                  label="Curve"
-                  MenuProps={dropdownMenuStylesDark}
-                >
-                  <DropdownMenuItem value="smooth">Smooth (Curved)</DropdownMenuItem>
-                  <DropdownMenuItem value="straight">Straight</DropdownMenuItem>
-                  <DropdownMenuItem value="step">Step (Elbows)</DropdownMenuItem>
-                </DropdownSelect>
-              </DropdownFormControl>
+                  onChange={setLocalEdgeCurve}
+                />
+              </Box>
             </Box>
           </FormSection>
           

@@ -6,16 +6,18 @@ import {
   DialogActions,
   Button,
   IconButton,
-  Box,
   styled,
   DialogProps,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { flowVizTheme, createGlassStyle, createInteractiveStyle } from '../../theme/flowviz-theme';
+import { flowVizTheme, createGlassStyle } from '../../theme/flowviz-theme';
 
 // Glass dialog variants
+// No default minHeight: forcing every dialog to 40vh left a block of empty
+// space under short content (the clear-canvas prompt, the analyse form). Height
+// follows content; maxHeight is what keeps a long one scrollable.
 const createGlassDialogStyles = ({
-  minHeight = '40vh',
+  minHeight,
   maxHeight = '80vh',
   minWidth,
   dialogMaxWidth,
@@ -83,41 +85,46 @@ const StyledDialogActions = styled(DialogActions)({
   // No border top - maintains clean design
 });
 
-// Close button
+// Close button — a bare icon, like the one on the node inspector's header.
+// It used to borrow createInteractiveStyle, which framed it in a bordered box
+// and dipped it 1px on :active; dismissing a dialog does not need a flourish.
 const CloseButton = styled(IconButton)({
   position: 'absolute',
   right: flowVizTheme.spacing.md,
   top: '50%',
   transform: 'translateY(-50%)',
-  color: flowVizTheme.colors.text.secondary,
-  ...createInteractiveStyle(),
+  color: flowVizTheme.colors.text.tertiary,
   padding: flowVizTheme.spacing.sm,
+  borderRadius: `${flowVizTheme.borderRadius.sm}px`,
+  transition: `color ${flowVizTheme.motion.fast}, background-color ${flowVizTheme.motion.fast}`,
   '&:hover': {
     color: flowVizTheme.colors.text.primary,
     backgroundColor: flowVizTheme.colors.surface.hover,
-  }
+  },
 });
 
 // Button variants
+// `px`/`py` are sx shorthand and mean nothing inside styled(); both buttons
+// carried them and silently fell back to MUI's default padding. Spelled out
+// here so the spacing is the one actually applied.
 export const PrimaryButton = styled(Button)({
-  background: 'rgba(255, 255, 255, 0.1)',
-  color: 'rgba(255, 255, 255, 0.95)',
+  background: flowVizTheme.colors.surface.hover,
+  color: flowVizTheme.colors.text.primary,
   textTransform: 'none',
   fontSize: '0.9rem',
   fontWeight: 500,
   letterSpacing: '0.01em',
-  px: 2.5,
-  py: 0.75,
-  borderRadius: '8px',
-  border: '1px solid rgba(255, 255, 255, 0.15)',
-  transition: 'all 0.2s ease',
+  padding: '6px 20px',
+  borderRadius: `${flowVizTheme.borderRadius.md}px`,
+  border: `1px solid ${flowVizTheme.colors.surface.border.emphasis}`,
+  boxShadow: 'none',
+  // Surface lightens, nothing moves — same rule as the app bar and the graph
+  // controls, so a click doesn't bounce the button under the cursor.
+  transition: `background-color ${flowVizTheme.motion.fast}, border-color ${flowVizTheme.motion.fast}`,
   '&:hover': {
-    background: 'rgba(255, 255, 255, 0.15)',
-    border: '1px solid rgba(255, 255, 255, 0.2)',
-    transform: 'translateY(-1px)',
-  },
-  '&:active': {
-    transform: 'translateY(0)',
+    background: flowVizTheme.colors.surface.active,
+    border: `1px solid ${flowVizTheme.colors.surface.border.focus}`,
+    boxShadow: 'none',
   },
   '&:disabled': {
     background: flowVizTheme.colors.surface.rest,
@@ -127,20 +134,19 @@ export const PrimaryButton = styled(Button)({
 });
 
 export const SecondaryButton = styled(Button)({
-  color: 'rgba(255, 255, 255, 0.7)',
+  color: flowVizTheme.colors.text.secondary,
   textTransform: 'none',
   fontSize: '0.9rem',
   fontWeight: 500,
   letterSpacing: '0.01em',
-  px: 2.5,
-  py: 0.75,
-  borderRadius: '8px',
+  padding: '6px 20px',
+  borderRadius: `${flowVizTheme.borderRadius.md}px`,
   border: '1px solid transparent',
-  transition: 'all 0.2s ease',
+  transition: `background-color ${flowVizTheme.motion.fast}, color ${flowVizTheme.motion.fast}`,
   '&:hover': {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    color: 'rgba(255, 255, 255, 0.85)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
+    backgroundColor: flowVizTheme.colors.surface.rest,
+    color: flowVizTheme.colors.text.primary,
+    border: '1px solid transparent',
   }
 });
 
@@ -174,12 +180,14 @@ export const EnhancedDialog: React.FC<EnhancedDialogProps> = ({
   // Handle size presets
   const getSizeProps = () => {
     switch (size) {
+      // Widths and ceilings only — a preset says how big a dialog may get, not
+      // how much empty space it must reserve.
       case 'small':
-        return { minWidth: '420px', dialogMaxWidth: '480px', minHeight: '30vh', maxHeight: '60vh' };
+        return { minWidth: '420px', dialogMaxWidth: '480px', maxHeight: '60vh' };
       case 'medium':
-        return { minHeight: '40vh', maxHeight: '70vh' };
+        return { minWidth: '520px', dialogMaxWidth: '640px', maxHeight: '70vh' };
       case 'large':
-        return { minHeight: '60vh', maxHeight: '80vh' };
+        return { minWidth: '640px', dialogMaxWidth: '800px', maxHeight: '80vh' };
       case 'fullscreen':
         return { minHeight: '90vh', maxHeight: '90vh' };
       default:

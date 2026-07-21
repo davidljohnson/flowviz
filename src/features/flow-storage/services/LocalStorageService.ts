@@ -1,6 +1,14 @@
 import { SavedFlow, StorageStats, ImportResult } from '../types/SavedFlow';
 import { IFlowStorage, StorageError } from './StorageInterface';
 
+/**
+ * A catch binding is `unknown` — anything can be thrown, not just an Error.
+ * Read the message where there is one, and stringify whatever else turns up
+ * rather than reporting "undefined" to the user.
+ */
+const errorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
 export class LocalStorageService implements IFlowStorage {
   private readonly STORAGE_KEY = 'flowviz_saved_flows';
   private readonly VERSION = '1.0.0';
@@ -35,7 +43,7 @@ export class LocalStorageService implements IFlowStorage {
       if (error instanceof StorageError) {
         throw error;
       }
-      throw new StorageError(`Failed to save flow: ${error.message}`);
+      throw new StorageError(`Failed to save flow: ${errorMessage(error)}`);
     }
   }
 
@@ -118,7 +126,7 @@ export class LocalStorageService implements IFlowStorage {
     );
   }
 
-  async exportFlow(id: string, filename?: string): Promise<Blob> {
+  async exportFlow(id: string, _filename?: string): Promise<Blob> {
     const flow = await this.loadFlow(id);
     const exportData = {
       ...flow,
@@ -169,7 +177,7 @@ export class LocalStorageService implements IFlowStorage {
       await this.saveFlow(validatedFlow);
       return validatedFlow;
     } catch (error) {
-      throw new StorageError(`Failed to import flow: ${error.message}`, 'INVALID_FORMAT');
+      throw new StorageError(`Failed to import flow: ${errorMessage(error)}`, 'INVALID_FORMAT');
     }
   }
 
@@ -217,7 +225,7 @@ export class LocalStorageService implements IFlowStorage {
             } catch (error) {
               result.failed.push({
                 filename: file.name,
-                error: `Failed to import flow: ${error.message}`
+                error: `Failed to import flow: ${errorMessage(error)}`
               });
             }
           }
@@ -229,7 +237,7 @@ export class LocalStorageService implements IFlowStorage {
       } catch (error) {
         result.failed.push({
           filename: file.name,
-          error: error.message
+          error: errorMessage(error)
         });
       }
     }
@@ -357,13 +365,14 @@ export class LocalStorageService implements IFlowStorage {
     try {
       localStorage.setItem(this.STORAGE_KEY, data);
     } catch (error) {
-      if (error.name === 'QuotaExceededError') {
+      // A quota failure arrives as a DOMException, which is an Error subclass.
+      if (error instanceof Error && error.name === 'QuotaExceededError') {
         throw new StorageError(
           'Browser storage quota exceeded. Please delete some saved flows.',
           'QUOTA_EXCEEDED'
         );
       }
-      throw new StorageError(`Failed to save to storage: ${error.message}`);
+      throw new StorageError(`Failed to save to storage: ${errorMessage(error)}`);
     }
   }
 }

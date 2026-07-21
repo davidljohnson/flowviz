@@ -21,18 +21,4 @@ export class ImageOptimizer implements IImageOptimizer {
     // This is a conservative estimate based on Claude's documentation
     return images.length * TOKEN_ESTIMATION.averageTokensPerImage;
   }
-
-  // Future method for actual image resizing
-  private async resizeImage(base64Data: string, maxWidth: number, maxHeight: number): Promise<string> {
-    // This would require canvas manipulation or a library like sharp
-    // Browser environment would use Canvas API
-    // For now, just return the original data
-    return base64Data;
-  }
-
-  // Future method for image compression
-  private compressImage(base64Data: string, quality: number): string {
-    // Implementation would depend on the image format and available libraries
-    return base64Data;
-  }
 }

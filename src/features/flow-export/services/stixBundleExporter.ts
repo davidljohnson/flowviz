@@ -126,7 +126,7 @@ export class STIXBundleExporter {
   /**
    * Generate a proper STIX ID
    */
-  private generateSTIXId(type: string, nodeId: string): string {
+  private generateSTIXId(type: string, _nodeId: string): string {
     const stixType = this.mapToSTIXType(type);
     return `${stixType}--${uuidv4()}`;
   }
@@ -427,7 +427,11 @@ export class STIXBundleExporter {
       return null;
     }
 
-    const relationshipType = this.mapEdgeLabelToSTIXRelationship(edge.label || 'related-to');
+    // ReactFlow types label as ReactNode. FlowViz only ever writes strings, but
+    // nothing enforces that, and both uses below are text-only — the mapper
+    // calls toLowerCase(), and STIX description must be a string.
+    const label = typeof edge.label === 'string' ? edge.label : undefined;
+    const relationshipType = this.mapEdgeLabelToSTIXRelationship(label || 'related-to');
 
     return {
       type: 'relationship',
@@ -438,7 +442,7 @@ export class STIXBundleExporter {
       relationship_type: relationshipType,
       source_ref: sourceSTIX.id,
       target_ref: targetSTIX.id,
-      description: edge.label
+      description: label
     };
   }
 

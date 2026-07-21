@@ -39,7 +39,6 @@ export class AttackFlowV3Exporter {
   private layout: PositionMap = {};
   private nodeIdMap: Map<string, string> = new Map();
   private anchorMap: Map<string, string> = new Map();
-  private latchMap: Map<string, string[]> = new Map(); // anchor -> [latch IDs]
 
   constructor() {}
 
@@ -51,7 +50,6 @@ export class AttackFlowV3Exporter {
     this.layout = {};
     this.nodeIdMap.clear();
     this.anchorMap.clear();
-    this.latchMap.clear();
 
     console.log('Exporting full graph:', nodes.length, 'nodes,', edges.length, 'edges');
 
@@ -164,7 +162,7 @@ export class AttackFlowV3Exporter {
    * Create the main flow container object
    * This will be updated later to include ALL object instances
    */
-  private createFlowObject(nodes: Node[]): DiagramObjectExport {
+  private createFlowObject(_nodes: Node[]): DiagramObjectExport {
     const flowInstance = uuidv4();
 
     return {
@@ -189,7 +187,7 @@ export class AttackFlowV3Exporter {
   /**
    * Convert a React Flow node to an Attack Flow block
    */
-  private convertNodeToBlock(node: Node, edges: Edge[]): DiagramObjectExport[] {
+  private convertNodeToBlock(node: Node, _edges: Edge[]): DiagramObjectExport[] {
     const nodeData = node.data;
     const nodeType = nodeData?.type || node.type;
     const instanceId = this.nodeIdMap.get(node.id);
@@ -454,18 +452,6 @@ export class AttackFlowV3Exporter {
     objects.push(lineObject, sourceLatch, targetLatch, handleObject);
 
     return objects;
-  }
-
-  /**
-   * Update anchor objects to reference their connected latches
-   */
-  private updateAnchorLatches(): void {
-    this.objects.forEach(obj => {
-      if (obj.id === 'vertical_anchor') {
-        const latches = this.latchMap.get(obj.instance) || [];
-        obj.latches = latches;
-      }
-    });
   }
 
   /**

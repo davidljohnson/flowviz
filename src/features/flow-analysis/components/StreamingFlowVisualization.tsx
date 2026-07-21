@@ -10,8 +10,6 @@ import {
   useEdgesState,
   MarkerType,
   useReactFlow,
-  getNodesBounds,
-  getViewportForBounds,
   ConnectionMode
 } from 'reactflow';
 import { toPng } from 'html-to-image';
@@ -52,6 +50,7 @@ import BlurOffIcon from '@mui/icons-material/BlurOff';
 import AddIcon from '@mui/icons-material/Add';
 import CropFreeIcon from '@mui/icons-material/CropFree';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 
 // Spacing of the background dot grid; the snap-to-grid step matches it so
 // dragged nodes land on the visible dots.
@@ -79,7 +78,6 @@ export interface StreamingFlowVisualizationProps {
   /** `mode` lets the host keep the canvas mounted when a merge fails. */
   onError?: (error: Error, mode?: 'merge' | 'replace') => void;
   onContentChanged?: () => void;
-  cinematicMode?: boolean;
   edgeColor?: string;
   edgeStyle?: string;
   edgeCurve?: string;
@@ -92,12 +90,15 @@ export interface StreamingFlowVisualizationProps {
   analysisRequest?: AnalysisRequest | null;
   /** Opens the Analyse dialog from the empty-canvas guidance. */
   onAnalyzeRequested?: () => void;
+  /** Asks the host to empty the canvas (it owns the unsaved-changes prompt). */
+  onClearRequested?: () => void;
 }
 
 const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProps> = ({
   url,
   analysisRequest,
   onAnalyzeRequested,
+  onClearRequested,
   loadedFlow,
   onExportAvailable,
   onClearAvailable,
@@ -108,7 +109,6 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   onProgress,
   onError,
   onContentChanged,
-  cinematicMode = true,
   edgeColor = 'default',
   edgeStyle = 'solid',
   edgeCurve = 'smooth',
@@ -509,6 +509,16 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       run: () => openNodePicker(),
     },
     {
+      id: 'clear-canvas',
+      label: 'Clear canvas',
+      keywords: 'empty reset start over new delete all',
+      icon: DeleteSweepIcon,
+      disabled: isStreaming || !onClearRequested,
+      // The host owns this: it holds the unsaved-changes prompt and the
+      // save/loaded-flow bookkeeping that has to be reset alongside the nodes.
+      run: () => onClearRequested?.(),
+    },
+    {
       id: 'relayout',
       label: 'Clean up layout',
       keywords: 'tidy arrange dagre auto',
@@ -531,7 +541,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       icon: gridVisible ? BlurOnIcon : BlurOffIcon,
       run: toggleGrid,
     },
-  ], [onAnalyzeRequested, isStreaming, openNodePicker, editor, reactFlowInstance, gridVisible, toggleGrid]);
+  ], [onAnalyzeRequested, onClearRequested, isStreaming, openNodePicker, editor, reactFlowInstance, gridVisible, toggleGrid]);
 
   // Edge label editing (double-click an edge)
   const [edgeLabelEdit, setEdgeLabelEdit] = useState<EdgeLabelEditorState | null>(null);
@@ -937,110 +947,76 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
     const filename = `attack-flow-${Date.now()}`;
 
     if (format === 'png') {
-      // For high-resolution PNG export, we need to capture the flow at full scale
-      // not at the current zoom level
-
-      if (inspectorNode) {
-        // If a node is selected, export the container with the inspector panel
-        const element = document.querySelector('.flow-visualization-container') as HTMLElement;
-        if (!element) {
-          console.error('Visualization container not found');
-          return;
-        }
-
-        try {
-          const closeButtonElement = element.querySelector('.node-details-close-button') as HTMLElement;
-          const originalCloseButtonDisplay = closeButtonElement?.style.display;
-          if (closeButtonElement) {
-            closeButtonElement.style.display = 'none';
-          }
-
-          const dataUrl = await toPng(element, {
-            backgroundColor: '#0d1117',
-            pixelRatio: 2,
-          });
-
-          if (closeButtonElement) {
-            closeButtonElement.style.display = originalCloseButtonDisplay || '';
-          }
-
-          const link = document.createElement('a');
-          link.download = `${filename}.png`;
-          link.href = dataUrl;
-          link.click();
-        } catch (error) {
-          console.error('Error exporting to PNG:', error);
-        }
-        return;
-      }
-
-      // PNG export - canonical ReactFlow approach
-      // Note: onlyRenderVisibleElements is enabled, so we must fitView first
-      // to ensure all nodes are in the DOM before capture
+      // A PNG export is a picture of the flow, not a screenshot of the app.
+      // It captures `.react-flow__viewport` — the transformed content layer —
+      // so the inspector, the controls and the editing toolbar are all outside
+      // the captured subtree by construction and need no hiding. (An earlier
+      // version special-cased "a node is selected" by capturing the whole
+      // container instead, which baked the inspector panel and every toolbar
+      // into the image at whatever zoom the user happened to be at.)
       if (nodes.length === 0) {
         console.error('No nodes to export');
         return;
       }
 
-      // 1. Get bounds of all nodes
-      const nodesBounds = getNodesBounds(nodes);
-
-      // 2. Calculate export dimensions based on content
-      const padding = 50;
-      const minDimension = 1500;
-      const scale = Math.max(1, minDimension / Math.min(nodesBounds.width, nodesBounds.height));
-      const imageWidth = Math.round((nodesBounds.width + padding * 2) * scale);
-      const imageHeight = Math.round((nodesBounds.height + padding * 2) * scale);
-
-      // 3. Get optimal viewport transform to fit all nodes
-      const exportViewport = getViewportForBounds(
-        nodesBounds,
-        imageWidth,
-        imageHeight,
-        0.5,  // minZoom
-        2,    // maxZoom
-        padding
-      );
-
-      // 4. Get viewport element (the actual rendered content layer)
       const viewportElement = document.querySelector('.react-flow__viewport') as HTMLElement;
       if (!viewportElement) {
         console.error('ReactFlow viewport not found');
         return;
       }
 
-      // 5. Save current viewport and fitView to ensure all nodes are rendered in DOM
+      // Bounds from the layout sizes, not ReactFlow's `getNodesBounds`: with
+      // onlyRenderVisibleElements on, an offscreen node has no measured size,
+      // so getNodesBounds would frame only what the user had scrolled past.
+      const b = boundsOf(nodes);
+      if (!b) return;
+      const flowWidth = b.maxX - b.minX;
+      const flowHeight = b.maxY - b.minY;
+
+      // Render at 2x for a crisp image, backing off if that would exceed what
+      // canvas can allocate. Browsers cap a single dimension near 16384 device
+      // pixels and the total area well before that, and a canvas over either
+      // limit fails by producing a blank image rather than by throwing.
+      const PIXEL_RATIO = 2;
+      const PAD = 48; // export pixels, applied after zoom
+      const MAX_SIDE = 16384 / PIXEL_RATIO;
+      const MAX_AREA = 40_000_000 / (PIXEL_RATIO * PIXEL_RATIO);
+
+      let zoom = 2;
+      zoom = Math.min(zoom, (MAX_SIDE - PAD * 2) / flowWidth, (MAX_SIDE - PAD * 2) / flowHeight);
+      zoom = Math.min(zoom, Math.sqrt(MAX_AREA / (flowWidth * flowHeight)));
+      zoom = Math.max(zoom, 0.1);
+
+      const imageWidth = Math.round(flowWidth * zoom + PAD * 2);
+      const imageHeight = Math.round(flowHeight * zoom + PAD * 2);
+
+      // Place the top-left of the bounding box at (PAD, PAD) in the image.
+      const tx = PAD - b.minX * zoom;
+      const ty = PAD - b.minY * zoom;
+
+      // onlyRenderVisibleElements culls against the live viewport, so nodes
+      // that have never been on screen are absent from the DOM. fitView brings
+      // every node into view — and therefore into the DOM — before capture; the
+      // export transform is then applied to the clone by html-to-image, which
+      // leaves the culling that already ran untouched.
       const currentViewport = reactFlowInstance.getViewport();
       reactFlowInstance.fitView({ padding: 0.1, duration: 0 });
-
-      // Wait for React to render all nodes
-      await new Promise(resolve => setTimeout(resolve, 50));
-
-      // 6. Hide UI elements
-      const reactFlowElement = document.querySelector('.react-flow') as HTMLElement;
-      const controlsElement = reactFlowElement?.querySelector('.react-flow__controls') as HTMLElement;
-      const attributionElement = reactFlowElement?.querySelector('.react-flow__attribution') as HTMLElement;
-      const origControlsDisplay = controlsElement?.style.display;
-      const origAttributionDisplay = attributionElement?.style.display;
-
-      if (controlsElement) controlsElement.style.display = 'none';
-      if (attributionElement) attributionElement.style.display = 'none';
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
       try {
-        // 7. Capture with calculated viewport transform applied via style
         const dataUrl = await toPng(viewportElement, {
           backgroundColor: '#0d1117',
           width: imageWidth,
           height: imageHeight,
-          pixelRatio: 2,
+          pixelRatio: PIXEL_RATIO,
           style: {
             width: `${imageWidth}px`,
             height: `${imageHeight}px`,
-            transform: `translate(${exportViewport.x}px, ${exportViewport.y}px) scale(${exportViewport.zoom})`,
+            transform: `translate(${tx}px, ${ty}px) scale(${zoom})`,
+            transformOrigin: 'top left',
           },
         });
 
-        // 8. Download
         const link = document.createElement('a');
         link.download = `${filename}.png`;
         link.href = dataUrl;
@@ -1048,9 +1024,6 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       } catch (error) {
         console.error('Error exporting to PNG:', error);
       } finally {
-        // 9. Restore UI visibility and viewport
-        if (controlsElement) controlsElement.style.display = origControlsDisplay || '';
-        if (attributionElement) attributionElement.style.display = origAttributionDisplay || '';
         reactFlowInstance.setViewport(currentViewport);
       }
     } else if (format === 'json') {
@@ -1135,7 +1108,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
 
       URL.revokeObjectURL(objectUrl);
     }
-  }, [nodes, edges, reactFlowInstance, contentType, url, inspectorNode]);
+  }, [nodes, edges, reactFlowInstance, contentType, url]);
 
   const handleClear = useCallback(() => {
     console.log('🧹 Clearing streaming visualization');
@@ -1264,17 +1237,20 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       className={`flow-visualization-container${isStreaming ? ' fv-streaming' : ''}`}
       sx={{
         width: '100%',
-        // Fill exactly the space under the static 64px AppBar. A plain 100vh
-        // overflowed the viewport (AppBar + 100vh) and pushed the bottom-left
-        // controls below the fold. A definite height (not flex) is required so
-        // the graph box / ReactFlow height:100% resolve and fill the canvas.
-        height: 'calc(100vh - 64px)',
+        // Take whatever the app bar leaves, rather than subtracting an assumed
+        // 64px: at fractional display scaling the bar renders ~64.67px, so the
+        // arithmetic overshot the viewport by a sub-pixel and left a permanent
+        // scrollbar. minHeight:0 lets this flex item shrink below its content,
+        // and its used height stays definite, so ReactFlow's height:100% still
+        // resolves and fills the canvas.
+        flex: 1,
+        minHeight: 0,
         backgroundColor: THEME.background.primary,
         position: 'relative'
       }}
     >
-      {/* Cinematic Story Mode Overlay */}
-      {storyState.steps.length > 0 && cinematicMode && (
+      {/* Story-mode vignette: fades the canvas edges during playback. */}
+      {storyState.steps.length > 0 && (
         <Box
           sx={{
             position: 'absolute',

@@ -28,20 +28,20 @@ export default function NewSearchDialog({
     <EnhancedDialog
       open={open}
       onClose={onClose}
-      title="Start New Analysis?"
+      title="Clear the canvas?"
       size="small"
     >
       <EnhancedDialogContent>
         <FlowDialogContent>
           {hasUnsavedChanges ? (
             <>
-              You have unsaved changes to your current analysis. 
-              Would you like to save before starting a new analysis?
+              You have unsaved changes to this flow.
+              Would you like to save before clearing it?
             </>
           ) : (
             <>
-              This will clear your current analysis and return you to the search screen. 
-              Your current visualization will be lost.
+              This empties the canvas so you can start again.
+              The current flow will be lost.
             </>
           )}
         </FlowDialogContent>

@@ -272,10 +272,19 @@ export default function AnalysisInput({
 
   const form = (
     <>
-      {/* Input mode — compact monochrome segmented control */}
-      <Box sx={{ mb: compact ? 3 : 4, display: 'flex', justifyContent: 'center' }}>
+      {/* Input mode — compact monochrome segmented control. Centred on the
+          landing page, where it sits under a centred hero; left-aligned in the
+          dialog, where the title, the field and the copy all start at the same
+          margin and a centred control is the only thing breaking the edge. */}
+      <Box
+        sx={{
+          mb: compact ? 2 : 4,
+          display: 'flex',
+          justifyContent: compact ? 'flex-start' : 'center',
+        }}
+      >
         <SegmentedControl
-          size="md"
+          size={compact ? 'sm' : 'md'}
           aria-label="Input mode"
           options={INPUT_MODES}
           value={inputMode}
@@ -293,10 +302,16 @@ export default function AnalysisInput({
             onChange={(e) => onUrlChange(e.target.value)}
             error={urlError}
             helperText={urlHelperText}
-            sx={{ mb: 3 }}
+            sx={{
+              mb: compact ? 2.5 : 3,
+              // The 56px hero field reads as a text area at dialog width.
+              ...(compact && {
+                '& .MuiOutlinedInput-root': { height: 44, fontSize: '0.9rem' },
+              }),
+            }}
           />
         ) : inputMode === 'pdf' ? (
-          <Box key="pdf" sx={{ mb: 3 }}>
+          <Box key="pdf" sx={{ mb: compact ? 2.5 : 3 }}>
             <input
               ref={fileInputRef}
               type="file"
@@ -424,7 +439,7 @@ export default function AnalysisInput({
             </Box>
           </Box>
         ) : (
-          <Box key="text" sx={{ mb: 3 }}>
+          <Box key="text" sx={{ mb: compact ? 2.5 : 3 }}>
             <SearchInputMultiline
               fullWidth
               multiline
@@ -560,8 +575,26 @@ export default function AnalysisInput({
             type="submit"
             disabled={submitDisabled}
             isLoading={isLoading}
+            // In the dialog this is a confirm button, not a hero call to
+            // action: dialog-button geometry (same height, radius and type
+            // scale as Save/Cancel elsewhere) instead of the 48px pill. The
+            // loading shimmer stays — that part earns its keep on a request
+            // that runs for tens of seconds.
+            sx={
+              compact
+                ? {
+                    height: 36,
+                    px: '18px',
+                    fontSize: '0.9rem',
+                    borderRadius: `${flowVizTheme.borderRadius.md}px`,
+                    gap: 1,
+                  }
+                : undefined
+            }
           >
-            <SearchIcon sx={{ fontSize: 20, color: flowVizTheme.colors.text.primary }} />
+            {!compact && (
+              <SearchIcon sx={{ fontSize: 20, color: flowVizTheme.colors.text.primary }} />
+            )}
             <span>{submitLabel ?? defaultSubmitLabel}</span>
           </HeroSubmitButton>
         </Box>

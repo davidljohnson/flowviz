@@ -239,43 +239,10 @@ export interface ThreatIndicators {
   network_ports?: NetworkPort[];
 }
 
-export interface ExtractedAttackInfo {
-  initialAccess?: BaseAttackTechnique[];
-  execution?: BaseAttackTechnique[];
-  credentialAccess?: BaseAttackTechnique[];
-  defenseEvasion?: BaseAttackTechnique[];
-  commandAndControl?: CommandAndControlTechnique[];
-  collection?: CollectionTechnique[];
-  exfiltration?: ExfiltrationTechnique[];
-  impact?: ImpactTechnique[];
-  persistence?: BaseAttackTechnique[];
-  privilegeEscalation?: BaseAttackTechnique[];
-  lateralMovement?: BaseAttackTechnique[];
-  discovery?: BaseAttackTechnique[];
-  assets?: AttackAsset[];
-  conditions?: AttackCondition[];
-  operators?: AttackOperator[];
-  infrastructure?: Infrastructure[];
-  vulnerabilities?: Vulnerability[];
-  tools?: AttackTool[];
-  processes?: AttackProcess[];
-  files?: AttackFile[];
-  images?: ImageAnalysis[];
-  indicators?: ThreatIndicators;
-}
-
 export interface ArticleContent {
   text: string;
   images?: {
     data: string;
     mediaType: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
   }[];
-}
-
-export interface StreamingProgressUpdate {
-  type: 'json_partial' | 'section_complete' | 'complete' | 'error';
-  sectionName?: string;
-  data?: ExtractedAttackInfo;
-  accumulatedJson?: string;
-  error?: string;
 }

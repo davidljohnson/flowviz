@@ -27,8 +27,7 @@ export const useAppState = () => {
   const [urlError, setUrlError] = useState(false);
   const [urlHelperText, setUrlHelperText] = useState('');
   
-  // Content and visualization state
-  const [articleContent, setArticleContent] = useState<any>(null);
+  // Content and visualization state
   const [exportFunction, setExportFunction] = useState<((format: 'png' | 'json' | 'afb' | 'flowviz') => void) | null>(null);
   const [clearVisualization, setClearVisualization] = useState<(() => void) | null>(null);
   const [storyModeData, setStoryModeData] = useState<any>(null);
@@ -49,8 +48,7 @@ export const useAppState = () => {
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   
   // Settings state with loading state to prevent flash of default values
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
-  const [cinematicMode, setCinematicMode] = useState(true);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [edgeColor, setEdgeColor] = useState('default');
   const [edgeStyle, setEdgeStyle] = useState('solid');
   const [edgeCurve, setEdgeCurve] = useState('smooth');
@@ -60,11 +58,6 @@ export const useAppState = () => {
   
   // Initialize settings from localStorage after mount
   useEffect(() => {
-    const storedCinematic = localStorage.getItem('cinematic_mode');
-    if (storedCinematic !== null) {
-      setCinematicMode(storedCinematic === 'true');
-    }
-
     const storedEdgeColor = localStorage.getItem('edge_color');
     if (storedEdgeColor) {
       setEdgeColor(storedEdgeColor);
@@ -105,8 +98,7 @@ export const useAppState = () => {
   // Storage id of the currently open flow (loaded or saved) - lets Save
   // update in place instead of always duplicating
   const [currentFlowId, setCurrentFlowId] = useState<string | null>(null);
-  // Blank-canvas editing mode: visualization without any AI analysis
-  const [isBlankFlow, setIsBlankFlow] = useState(false);
+  // Blank-canvas editing mode: visualization without any AI analysis
   
   // Toast notification state
   const [toastOpen, setToastOpen] = useState(false);
@@ -155,8 +147,7 @@ export const useAppState = () => {
   };
 
   // Settings save handler
-  const handleSaveSettings = (newSettings?: {
-    cinematicMode: boolean;
+  const handleSaveSettings = (newSettings?: {
     edgeColor: string;
     edgeStyle: string;
     edgeCurve: string;
@@ -165,8 +156,7 @@ export const useAppState = () => {
     selectedModel: string;
   }) => {
     // Use provided settings or current state values
-    const settingsToSave = newSettings || {
-      cinematicMode,
+    const settingsToSave = newSettings || {
       edgeColor,
       edgeStyle,
       edgeCurve,
@@ -175,8 +165,7 @@ export const useAppState = () => {
       selectedModel,
     };
 
-    // Save to localStorage
-    localStorage.setItem('cinematic_mode', settingsToSave.cinematicMode.toString());
+    // Save to localStorage
     localStorage.setItem('edge_color', settingsToSave.edgeColor);
     localStorage.setItem('edge_style', settingsToSave.edgeStyle);
     localStorage.setItem('edge_curve', settingsToSave.edgeCurve);
@@ -194,8 +183,7 @@ export const useAppState = () => {
     setTextContent('');
     setSubmittedUrl('');
     setSubmittedText('');
-    setIsSearchExpanded(false);
-    setArticleContent(null);
+    setIsSearchExpanded(false);
     setExportFunction(null);
     setStoryModeData(null);
     setUrlError(false);
@@ -203,8 +191,7 @@ export const useAppState = () => {
     setLoadedFlow(undefined);
     setHasUnsavedChanges(false);
     setIsLoadedFlow(false);
-    setCurrentFlowId(null);
-    setIsBlankFlow(false);
+    setCurrentFlowId(null);
     // Otherwise a stale request would re-fire the moment the canvas remounts.
     setAnalysisRequest(null);
 
@@ -223,8 +210,7 @@ export const useAppState = () => {
     showError,
     isSearchExpanded,
     urlError,
-    urlHelperText,
-    articleContent,
+    urlHelperText,
     exportFunction,
     clearVisualization,
     storyModeData,
@@ -240,8 +226,7 @@ export const useAppState = () => {
     settingsDialogOpen,
     
     // Settings
-    settingsLoaded,
-    cinematicMode,
+    settingsLoaded,
     edgeColor,
     edgeStyle,
     edgeCurve,
@@ -253,8 +238,7 @@ export const useAppState = () => {
     hasUnsavedChanges,
     isLoadedFlow,
     isStreaming,
-    currentFlowId,
-    isBlankFlow,
+    currentFlowId,
     
     // Toast
     toastOpen,
@@ -270,8 +254,7 @@ export const useAppState = () => {
     setShowError,
     setIsSearchExpanded,
     setUrlError,
-    setUrlHelperText,
-    setArticleContent,
+    setUrlHelperText,
     setExportFunction,
     setClearVisualization,
     setStoryModeData,
@@ -282,8 +265,7 @@ export const useAppState = () => {
     setAnalyzeDialogOpen,
     setSaveFlowDialogOpen,
     setLoadFlowDialogOpen,
-    setSettingsDialogOpen,
-    setCinematicMode,
+    setSettingsDialogOpen,
     setEdgeColor,
     setEdgeStyle,
     setEdgeCurve,
@@ -293,8 +275,7 @@ export const useAppState = () => {
     setHasUnsavedChanges,
     setIsLoadedFlow,
     setIsStreaming,
-    setCurrentFlowId,
-    setIsBlankFlow,
+    setCurrentFlowId,
     setToastOpen,
     setToastMessage,
     setToastSeverity,

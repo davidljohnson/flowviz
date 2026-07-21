@@ -38,7 +38,8 @@ interface UseStoryModeProps {
 
 export const useStoryMode = ({
   nodes,
-  edges,
+  // `edges` stays on the props type (callers pass it) but isn't destructured:
+  // story steps are derived from node positions alone.
   reactFlowInstance,
   storyModeSpeed = 3
 }: UseStoryModeProps) => {
@@ -49,7 +50,10 @@ export const useStoryMode = ({
     progress: 0
   });
 
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  // ReturnType<typeof setInterval> rather than NodeJS.Timeout: this runs in the
+  // browser, where setInterval returns a number, and the NodeJS namespace only
+  // exists if @types/node is pulled into the app's compilation.
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stableNodesRef = useRef<Node[]>([]);
 
   // Generate story steps based on node positions (top to bottom)

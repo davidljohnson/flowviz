@@ -47,7 +47,8 @@ describe('export round-trips for manually created nodes', () => {
     const bundle = new STIXBundleExporter().exportToSTIXBundle([source, target], [edge]);
     const relationship = bundle.objects.find((o: any) => o.type === 'relationship');
     expect(relationship).toBeDefined();
-    expect(relationship.relationship_type).toBe('targets');
+    // find() is typed as possibly-undefined; the assertion above is the guard.
+    expect(relationship!.relationship_type).toBe('targets');
   });
 
   it('every node type survives Attack Flow (AFB) export with valid layout', () => {

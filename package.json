@@ -11,13 +11,14 @@
     "dev": "vite",
     "server": "node server.js",
     "dev:full": "concurrently \"npm run server\" \"npm run dev\"",
-    "build": "tsc && vite build",
+    "build": "tsc -b && vite build",
     "lint": "eslint . --report-unused-disable-directives",
     "preview": "vite preview",
     "start": "node server.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "attack:update": "node scripts/generate-attack-dataset.mjs"
+    "attack:update": "node scripts/generate-attack-dataset.mjs",
+    "typecheck": "tsc -b"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.3",

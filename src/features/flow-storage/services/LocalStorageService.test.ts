@@ -71,13 +71,13 @@ describe('LocalStorageService.validateFlow()', () => {
 
   it('rejects flow missing metadata.createdAt', () => {
     const flow = makeValidFlow();
-    delete flow.metadata.createdAt;
+    delete (flow.metadata as Partial<typeof flow.metadata>).createdAt;
     expect(service.validateFlow(flow)).toBeNull();
   });
 
   it('rejects flow missing metadata.updatedAt', () => {
     const flow = makeValidFlow();
-    delete flow.metadata.updatedAt;
+    delete (flow.metadata as Partial<typeof flow.metadata>).updatedAt;
     expect(service.validateFlow(flow)).toBeNull();
   });
 
@@ -91,14 +91,14 @@ describe('LocalStorageService.validateFlow()', () => {
 
   it('defaults version to "1.0.0" when missing', () => {
     const flow = makeValidFlow();
-    delete flow.metadata.version;
+    delete (flow.metadata as Partial<typeof flow.metadata>).version;
     const result = service.validateFlow(flow);
     expect(result!.metadata.version).toBe('1.0.0');
   });
 
   it('defaults tags to empty array when missing', () => {
     const flow = makeValidFlow();
-    delete flow.metadata.tags;
+    delete (flow.metadata as Partial<typeof flow.metadata>).tags;
     const result = service.validateFlow(flow);
     expect(result!.metadata.tags).toEqual([]);
   });
@@ -112,14 +112,14 @@ describe('LocalStorageService.validateFlow()', () => {
 
   it('computes nodeCount from nodes array when missing', () => {
     const flow = makeValidFlow();
-    delete flow.metadata.nodeCount;
+    delete (flow.metadata as Partial<typeof flow.metadata>).nodeCount;
     const result = service.validateFlow(flow);
     expect(result!.metadata.nodeCount).toBe(1);
   });
 
   it('computes edgeCount from edges array when missing', () => {
     const flow = makeValidFlow();
-    delete flow.metadata.edgeCount;
+    delete (flow.metadata as Partial<typeof flow.metadata>).edgeCount;
     const result = service.validateFlow(flow);
     expect(result!.metadata.edgeCount).toBe(1);
   });

@@ -1,16 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Snackbar, Container, Alert } from '@mui/material';
-import { FlowAlert } from './shared/components/Alert';
+import { Box, Snackbar, Alert } from '@mui/material';
 import { flowVizTheme } from './shared/theme/flowviz-theme';
-import { useQuery } from '@tanstack/react-query';
 import StreamingFlowVisualization from './features/flow-analysis/components/StreamingFlowVisualization';
-import { ClaudeServiceError, NetworkError, APIError, ValidationError } from './features/flow-analysis/services';
 import { SaveFlowDialog, LoadFlowDialog } from './features/flow-storage/components';
 import { SavedFlow } from './features/flow-storage/types/SavedFlow';
 import StreamingProgressBar from './shared/components/StreamingProgressBar';
-import WarningIcon from '@mui/icons-material/Warning';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import { AppBar, SearchForm, NewSearchDialog, SettingsDialog, AnalyzeDialog } from './features/app/components';
+import { AppBar, NewSearchDialog, SettingsDialog, AnalyzeDialog } from './features/app/components';
 import type { AnalyzeMode } from './features/app/components/AnalyzeDialog';
 import { useAppState } from './features/app/hooks';
 import { useProviderConfig } from './features/app/hooks/useProviderConfig';
@@ -29,7 +24,6 @@ export default function App() {
     showError,
     urlError,
     urlHelperText,
-    articleContent,
     exportFunction,
     storyModeData,
     getSaveData,
@@ -48,7 +42,6 @@ export default function App() {
 
     // Settings
     settingsLoaded,
-    cinematicMode,
     edgeColor,
     edgeStyle,
     edgeCurve,
@@ -58,10 +51,8 @@ export default function App() {
 
     // Flow management
     hasUnsavedChanges,
-    isLoadedFlow,
     isStreaming,
     currentFlowId,
-    isBlankFlow,
 
     // Toast
     toastOpen,
@@ -74,7 +65,6 @@ export default function App() {
     setTextContent,
     setInputMode,
     setShowError,
-    setArticleContent,
     setExportFunction,
     setClearVisualization,
     setStoryModeData,
@@ -85,7 +75,6 @@ export default function App() {
     setSaveFlowDialogOpen,
     setLoadFlowDialogOpen,
     setSettingsDialogOpen,
-    setCinematicMode,
     setEdgeColor,
     setEdgeStyle,
     setEdgeCurve,
@@ -96,7 +85,6 @@ export default function App() {
     setIsLoadedFlow,
     setIsStreaming,
     setCurrentFlowId,
-    setIsBlankFlow,
     setToastOpen,
 
     // Handlers
@@ -140,126 +128,10 @@ export default function App() {
     setSelectedModel
   ]);
 
-  const { isLoading, error, refetch } = useQuery({
-    queryKey: ['article', submittedUrl, submittedText],
-    queryFn: async () => {
-      // Just set the article content flag to trigger streaming visualization
-      if (submittedUrl) {
-        setArticleContent({ text: 'URL_PROVIDED', url: submittedUrl });
-      } else if (submittedText) {
-        setArticleContent({ text: submittedText });
-      } else {
-        throw new Error('No URL or text provided');
-      }
-      return null;
-    },
-    enabled: !!(submittedUrl || submittedText) && !articleContent,
-    staleTime: 0,
-    gcTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    retry: (failureCount, error) => {
-      if (error instanceof ValidationError) {
-        return false;
-      }
-      return failureCount < 2;
-    },
-  });
-
-  // Function to get error details and recovery suggestions
-  const getErrorDetails = (error: Error) => {
-    if (error instanceof NetworkError) {
-      return {
-        severity: 'error' as const,
-        title: 'Network Connection Failed',
-        message: error.message,
-        suggestion: 'Please check your internet connection and try again.',
-        action: 'Retry',
-        icon: <ErrorOutlineIcon />,
-      };
-    }
-    
-    if (error instanceof APIError) {
-      if (error.statusCode === 401) {
-        return {
-          severity: 'error' as const,
-          title: 'Authentication Error',
-          message: error.message,
-          suggestion: 'Please check your Anthropic API key in the environment variables.',
-          action: 'Check Configuration',
-          icon: <WarningIcon />,
-        };
-      }
-      
-      if (error.statusCode === 429) {
-        return {
-          severity: 'warning' as const,
-          title: 'Rate Limit Exceeded',
-          message: error.message,
-          suggestion: 'Please wait a moment and try again, or check your API usage limits.',
-          action: 'Retry',
-          icon: <WarningIcon />,
-        };
-      }
-      
-      if (error.statusCode === 402) {
-        return {
-          severity: 'error' as const,
-          title: 'API Quota Exceeded',
-          message: error.message,
-          suggestion: 'Please check your Anthropic account billing status and add credits if needed.',
-          action: 'Check Billing',
-          icon: <ErrorOutlineIcon />,
-        };
-      }
-      
-      return {
-        severity: 'error' as const,
-        title: 'API Error',
-        message: error.message,
-        suggestion: 'Please try again. If the problem persists, contact support.',
-        action: 'Retry',
-        icon: <ErrorOutlineIcon />,
-      };
-    }
-    
-    if (error instanceof ValidationError) {
-      return {
-        severity: 'warning' as const,
-        title: 'Invalid Input',
-        message: error.message,
-        suggestion: 'Please check the URL and ensure it points to a valid article.',
-        action: 'Try Different URL',
-        icon: <WarningIcon />,
-      };
-    }
-    
-    if (error instanceof ClaudeServiceError) {
-      return {
-        severity: 'error' as const,
-        title: 'Service Error',
-        message: error.message,
-        suggestion: 'Please try again. If the problem persists, contact support.',
-        action: 'Retry',
-        icon: <ErrorOutlineIcon />,
-      };
-    }
-    
-    // Generic error
-    return {
-      severity: 'error' as const,
-      title: 'Unexpected Error',
-      message: error.message || 'An unexpected error occurred',
-      suggestion: 'Please try again or contact support if the problem persists.',
-      action: 'Retry',
-      icon: <ErrorOutlineIcon />,
-    };
-  };
-
   /**
-   * Start an analysis. `mode` is 'replace' from the landing page (there is
-   * nothing on the canvas to merge into) and comes from the user's choice when
-   * invoked from the on-canvas Analyse dialog.
+   * Start an analysis. `mode` comes from the user's choice in the Analyse
+   * dialog, and defaults to 'replace' for an empty canvas where there is
+   * nothing to merge into.
    */
   const handleSubmit = (e: React.FormEvent, mode: 'merge' | 'replace' = 'replace') => {
     e.preventDefault();
@@ -279,14 +151,12 @@ export default function App() {
       }
     }
 
-    // A merge keeps the canvas it is merging into, so it must not disturb the
-    // loaded-flow/blank-flow bookkeeping that keeps that canvas mounted.
+    // A merge keeps the canvas it is merging into, so it must not reset the
+    // loaded-flow bookkeeping that tracks what is on screen.
     if (mode === 'replace') {
-      setArticleContent(null);
       setLoadedFlow(undefined);
       setIsLoadedFlow(false);
       setCurrentFlowId(null);
-      setIsBlankFlow(false);
     }
     setSubmittedUrl(isUrlMode ? url : '');
     setSubmittedText(isUrlMode ? '' : textContent);
@@ -298,19 +168,6 @@ export default function App() {
       provider: selectedProvider,
       model: selectedModel,
     });
-  };
-
-  // Blank-canvas mode: open the editor with an empty graph, no AI analysis.
-  // Reuses the loadedFlow path, which skips streaming entirely.
-  const handleNewBlankFlow = () => {
-    setArticleContent(null);
-    setSubmittedUrl('');
-    setSubmittedText('');
-    setLoadedFlow({ nodes: [], edges: [] });
-    setIsLoadedFlow(false);
-    setCurrentFlowId(null);
-    setHasUnsavedChanges(false);
-    setIsBlankFlow(true);
   };
 
   /**
@@ -344,12 +201,6 @@ export default function App() {
   const handleSaveFirstNewSearch = () => {
     setNewSearchDialogOpen(false);
     setSaveFlowDialogOpen(true);
-  };
-
-  const handleRetry = () => {
-    if (submittedUrl || submittedText) {
-      refetch();
-    }
   };
 
   const handleExportAvailable = (exportFn: (format: 'png' | 'json' | 'afb' | 'flowviz') => void) => {
@@ -391,18 +242,11 @@ export default function App() {
 
   const handleLoadFlow = (flow: SavedFlow) => {
     setCurrentFlowId(flow.id);
-    setIsBlankFlow(false);
     setLoadedFlow({
       nodes: flow.nodes,
       edges: flow.edges,
       viewport: flow.visualization?.viewport
-    });
-    
-    setArticleContent({
-      text: flow.sourceText || flow.sourceUrl || 'Loaded from saved flow',
-      images: undefined
-    });
-    
+    });    
     if (flow.sourceUrl) {
       setSubmittedUrl(flow.sourceUrl);
       setInputMode('url');
@@ -429,8 +273,11 @@ export default function App() {
   };
 
   return (
-    <Box sx={{ 
-      minHeight: '100vh',
+    <Box sx={{
+      // Exactly the viewport, not at least it: the app shell is a fixed frame
+      // with the canvas taking whatever the app bar leaves.
+      height: '100vh',
+      overflow: 'hidden',
       background: 'radial-gradient(circle at 50% 50%, #0d1117 0%, #090b0f 100%)',
       position: 'relative',
       '&::before': {
@@ -452,7 +299,7 @@ export default function App() {
         isStreaming={isStreaming}
         exportFunction={exportFunction}
         storyModeData={storyModeData}
-        showGraphActions={(Boolean(articleContent) && Boolean(submittedUrl || submittedText)) || isBlankFlow}
+        showGraphActions={settingsLoaded}
         onNewSearch={handleNewSearch}
         onDownloadClick={handleDownloadClick}
         onSaveClick={() => setSaveFlowDialogOpen(true)}
@@ -461,41 +308,21 @@ export default function App() {
       />
       
       <StreamingProgressBar isVisible={isStreaming} />
-
-
-      {/* Show main form when no content is submitted and not editing a blank flow */}
-      {!submittedUrl && !submittedText && !isBlankFlow && !articleContent && (
-        <SearchForm
-          isLoading={isLoading}
-          isStreaming={isStreaming}
-          inputMode={inputMode}
-          url={url}
-          textContent={textContent}
-          urlError={urlError}
-          urlHelperText={urlHelperText}
-          onInputModeChange={setInputMode}
-          onUrlChange={handleUrlChange}
-          onTextChange={setTextContent}
-          onSubmit={handleSubmit}
-          onBlankFlow={handleNewBlankFlow}
-        />
-      )}
-
       {/* Show visualization for analyses, loaded flows, and blank-canvas editing */}
-      {(articleContent || isBlankFlow) && settingsLoaded && (
+      {settingsLoaded && (
         <StreamingFlowVisualization
           url={submittedUrl || submittedText || ''}
           analysisRequest={analysisRequest}
           onAnalyzeRequested={handleNewSearch}
+          onClearRequested={() => setNewSearchDialogOpen(true)}
           loadedFlow={loadedFlow}
           onExportAvailable={handleExportAvailable}
           onClearAvailable={handleClearAvailable}
           onStoryModeAvailable={handleStoryModeAvailable}
           onError={(error, mode) => {
             if (mode === 'merge') {
-              // The canvas belongs to the user, not to this analysis. Clearing
-              // articleContent here would fail the mount gate below and take
-              // their whole flow down with the failed merge.
+              // The canvas belongs to the user, not to this analysis, so a
+              // failed merge must leave it standing.
               showToast(
                 error.message || 'Analysis failed — the canvas is unchanged',
                 'error'
@@ -504,8 +331,7 @@ export default function App() {
               return;
             }
             showToast(error.message || 'An error occurred during analysis', 'error');
-            // Return to analysis screen and clear inputs
-            setArticleContent(null);
+            // Clear the inputs so the dialog reopens empty.
             setSubmittedUrl('');
             setSubmittedText('');
             setAnalysisRequest(null);
@@ -520,33 +346,12 @@ export default function App() {
             // A freshly generated analysis is unsaved content
             setHasUnsavedChanges(true);
           }}
-          cinematicMode={cinematicMode}
           edgeColor={edgeColor}
           edgeStyle={edgeStyle}
           edgeCurve={edgeCurve}
           storyModeSpeed={storyModeSpeed}
         />
       )}
-
-      {/* Error Display */}
-      {error && (
-        <Container maxWidth="md" sx={{ mt: 2, mb: 4, px: { xs: 2, sm: 3 } }}>
-          <FlowAlert
-            status={error.message?.includes('VALIDATION_ERROR') ? 'warning' : 'error'}
-            title={error.message?.includes('VALIDATION_ERROR') ? 'Input Validation' : 'Analysis Error'}
-            onClose={() => window.location.reload()}
-            sx={{ mb: 2 }}
-          >
-            {error.message?.replace('VALIDATION_ERROR: ', '') || 'An error occurred during analysis'}
-            {error.message?.includes('too long') && (
-              <Box sx={{ mt: 1, fontSize: '0.875rem' }}>
-                💡 <strong>Tip:</strong> For very long articles, the system automatically selects the most relevant sections for analysis.
-              </Box>
-            )}
-          </FlowAlert>
-        </Container>
-      )}
-
       <Snackbar
         open={showError}
         autoHideDuration={4000}
@@ -619,7 +424,7 @@ export default function App() {
         onModeChange={setAnalyzeMode}
         hasUnsavedChanges={hasUnsavedChanges}
         canvasHasContent={canvasHasContent}
-        isLoading={isLoading}
+        isLoading={isStreaming}
         inputMode={inputMode}
         url={url}
         textContent={textContent}
@@ -657,7 +462,6 @@ export default function App() {
       {/* Settings Dialog */}
       <SettingsDialog
         open={settingsDialogOpen && settingsLoaded}
-        cinematicMode={cinematicMode}
         edgeColor={edgeColor}
         edgeStyle={edgeStyle}
         edgeCurve={edgeCurve}
@@ -665,7 +469,6 @@ export default function App() {
         selectedProvider={selectedProvider}
         selectedModel={selectedModel}
         onClose={() => setSettingsDialogOpen(false)}
-        onCinematicModeChange={setCinematicMode}
         onEdgeColorChange={setEdgeColor}
         onEdgeStyleChange={setEdgeStyle}
         onEdgeCurveChange={setEdgeCurve}

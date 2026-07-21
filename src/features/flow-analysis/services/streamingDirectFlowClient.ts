@@ -55,7 +55,6 @@ function withIdPrefix(
 }
 
 export class StreamingDirectFlowClient {
-  private nodeIdMap = new Map<string, string>();
   private processedNodeIds = new Set<string>();
   private processedEdgeIds = new Set<string>();
   private pendingEdges: Array<{edge: Edge, source: string, target: string}> = [];

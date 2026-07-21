@@ -29,12 +29,16 @@ export interface PdfPageImage {
 }
 
 // pdf.js operator codes that mean "this page paints a raster image".
+// The inline-image operator is paintInlineImageXObject; there is no
+// `paintInlineImage`, so the old name resolved to undefined and the comparison
+// could never match a numeric opcode — pages carrying only inline images were
+// silently treated as text-only and skipped for diagram analysis.
 function pageHasRasterImage(fnArray: number[]): boolean {
   const ops = pdfjsLib.OPS;
   return fnArray.some(
     (fn) =>
       fn === ops.paintImageXObject ||
-      fn === ops.paintInlineImage ||
+      fn === ops.paintInlineImageXObject ||
       fn === ops.paintImageMaskXObject
   );
 }

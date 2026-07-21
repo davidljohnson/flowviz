@@ -129,20 +129,6 @@ export const createGlassStyle = (opacity = 0.95) => ({
   boxShadow: flowVizTheme.effects.shadows.md,
 });
 
-export const createInteractiveStyle = () => ({
-  backgroundColor: flowVizTheme.colors.surface.rest,
-  border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
-  borderRadius: flowVizTheme.borderRadius.md,
-  transition: `all ${flowVizTheme.motion.normal}`,
-  '&:hover': {
-    backgroundColor: flowVizTheme.colors.surface.hover,
-    borderColor: flowVizTheme.colors.surface.border.emphasis,
-    transform: 'translateY(-1px)',
-  },
-  '&:active': {
-    transform: 'translateY(1px)',
-  }
-});
 
 export const createStatusStyle = (status: 'success' | 'error' | 'warning' | 'info') => ({
   backgroundColor: flowVizTheme.colors.status[status].bg,

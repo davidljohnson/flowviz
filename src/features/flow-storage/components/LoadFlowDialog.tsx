@@ -19,7 +19,7 @@ import {
   GetApp as ExportIcon,
 } from '@mui/icons-material';
 import { SavedFlow, StorageStats } from '../types/SavedFlow';
-import { LocalStorageService, StorageError } from '../services';
+import { LocalStorageService } from '../services';
 import {
   FlowListItem,
   SearchAndFilters,
@@ -42,6 +42,8 @@ const LoadFlowDialog: React.FC<LoadFlowDialogProps> = ({
   const [flows, setFlows] = useState<SavedFlow[]>([]);
   const [selectedFlow, setSelectedFlow] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  // Only ever reset to [], never populated — the tag-filter UI was never built,
+  // so the tag clause in filteredFlows below always passes.
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<'date' | 'title' | 'nodes'>('date');
   const [loading, setLoading] = useState(false);
@@ -95,13 +97,6 @@ const LoadFlowDialog: React.FC<LoadFlowDialogProps> = ({
       console.error('Error loading storage stats:', err);
     }
   };
-
-  // Get all unique tags from flows
-  const allTags = useMemo(() => {
-    const tags = new Set<string>();
-    flows.forEach(flow => flow.metadata.tags.forEach(tag => tags.add(tag)));
-    return Array.from(tags).sort();
-  }, [flows]);
 
   // Filter and sort flows
   const filteredFlows = useMemo(() => {
@@ -338,14 +333,6 @@ const LoadFlowDialog: React.FC<LoadFlowDialogProps> = ({
     } else if (e.key === 'Escape') {
       handleCancelEdit();
     }
-  };
-
-  const handleTagToggle = (tag: string) => {
-    setSelectedTags(prev => 
-      prev.includes(tag) 
-        ? prev.filter(t => t !== tag)
-        : [...prev, tag]
-    );
   };
 
   const formatFileSize = (bytes: number): string => {

@@ -17,18 +17,3 @@ export const PROCESSING_CONFIG = {
   maxChunkSize: 700000,
   systemPrompt: "You are an expert in cyber threat intelligence and MITRE ATT&CK. Your task is to analyze articles and images to extract detailed attack flow information. You must ONLY respond with a valid JSON object matching the specified structure exactly. Do not include any other text or explanations.",
 } as const;
-
-export const TACTIC_DEFINITIONS = [
-  { key: 'initialAccess', prefix: 'initial', tacticId: 'TA0001' },
-  { key: 'execution', prefix: 'exec', tacticId: 'TA0002' },
-  { key: 'persistence', prefix: 'persist', tacticId: 'TA0003' },
-  { key: 'privilegeEscalation', prefix: 'priv', tacticId: 'TA0004' },
-  { key: 'defenseEvasion', prefix: 'defense', tacticId: 'TA0005' },
-  { key: 'credentialAccess', prefix: 'cred', tacticId: 'TA0006' },
-  { key: 'discovery', prefix: 'discovery', tacticId: 'TA0007' },
-  { key: 'lateralMovement', prefix: 'lateral', tacticId: 'TA0008' },
-  { key: 'collection', prefix: 'collect', tacticId: 'TA0009' },
-  { key: 'commandAndControl', prefix: 'c2', tacticId: 'TA0011' },
-  { key: 'exfiltration', prefix: 'exfil', tacticId: 'TA0010' },
-  { key: 'impact', prefix: 'impact', tacticId: 'TA0040' },
-] as const;

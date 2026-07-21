@@ -1,6 +1,12 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+// This config is evaluated by Node, but @types/node isn't a dependency of the
+// project, so declare just the global we use rather than pulling the whole
+// package in for one env read. Swap for `npm i -D @types/node` if Node APIs
+// are ever needed more widely here.
+declare const process: { env: Record<string, string | undefined> }
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],

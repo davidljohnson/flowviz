@@ -78,8 +78,6 @@ const textLoadingStates: LoadingState[] = [
   }
 ];
 
-const defaultLoadingStates: LoadingState[] = urlLoadingStates;
-
 const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
   loadingStates,
   intervalDuration = 3000,
