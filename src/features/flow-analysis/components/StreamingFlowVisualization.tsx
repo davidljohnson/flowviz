@@ -22,15 +22,16 @@ import 'reactflow/dist/style.css';
 import { Box } from '@mui/material';
 import ErrorBoundary from '../../../shared/components/ErrorBoundary';
 
-import { THEME, NODE_TYPES } from './constants';
+import { THEME, NODE_TYPES, MERGE_CLUSTER_GAP } from './constants';
 import { StreamingDirectFlowClient } from '../services/streamingDirectFlowClient';
-import { getLayoutedElements } from './utils/layoutUtils';
+import { getLayoutedElements, boundsOf, type Bounds } from './utils/layoutUtils';
 
 import FloatingConnectionLine from './edges/FloatingConnectionLine';
 import FloatingEdge from './edges/FloatingEdge';
 import { useStoryMode } from './hooks/useStoryMode';
 import LoadingIndicator from '../../../shared/components/LoadingIndicator';
-import { useFlowEditor, useEditorKeyboard, EdgeLabelEditor } from '../../flow-editing';
+import { useFlowEditor, useEditorKeyboard, EdgeLabelEditor, CommandPalette } from '../../flow-editing';
+import type { Command } from '../../flow-editing';
 import type { EdgeLabelEditorState } from '../../flow-editing';
 import { EdgeActionsProvider } from '../../flow-editing/context/EdgeActionsContext';
 import NodeInspector from '../../flow-editing/components/NodeInspector';
@@ -38,6 +39,7 @@ import EdgeInspector from '../../flow-editing/components/EdgeInspector';
 import EmptyCanvasState from '../../flow-editing/components/EmptyCanvasState';
 import NodeTypePickerMenu, { NodePickerState } from '../../flow-editing/components/NodeTypePickerMenu';
 import { EditorNodeType } from '../../flow-editing/utils/nodeFactoryDefaults';
+import type { AnalysisRequest } from '../types/analysisRequest';
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
@@ -47,6 +49,9 @@ import GridOffIcon from '@mui/icons-material/GridOff';
 // snapping to them — they're independent settings.
 import BlurOnIcon from '@mui/icons-material/BlurOn';
 import BlurOffIcon from '@mui/icons-material/BlurOff';
+import AddIcon from '@mui/icons-material/Add';
+import CropFreeIcon from '@mui/icons-material/CropFree';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 
 // Spacing of the background dot grid; the snap-to-grid step matches it so
 // dragged nodes land on the visible dots.
@@ -71,19 +76,28 @@ export interface StreamingFlowVisualizationProps {
   onStreamingStart?: () => void;
   onStreamingEnd?: () => void;
   onProgress?: (stage: string, message: string) => void;
-  onError?: (error: Error) => void;
+  /** `mode` lets the host keep the canvas mounted when a merge fails. */
+  onError?: (error: Error, mode?: 'merge' | 'replace') => void;
   onContentChanged?: () => void;
   cinematicMode?: boolean;
   edgeColor?: string;
   edgeStyle?: string;
   edgeCurve?: string;
   storyModeSpeed?: number;
-  selectedProvider?: string;
-  selectedModel?: string;
+  /**
+   * What actually starts a stream. `url` is still used for provenance on
+   * export and to pick the loading copy, but it no longer triggers analysis —
+   * see AnalysisRequest for why the trigger had to become an explicit value.
+   */
+  analysisRequest?: AnalysisRequest | null;
+  /** Opens the Analyse dialog from the empty-canvas guidance. */
+  onAnalyzeRequested?: () => void;
 }
 
 const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProps> = ({
   url,
+  analysisRequest,
+  onAnalyzeRequested,
   loadedFlow,
   onExportAvailable,
   onClearAvailable,
@@ -99,8 +113,6 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   edgeStyle = 'solid',
   edgeCurve = 'smooth',
   storyModeSpeed = 3,
-  selectedProvider,
-  selectedModel
 }) => {
   const reactFlowInstance = useReactFlow();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -184,6 +196,23 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   useEffect(() => {
     nodesRef.current = nodes;
   }, [nodes]);
+
+  // The request currently being streamed. Every callback checks this before
+  // touching state: the client keeps reading (and can keep emitting nodes)
+  // after a mid-stream server error, so without it a superseded or failed run
+  // could write onto the canvas belonging to a newer one.
+  const activeRequestIdRef = useRef<string | null>(null);
+  // Requests already started, so a re-render can't restart the same one.
+  const startedRequestIdRef = useRef<string | null>(null);
+
+  // Merge bookkeeping. `preservedIds` is what was on the canvas when the merge
+  // began — those nodes are excluded from layout entirely so they keep the
+  // positions the user gave them. `preservedBounds` is captured once and stays
+  // frozen (preserved nodes never move), giving the incoming cluster a stable
+  // anchor to sit below while it grows.
+  const preservedIdsRef = useRef<Set<string>>(new Set());
+  const preservedBoundsRef = useRef<Bounds | null>(null);
+  const newNodeIdsRef = useRef<Set<string>>(new Set());
 
   const handleNodesChange = useCallback((changes: any) => {
     onNodesChange(changes);
@@ -385,16 +414,23 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
     setNodePicker({ x: clientX, y: clientY, flowPosition, connectFrom });
   }, [reactFlowInstance]);
 
-  const handleAddNodeFromToolbar = useCallback((event: React.MouseEvent<HTMLElement>) => {
-    const { clientX, clientY } = event;
-    // New nodes land at the center of the current view
+  /**
+   * Open the node picker for a node landing at the centre of the current view.
+   * `anchor` is where the menu itself appears — the click point when there was
+   * one, the view centre when invoked from the keyboard.
+   */
+  const openNodePicker = useCallback((anchor?: { x: number; y: number }) => {
     const container = document.querySelector('.flow-visualization-container');
     const rect = container?.getBoundingClientRect();
     const centerX = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
     const centerY = rect ? rect.top + rect.height / 2 : window.innerHeight / 2;
     const flowPosition = reactFlowInstance.screenToFlowPosition({ x: centerX, y: centerY });
-    setNodePicker({ x: clientX, y: clientY, flowPosition });
+    setNodePicker({ x: anchor?.x ?? centerX, y: anchor?.y ?? centerY, flowPosition });
   }, [reactFlowInstance]);
+
+  const handleAddNodeFromToolbar = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    openNodePicker({ x: event.clientX, y: event.clientY });
+  }, [openNodePicker]);
 
   // Right-click empty canvas to drop a standalone node at the cursor
   const handlePaneContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
@@ -430,14 +466,72 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
     });
   }, [inspectorNode]);
 
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
   useEditorKeyboard({
-    enabled: !isStreaming,
+    // Also off while the palette is up: its own list handles the arrow keys,
+    // and Delete/Backspace would otherwise still reach the canvas behind it.
+    enabled: !isStreaming && !paletteOpen,
     onUndo: editor.undo,
     onRedo: editor.redo,
     onDelete: editor.deleteSelection,
     canAddChild: Boolean(inspectorNode),
     onAddChild: handleAddChildFromSelection,
   });
+
+  // ⌘K / Ctrl+K. Registered separately from useEditorKeyboard because it stays
+  // live while streaming — analysing is exactly what you might want next.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.code !== 'KeyK') return;
+      event.preventDefault();
+      setPaletteOpen(prev => !prev);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  const commands = useMemo<Command[]>(() => [
+    {
+      id: 'analyze',
+      label: 'Analyze a report…',
+      keywords: 'url text pdf article import threat intel merge',
+      icon: AutoAwesomeIcon,
+      disabled: !onAnalyzeRequested,
+      run: () => onAnalyzeRequested?.(),
+    },
+    {
+      id: 'add-node',
+      label: 'Add a node…',
+      keywords: 'new technique tool malware asset create',
+      icon: AddIcon,
+      disabled: isStreaming,
+      run: () => openNodePicker(),
+    },
+    {
+      id: 'relayout',
+      label: 'Clean up layout',
+      keywords: 'tidy arrange dagre auto',
+      icon: AutoFixHighIcon,
+      disabled: isStreaming,
+      run: () => editor.relayout(),
+    },
+    {
+      id: 'fit-view',
+      label: 'Fit view',
+      keywords: 'zoom center show all',
+      icon: CropFreeIcon,
+      run: () => reactFlowInstance?.fitView({ padding: 0.15, duration: 600 }),
+    },
+    {
+      id: 'toggle-grid',
+      label: gridVisible ? 'Hide grid dots' : 'Show grid dots',
+      hint: gridVisible ? 'On' : 'Off',
+      keywords: 'background dots grid',
+      icon: gridVisible ? BlurOnIcon : BlurOffIcon,
+      run: toggleGrid,
+    },
+  ], [onAnalyzeRequested, isStreaming, openNodePicker, editor, reactFlowInstance, gridVisible, toggleGrid]);
 
   // Edge label editing (double-click an edge)
   const [edgeLabelEdit, setEdgeLabelEdit] = useState<EdgeLabelEditorState | null>(null);
@@ -501,9 +595,36 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
 
   // Start streaming when URL is provided
   useEffect(() => {
-    if (!url || isStreaming || streamingClientRef.current || loadedFlow) return;
+    if (!analysisRequest) return;
+    // One start per request id. Previously the guard was a client ref that only
+    // ever cleared on a full canvas reset, which is why a second analysis was
+    // impossible; and `loadedFlow` was in the guard too, so a blank canvas
+    // (which sets an empty loadedFlow) could never analyse at all.
+    if (startedRequestIdRef.current === analysisRequest.id) return;
+    if (isStreamingRef.current) return;
+
+    const request = analysisRequest;
+    startedRequestIdRef.current = request.id;
+    activeRequestIdRef.current = request.id;
 
     const startStreaming = async () => {
+      newNodeIdsRef.current = new Set();
+
+      if (request.mode === 'replace') {
+        setNodes([]);
+        setEdges([]);
+        preservedIdsRef.current = new Set();
+        preservedBoundsRef.current = null;
+      } else {
+        // Freeze what's already here. Read from the ref rather than `nodes` so
+        // this is the state at the moment the merge starts, not a render ago.
+        const existing = nodesRef.current;
+        preservedIdsRef.current = new Set(existing.map(n => n.id));
+        preservedBoundsRef.current = boundsOf(existing);
+        // Snapshot for undo, and for putting the canvas back if this fails.
+        editor.beginBatch();
+      }
+
       setIsStreaming(true);
       setShowLoadingIndicator(true); // Show loading indicator when starting
       onStreamingStart?.(); // Notify parent that streaming has started
@@ -512,15 +633,24 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       
       streamingClientRef.current = new StreamingDirectFlowClient();
 
-      await streamingClientRef.current.extractDirectFlowStreaming(url, {
+      // Namespace this run's ids off the request id. Applied to every analysis,
+      // not just merges, so a flow saved today can't collide with one analysed
+      // tomorrow.
+      const runId = request.id.slice(0, 8);
+      const isStale = () => activeRequestIdRef.current !== request.id;
+
+      await streamingClientRef.current.extractDirectFlowStreaming(request.input, {
         onProgress: (stage, message) => {
+          if (isStale()) return;
           onProgress?.(stage, message);
         },
-        
+
         onNode: (node) => {
+          if (isStale()) return;
+          newNodeIdsRef.current.add(node.id);
           // Hide loading indicator when first node appears
           setShowLoadingIndicator(false);
-          
+
           setNodes((prevNodes) => {
             // Add node with initial hidden state to avoid position blip
             const cleanNode = {
@@ -537,6 +667,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
         },
         
         onEdge: (edge) => {
+          if (isStale()) return;
           setEdges((prevEdges) => {
             // Check if edge already exists to prevent duplicates
             if (prevEdges.some(e => e.id === edge.id)) {
@@ -558,20 +689,30 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
         },
         
         onComplete: () => {
+          if (isStale()) return;
+          activeRequestIdRef.current = null;
+          streamingClientRef.current = null;
           console.log('✅ Streaming completed');
           setIsStreaming(false);
           setShowLoadingIndicator(false); // Hide loading indicator on complete
           onStreamingEnd?.(); // Notify parent that streaming has ended
           
-          // Clean up nodes and edges - remove any streaming artifacts
+          // Clean up nodes and edges - remove any streaming artifacts. Scoped to
+          // this run's nodes: on a merge the rest of the canvas is the user's,
+          // and clearing its styles and selection would be a side effect of
+          // analysing something else.
+          const isMergeRun = preservedIdsRef.current.size > 0;
+          const arrived = newNodeIdsRef.current;
+          const isFromThisRun = (id: string) => !isMergeRun || arrived.has(id);
+
           setTimeout(() => {
             setNodes((currentNodes) =>
-              currentNodes.map(node => ({
+              currentNodes.map(node => isFromThisRun(node.id) ? ({
                 ...node,
                 style: undefined, // Remove any inline styles
                 dragging: false,
                 selected: false,
-              }))
+              }) : node)
             );
 
             // Drop the entrance class so culled edges don't re-fade when
@@ -601,6 +742,9 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
 
               return currentEdges
                 .filter(e => {
+                  // Never prune an edge the user drew or that belongs to an
+                  // earlier analysis — only this run's own duplicates.
+                  if (!isFromThisRun(e.source) || !isFromThisRun(e.target)) return true;
                   const ops = feedsOperators.get(e.source);
                   const isBypass = ops?.some(op => operatorTargets.get(op)?.has(e.target));
                   return !isBypass;
@@ -611,38 +755,75 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
                 }));
             });
 
-            // The cleaned-up graph is the undo baseline: nothing from the
-            // streaming pipeline itself should be undoable
-            editor.resetHistory();
+            if (isMergeRun) {
+              // The merge arrived on top of work the user may want back, so it
+              // becomes one undo entry rather than wiping their history.
+              editor.endBatch('Analyze report');
+            } else {
+              // The cleaned-up graph is the undo baseline: nothing from the
+              // streaming pipeline itself should be undoable
+              editor.resetHistory();
+            }
           }, 100);
           
           setTimeout(() => {
-            if (reactFlowInstance) {
-              reactFlowInstance.fitView({ 
-                padding: 0.15, 
-                duration: 800,
-                maxZoom: 1.5,
-                minZoom: 0.1
-              });
+            if (!reactFlowInstance) return;
+            if (isMergeRun) {
+              // Frame what just arrived rather than refitting the whole board,
+              // which would zoom out on every merge until nothing is readable.
+              const merged = nodesRef.current.filter(n => arrived.has(n.id));
+              const b = boundsOf(merged);
+              if (b) {
+                reactFlowInstance.fitBounds(
+                  { x: b.minX, y: b.minY, width: b.maxX - b.minX, height: b.maxY - b.minY },
+                  { padding: 0.2, duration: 800 }
+                );
+                return;
+              }
             }
+            reactFlowInstance.fitView({
+              padding: 0.15,
+              duration: 800,
+              maxZoom: 1.5,
+              minZoom: 0.1
+            });
           }, 600);
         },
         
         onError: (err) => {
+          if (isStale()) return;
+          // Stop accepting this run's output. The client does not return after
+          // reporting an error, so it can keep emitting nodes past this point —
+          // this is what makes the rollback below stick.
+          activeRequestIdRef.current = null;
+          streamingClientRef.current = null;
           console.error('❌ Streaming error:', err);
+
+          if (request.mode === 'merge') {
+            // Put the canvas back rather than stranding half a report on top of
+            // the user's flow.
+            editor.abortBatch();
+            preservedIdsRef.current = new Set();
+            preservedBoundsRef.current = null;
+            newNodeIdsRef.current = new Set();
+          }
+
           setIsStreaming(false);
           setShowLoadingIndicator(false); // Hide loading indicator on error
           onStreamingEnd?.(); // Notify parent that streaming has ended (even on error)
-          onError?.(err); // Pass error to parent for snackbar display
+          onError?.(err, request.mode); // Pass error to parent for snackbar display
         }
       }, {
-        provider: selectedProvider,
-        model: selectedModel
+        provider: request.provider,
+        model: request.model,
+        idPrefix: runId
       });
     };
 
     startStreaming();
-  }, [url, selectedProvider, selectedModel]); // Depend on URL, provider, and model
+    // Only the request drives this. Provider and model ride along inside it, so
+    // changing the model in Settings no longer re-triggers a running analysis.
+  }, [analysisRequest]);
 
   // Track when re-layout needed
   const [needsLayout, setNeedsLayout] = useState(false);
@@ -665,18 +846,57 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   // Apply layout when needed - ONLY during streaming
   useEffect(() => {
     if (needsLayout && nodes.length > 0 && isStreaming) {
-      console.log(`🎨 Applying layout to ${nodes.length} nodes, ${edges.length} edges`);
+      const preserved = preservedIdsRef.current;
+      const isMerge = preserved.size > 0;
+
+      // Lay out only what this run brought in. Passing the whole graph would
+      // rewrite every position — Dagre has no concept of a pinned node — and
+      // chainOrphans would additionally weld the incoming nodes onto the tail
+      // of the existing ones, collapsing both flows into a single chain.
+      const newNodes = isMerge ? nodes.filter(n => !preserved.has(n.id)) : nodes;
+      if (newNodes.length === 0) {
+        setNeedsLayout(false);
+        return;
+      }
+      const newIds = new Set(newNodes.map(n => n.id));
+      const newEdges = isMerge
+        ? edges.filter(e => newIds.has(e.source) && newIds.has(e.target))
+        : edges;
+
+      console.log(`🎨 Applying layout to ${newNodes.length} nodes, ${newEdges.length} edges${isMerge ? ' (merge)' : ''}`);
       // Apply Dagre layout, chaining not-yet-connected nodes so streamed nodes
       // cascade top-to-bottom instead of spreading into one horizontal rank
-      const layouted = getLayoutedElements(nodes, edges, { chainOrphans: true });
+      let laid = getLayoutedElements(newNodes, newEdges, { chainOrphans: true }).nodes;
+
+      if (isMerge && preservedBoundsRef.current) {
+        const pb = preservedBoundsRef.current;
+        const nb = boundsOf(laid);
+        if (nb) {
+          // Anchor the cluster's TOP edge a fixed distance below the existing
+          // flow, and centre it horizontally. Anchoring the centre instead
+          // would make the whole cluster creep upward as it grows, since Dagre
+          // re-lays it from scratch on every streamed node.
+          const dx = (pb.minX + pb.maxX) / 2 - (nb.minX + nb.maxX) / 2;
+          const dy = (pb.maxY + MERGE_CLUSTER_GAP) - nb.minY;
+          laid = laid.map(n => ({ ...n, position: { x: n.position.x + dx, y: n.position.y + dy } }));
+        }
+      }
 
       // Update nodes with new positions and make them visible.
       // Nodes that were already visible glide to their new position; nodes being
       // revealed for the first time only fade in (no slide from the origin).
-      const layoutedNodesWithStyle = layouted.nodes.map(n => {
+      const laidById = new Map(laid.map(n => [n.id, n]));
+
+      // Map over the previous array rather than replacing it wholesale, so
+      // preserved nodes keep both their position and their object identity —
+      // history entries share node objects by reference, and ReactFlow's
+      // measured dimensions live on them.
+      setNodes(prev => prev.map(n => {
+        const l = laidById.get(n.id);
+        if (!l) return n;
         const wasVisible = (n.style as React.CSSProperties | undefined)?.opacity === 1;
         return {
-          ...n,
+          ...l,
           style: {
             opacity: 1,
             transition: wasVisible
@@ -684,13 +904,13 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
               : 'opacity 0.5s ease-in-out'
           }
         };
-      });
-
-      setNodes(layoutedNodesWithStyle);
+      }));
       // Don't override edges here - they are managed by the streaming callbacks
 
-      // Keep the view centered on the graph during streaming
-      if (reactFlowInstance) {
+      // Keep the view centered on the graph during streaming. Suppressed on a
+      // merge: the user is looking at their existing flow, and re-framing every
+      // ~100ms as the new cluster grows would drag it out from under them.
+      if (reactFlowInstance && !isMerge) {
         setTimeout(() => {
           reactFlowInstance.fitView({
             padding: 0.2,
@@ -924,10 +1144,14 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
     setIsStreaming(false);
     editor.resetHistory();
 
-    // Reset streaming client
-    if (streamingClientRef.current) {
-      streamingClientRef.current = null;
-    }
+    // Reset streaming client and disown any in-flight run, so its callbacks
+    // can't write onto the freshly cleared canvas.
+    streamingClientRef.current = null;
+    activeRequestIdRef.current = null;
+    startedRequestIdRef.current = null;
+    preservedIdsRef.current = new Set();
+    preservedBoundsRef.current = null;
+    newNodeIdsRef.current = new Set();
   }, [setNodes, setEdges, editor.resetHistory]);
 
   const handleGetSaveData = useCallback(() => {
@@ -1305,9 +1529,16 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
         {/* Empty-canvas guidance — only for a blank flow (no analysis pending),
             not the brief pre-stream moment of a URL/text analysis */}
         {!isStreaming && nodes.length === 0 && !url && (
-          <EmptyCanvasState onAddNode={handleAddNodeFromToolbar} />
+          <EmptyCanvasState onAddNode={handleAddNodeFromToolbar} onAnalyze={onAnalyzeRequested} />
         )}
       </Box>
+
+      {/* ⌘K — one way in to everything that populates the canvas */}
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        commands={commands}
+      />
 
       {/* Editable node inspector */}
       {inspectorNode && (

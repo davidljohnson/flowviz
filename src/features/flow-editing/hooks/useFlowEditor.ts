@@ -96,6 +96,27 @@ export function useFlowEditor({
     if (state) restore(state);
   }, [history, currentSnapshot, restore]);
 
+  // A change made outside the editor's own ops — currently a streamed analysis
+  // merging into the canvas — bracketed so it lands as one history entry
+  // instead of none. Mirrors beginMove/endMove.
+  const pendingBatchRef = useRef<FlowSnapshot | null>(null);
+
+  const beginBatch = useCallback(() => {
+    pendingBatchRef.current = currentSnapshot();
+  }, [currentSnapshot]);
+
+  const endBatch = useCallback((label: string) => {
+    const before = pendingBatchRef.current;
+    pendingBatchRef.current = null;
+    if (before) commit(label, before);
+  }, [commit]);
+
+  const abortBatch = useCallback(() => {
+    const before = pendingBatchRef.current;
+    pendingBatchRef.current = null;
+    if (before) restore(before);
+  }, [restore]);
+
   const resetHistory = useCallback(() => {
     history.reset();
     pendingMoveRef.current = null;
@@ -295,6 +316,9 @@ export function useFlowEditor({
     undo,
     redo,
     resetHistory,
+    beginBatch,
+    endBatch,
+    abortBatch,
     deleteSelection,
     deleteNode,
     relayout,

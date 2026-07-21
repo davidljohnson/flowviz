@@ -12,6 +12,46 @@ export interface StreamingDirectFlowCallbacks {
 export interface StreamingOptions {
   provider?: string;
   model?: string;
+  /**
+   * Namespace for the ids this run emits. Node and edge ids come straight from
+   * the model, which reuses names like "1" or "node-1" across analyses — so
+   * merging a second report onto a live canvas would collide, and an incoming
+   * edge could silently attach to a node from the previous analysis. Prefixing
+   * makes each run's ids unique on the canvas.
+   */
+  idPrefix?: string;
+}
+
+/**
+ * Rewrites emitted ids into the run's namespace. Applied at the callback
+ * boundary on purpose: the client's own bookkeeping (emittedNodeIds, the
+ * pendingEdges matcher) stays entirely in the model's original id space, so
+ * none of that matching logic has to change. Per-instance state is already
+ * isolated per run — only what reaches the canvas needs to be globally unique.
+ */
+function withIdPrefix(
+  callbacks: StreamingDirectFlowCallbacks,
+  prefix?: string
+): StreamingDirectFlowCallbacks {
+  if (!prefix) return callbacks;
+  const ns = (id: string) => `${prefix}:${id}`;
+  return {
+    ...callbacks,
+    onNode: (node) =>
+      callbacks.onNode({
+        ...node,
+        id: ns(node.id),
+        // data.id is duplicated onto the node data for the exporters.
+        data: { ...node.data, id: ns(node.id) },
+      }),
+    onEdge: (edge) =>
+      callbacks.onEdge({
+        ...edge,
+        id: ns(edge.id),
+        source: ns(edge.source),
+        target: ns(edge.target),
+      }),
+  };
 }
 
 export class StreamingDirectFlowClient {
@@ -56,9 +96,13 @@ export class StreamingDirectFlowClient {
 
   async extractDirectFlowStreaming(
     input: string,
-    callbacks: StreamingDirectFlowCallbacks,
+    rawCallbacks: StreamingDirectFlowCallbacks,
     options?: StreamingOptions
   ): Promise<void> {
+    // Every emission below (including the ones the pending-edge matcher makes)
+    // flows through this single wrapper, so no call site can be missed.
+    const callbacks = withIdPrefix(rawCallbacks, options?.idPrefix);
+
     console.log('=== Starting Streaming Direct Flow Extraction ===');
     console.log('Provider:', options?.provider || 'default');
     console.log('Model:', options?.model || 'default');

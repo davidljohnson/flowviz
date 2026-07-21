@@ -80,6 +80,13 @@ export const LABEL_BG_STYLES = {
   ry: 3,
 } as const;
 
+/**
+ * Vertical gap between the flow already on the canvas and one merged in from a
+ * second report. Comfortably wider than ranksep so the two read as separate
+ * flows rather than one continuous chain.
+ */
+export const MERGE_CLUSTER_GAP = 240;
+
 export const LAYOUT_CONFIG = {
   rankdir: 'TB', // Top-to-bottom layout
   ranksep: 110,  // Vertical gap between ranks (leaves room for edge labels)

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import type { AnalysisRequest } from '../../flow-analysis/types/analysisRequest';
 
 // URL validation helper
 const isValidUrl = (urlString: string): boolean => {
@@ -34,8 +35,15 @@ export const useAppState = () => {
   const [getSaveData, setGetSaveData] = useState<(() => { nodes: any[], edges: any[], viewport: any }) | null>(null);
   const [loadedFlow, setLoadedFlow] = useState<{ nodes: any[], edges: any[], viewport?: any } | undefined>(undefined);
   
+  // The current analysis request. Distinct from submittedUrl/submittedText,
+  // which gate the landing-page-vs-canvas branch; this is what actually starts
+  // a stream, and carries a fresh id each time so the same input can be
+  // analysed more than once.
+  const [analysisRequest, setAnalysisRequest] = useState<AnalysisRequest | null>(null);
+
   // Dialog states
   const [newSearchDialogOpen, setNewSearchDialogOpen] = useState(false);
+  const [analyzeDialogOpen, setAnalyzeDialogOpen] = useState(false);
   const [saveFlowDialogOpen, setSaveFlowDialogOpen] = useState(false);
   const [loadFlowDialogOpen, setLoadFlowDialogOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
@@ -197,6 +205,8 @@ export const useAppState = () => {
     setIsLoadedFlow(false);
     setCurrentFlowId(null);
     setIsBlankFlow(false);
+    // Otherwise a stale request would re-fire the moment the canvas remounts.
+    setAnalysisRequest(null);
 
     if (clearVisualization) {
       clearVisualization();
@@ -222,7 +232,9 @@ export const useAppState = () => {
     loadedFlow,
     
     // Dialog states
+    analysisRequest,
     newSearchDialogOpen,
+    analyzeDialogOpen,
     saveFlowDialogOpen,
     loadFlowDialogOpen,
     settingsDialogOpen,
@@ -265,7 +277,9 @@ export const useAppState = () => {
     setStoryModeData,
     setGetSaveData,
     setLoadedFlow,
+    setAnalysisRequest,
     setNewSearchDialogOpen,
+    setAnalyzeDialogOpen,
     setSaveFlowDialogOpen,
     setLoadFlowDialogOpen,
     setSettingsDialogOpen,

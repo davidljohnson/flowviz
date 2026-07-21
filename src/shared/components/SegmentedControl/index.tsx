@@ -9,7 +9,8 @@ export interface SegmentedOption<T extends string> {
 }
 
 interface SegmentedControlProps<T extends string> {
-  options: SegmentedOption<T>[];
+  /** readonly so callers can define their options with `as const`. */
+  options: readonly SegmentedOption<T>[];
   /** Current selection. '' / null renders nothing active, for optional fields. */
   value: T | '' | null | undefined;
   onChange: (value: T) => void;

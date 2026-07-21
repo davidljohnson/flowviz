@@ -81,3 +81,36 @@ export const getLayoutedElements = (nodes: Node[], edges: Edge[], options: Layou
 
   return { nodes: layoutedNodes, edges };
 };
+
+export interface Bounds { minX: number; minY: number; maxX: number; maxY: number; }
+
+/** The size Dagre reserves for a node — the layout's own idea of its extent. */
+const layoutSizeOf = (node: Node) => {
+  const isOperator = node.type === 'AND_operator' || node.type === 'OR_operator';
+  return {
+    width: isOperator ? 90 : LAYOUT_CONFIG.nodeWidth,
+    height: isOperator ? 44 : LAYOUT_CONFIG.nodeHeight,
+  };
+};
+
+/**
+ * Bounding box of a set of nodes.
+ *
+ * Deliberately uses the same fixed sizes Dagre is given rather than ReactFlow's
+ * measured `node.width`: with onlyRenderVisibleElements on, a node that has
+ * never been scrolled into view has no measured size at all, which would make
+ * the box depend on where the user happened to be looking. Positions are node
+ * centres (nodeOrigin is [0.5, 0.5]), so half-extents apply on each side.
+ */
+export const boundsOf = (nodes: Node[]): Bounds | null => {
+  if (nodes.length === 0) return null;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const node of nodes) {
+    const { width, height } = layoutSizeOf(node);
+    minX = Math.min(minX, node.position.x - width / 2);
+    maxX = Math.max(maxX, node.position.x + width / 2);
+    minY = Math.min(minY, node.position.y - height / 2);
+    maxY = Math.max(maxY, node.position.y + height / 2);
+  }
+  return { minX, minY, maxX, maxY };
+};

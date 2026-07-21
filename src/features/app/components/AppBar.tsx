@@ -138,7 +138,7 @@ export default function AppBar({
           justifyContent: 'flex-end'
         }}>
           {showGraphActions && (
-            <Tooltip title="New search" placement="bottom">
+            <Tooltip title="Analyze a report" placement="bottom">
               <GlassIconButton 
                 onClick={onNewSearch}
                 size="small"

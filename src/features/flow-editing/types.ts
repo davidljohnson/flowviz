@@ -21,6 +21,15 @@ export interface FlowEditorApi {
   undo: () => void;
   redo: () => void;
   resetHistory: () => void;
+  /**
+   * Bracket a change made outside the editor's own ops (a streamed analysis
+   * merging into the canvas) so it becomes one undoable entry.
+   * beginBatch snapshots, endBatch pushes that snapshot under `label`, and
+   * abortBatch puts the snapshot back — for when the change failed part-way.
+   */
+  beginBatch: () => void;
+  endBatch: (label: string) => void;
+  abortBatch: () => void;
   deleteSelection: () => void;
   /** Delete a specific node and its connected edges. */
   deleteNode: (nodeId: string) => void;

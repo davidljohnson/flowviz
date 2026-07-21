@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, Snackbar, Container, Alert } from '@mui/material';
 import { FlowAlert } from './shared/components/Alert';
 import { flowVizTheme } from './shared/theme/flowviz-theme';
@@ -10,24 +10,13 @@ import { SavedFlow } from './features/flow-storage/types/SavedFlow';
 import StreamingProgressBar from './shared/components/StreamingProgressBar';
 import WarningIcon from '@mui/icons-material/Warning';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import { AppBar, SearchForm, NewSearchDialog, SettingsDialog } from './features/app/components';
+import { AppBar, SearchForm, NewSearchDialog, SettingsDialog, AnalyzeDialog } from './features/app/components';
+import type { AnalyzeMode } from './features/app/components/AnalyzeDialog';
 import { useAppState } from './features/app/hooks';
 import { useProviderConfig } from './features/app/hooks/useProviderConfig';
-
-// Text input limits based on Claude's context limits (700k chars max)
-const TEXT_LIMITS = {
-  MAX_CHARS: 650000,
-  WARNING_CHARS: 500000,
-  MAX_WORDS: Math.floor(650000 / 5),
-} as const;
-
-const getTextStats = (text: string) => {
-  const chars = text.length;
-  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-  const isNearLimit = chars > TEXT_LIMITS.WARNING_CHARS;
-  const isOverLimit = chars > TEXT_LIMITS.MAX_CHARS;
-  return { chars, words, isNearLimit, isOverLimit };
-};
+// Input limits based on Claude's context window; shared with AnalysisInput so
+// the submit guard and the character counter can't drift apart.
+import { TEXT_LIMITS, getTextStats } from './shared/utils/textLimits';
 
 export default function App() {
   const {
@@ -46,8 +35,13 @@ export default function App() {
     getSaveData,
     loadedFlow,
 
+    // Analysis
+    analysisRequest,
+    setAnalysisRequest,
+
     // Dialog states
     newSearchDialogOpen,
+    analyzeDialogOpen,
     saveFlowDialogOpen,
     loadFlowDialogOpen,
     settingsDialogOpen,
@@ -87,6 +81,7 @@ export default function App() {
     setGetSaveData,
     setLoadedFlow,
     setNewSearchDialogOpen,
+    setAnalyzeDialogOpen,
     setSaveFlowDialogOpen,
     setLoadFlowDialogOpen,
     setSettingsDialogOpen,
@@ -110,6 +105,11 @@ export default function App() {
     handleSaveSettings,
     clearAllState,
   } = useAppState();
+
+  // Analyse-dialog choices. Transient to one open/submit cycle, so they stay
+  // local rather than joining the persisted app state.
+  const [analyzeMode, setAnalyzeMode] = useState<AnalyzeMode>('merge');
+  const [canvasHasContent, setCanvasHasContent] = useState(false);
 
   // Get provider defaults
   const providerConfig = useProviderConfig();
@@ -256,42 +256,48 @@ export default function App() {
     };
   };
 
-  const handleSubmit = (e: React.FormEvent, options?: { provider?: string; model?: string }) => {
+  /**
+   * Start an analysis. `mode` is 'replace' from the landing page (there is
+   * nothing on the canvas to merge into) and comes from the user's choice when
+   * invoked from the on-canvas Analyse dialog.
+   */
+  const handleSubmit = (e: React.FormEvent, mode: 'merge' | 'replace' = 'replace') => {
     e.preventDefault();
 
-    console.log('Submit with options:', options);
+    const isUrlMode = inputMode === 'url';
+    const input = isUrlMode ? url : textContent;
 
-    if (inputMode === 'url') {
+    if (isUrlMode) {
       if (!url) {
         setShowError(true);
         return;
       }
-
-      setArticleContent(null);
-      setSubmittedUrl(url);
-      setSubmittedText('');
-      setLoadedFlow(undefined);
-      setIsLoadedFlow(false);
-      setCurrentFlowId(null);
-      setIsBlankFlow(false);
     } else {
-      if (!textContent.trim()) {
+      if (!textContent.trim() || getTextStats(textContent).isOverLimit) {
         setShowError(true);
         return;
       }
-      if (getTextStats(textContent).isOverLimit) {
-        setShowError(true);
-        return;
-      }
+    }
 
+    // A merge keeps the canvas it is merging into, so it must not disturb the
+    // loaded-flow/blank-flow bookkeeping that keeps that canvas mounted.
+    if (mode === 'replace') {
       setArticleContent(null);
-      setSubmittedText(textContent);
-      setSubmittedUrl('');
       setLoadedFlow(undefined);
       setIsLoadedFlow(false);
       setCurrentFlowId(null);
       setIsBlankFlow(false);
     }
+    setSubmittedUrl(isUrlMode ? url : '');
+    setSubmittedText(isUrlMode ? '' : textContent);
+
+    setAnalysisRequest({
+      id: crypto.randomUUID(),
+      input,
+      mode,
+      provider: selectedProvider,
+      model: selectedModel,
+    });
   };
 
   // Blank-canvas mode: open the editor with an empty graph, no AI analysis.
@@ -307,8 +313,23 @@ export default function App() {
     setIsBlankFlow(true);
   };
 
+  /**
+   * Opening the Analyse dialog. Whether there is anything to merge into is
+   * read from the canvas at open time via the registered save-data getter,
+   * which is the only handle App has on the live node list.
+   */
   const handleNewSearch = () => {
-    setNewSearchDialogOpen(true);
+    const nodeCount = getSaveData ? getSaveData().nodes.length : 0;
+    setCanvasHasContent(nodeCount > 0);
+    // Merging is the point of the feature, so default to it whenever there is
+    // something to merge into.
+    setAnalyzeMode(nodeCount > 0 ? 'merge' : 'replace');
+    setAnalyzeDialogOpen(true);
+  };
+
+  const handleAnalyzeSubmit = (e: React.FormEvent) => {
+    setAnalyzeDialogOpen(false);
+    handleSubmit(e, canvasHasContent ? analyzeMode : 'replace');
   };
   
   const handleConfirmNewSearch = () => {
@@ -464,16 +485,30 @@ export default function App() {
       {(articleContent || isBlankFlow) && settingsLoaded && (
         <StreamingFlowVisualization
           url={submittedUrl || submittedText || ''}
+          analysisRequest={analysisRequest}
+          onAnalyzeRequested={handleNewSearch}
           loadedFlow={loadedFlow}
           onExportAvailable={handleExportAvailable}
           onClearAvailable={handleClearAvailable}
           onStoryModeAvailable={handleStoryModeAvailable}
-          onError={(error) => {
+          onError={(error, mode) => {
+            if (mode === 'merge') {
+              // The canvas belongs to the user, not to this analysis. Clearing
+              // articleContent here would fail the mount gate below and take
+              // their whole flow down with the failed merge.
+              showToast(
+                error.message || 'Analysis failed — the canvas is unchanged',
+                'error'
+              );
+              setAnalysisRequest(null);
+              return;
+            }
             showToast(error.message || 'An error occurred during analysis', 'error');
             // Return to analysis screen and clear inputs
             setArticleContent(null);
             setSubmittedUrl('');
             setSubmittedText('');
+            setAnalysisRequest(null);
             handleUrlChange(''); // Clear URL input
             setTextContent(''); // Clear text input
           }}
@@ -490,8 +525,6 @@ export default function App() {
           edgeStyle={edgeStyle}
           edgeCurve={edgeCurve}
           storyModeSpeed={storyModeSpeed}
-          selectedProvider={selectedProvider}
-          selectedModel={selectedModel}
         />
       )}
 
@@ -576,6 +609,26 @@ export default function App() {
         onClose={handleCancelNewSearch}
         onConfirm={handleConfirmNewSearch}
         onSaveFirst={handleSaveFirstNewSearch}
+      />
+
+      {/* Analyse a report from the canvas */}
+      <AnalyzeDialog
+        open={analyzeDialogOpen}
+        onClose={() => setAnalyzeDialogOpen(false)}
+        mode={analyzeMode}
+        onModeChange={setAnalyzeMode}
+        hasUnsavedChanges={hasUnsavedChanges}
+        canvasHasContent={canvasHasContent}
+        isLoading={isLoading}
+        inputMode={inputMode}
+        url={url}
+        textContent={textContent}
+        urlError={urlError}
+        urlHelperText={urlHelperText}
+        onInputModeChange={setInputMode}
+        onUrlChange={handleUrlChange}
+        onTextChange={setTextContent}
+        onSubmit={handleAnalyzeSubmit}
       />
 
       {/* Save Flow Dialog */}
