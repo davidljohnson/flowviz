@@ -9,7 +9,7 @@ import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
 import GppMaybeRoundedIcon from '@mui/icons-material/GppMaybeRounded';
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
 import { getNodeTypeDisplay } from './nodeUtils';
-import { getNodeColor, getContrastText } from './nodeStyles';
+import { getIconTileStyle } from './nodeStyles';
 import { flowVizTheme } from '../../../../../shared/theme/flowviz-theme';
 
 // Crossed-swords glyph (Material Design Icons "sword-cross") — MUI ships no sword
@@ -33,26 +33,33 @@ interface NodeHeaderProps {
   nodeType: string;
   /** Right-aligned content (e.g. the inspector's delete/close actions). */
   endSlot?: ReactNode;
-  /** Larger type label for the inspector header (a title, not a compact chip). */
+  /** Larger token + label for the inspector header. */
   prominent?: boolean;
   /**
-   * Makes the type label itself the change-type control (inspector only). The
-   * banner already *is* the type indicator, so the indicator doubles as the
-   * trigger rather than introducing a second place to read the type from. Node
-   * cards leave this unset and stay inert.
+   * Makes the token + type name the change-type control (inspector only). The
+   * token already *is* the type indicator, so it doubles as the trigger rather
+   * than introducing a second place to read the type from.
    */
   onTypeClick?: (event: React.MouseEvent<HTMLElement>) => void;
 }
 
-// Full-width banner in the node-type color. Caps the node card (clipped by the
-// card's surface) and also tops the inspector, so the two read as the same
-// object. The type label (with its icon) uses an auto-picked contrast ink.
-export function NodeHeader({ nodeType, endSlot, prominent = false, onTypeClick }: NodeHeaderProps) {
-  const accentColor = getNodeColor(nodeType);
-  const ink = getContrastText(accentColor);
+// The type "token": the small colored tile holding the icon. It is the card's
+// and the inspector's shared moment of color, so the two read as one object.
+export function TypeToken({ nodeType, size, sx }: { nodeType: string; size: number; sx?: object }) {
   const Icon = NODE_ICONS[nodeType];
-  // Wash tuned to the banner's own ink so it reads on light and dark accents alike.
-  const inkHover = ink === '#ffffff' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.14)';
+  if (!Icon) return null;
+  return (
+    <Box className="fv-type-token" sx={{ ...getIconTileStyle(nodeType, size), ...sx }}>
+      <Icon sx={{ fontSize: `${Math.round(size * 0.58)}px` }} />
+    </Box>
+  );
+}
+
+// Inspector header: the token + type name, doubling as the change-type control,
+// with the panel actions pushed to the right. Node cards do not use this — they
+// set the node's name inline with the token instead, so the name leads.
+export function NodeHeader({ nodeType, endSlot, prominent = false, onTypeClick }: NodeHeaderProps) {
+  const labelColor = 'rgba(255, 255, 255, 0.5)';
 
   return (
     <Box
@@ -61,9 +68,6 @@ export function NodeHeader({ nodeType, endSlot, prominent = false, onTypeClick }
         alignItems: 'center',
         justifyContent: endSlot ? 'space-between' : 'flex-start',
         gap: 0.6,
-        px: 1.25,
-        py: prominent ? 0.85 : 0.6,
-        backgroundColor: accentColor,
       }}
     >
       <Box
@@ -75,40 +79,39 @@ export function NodeHeader({ nodeType, endSlot, prominent = false, onTypeClick }
         sx={{
           display: 'inline-flex',
           alignItems: 'center',
-          gap: 0.6,
+          gap: 1,
           minWidth: 0,
           ...(onTypeClick && {
-            // Reset the button chrome, then re-earn a hit area around the label.
+            // Reset the button chrome, then re-earn a hit area around the token.
             appearance: 'none',
             font: 'inherit',
             background: 'transparent',
             border: 'none',
             cursor: 'pointer',
-            mx: -0.75,
-            px: 0.75,
-            py: 0.25,
+            mx: -0.5,
+            px: 0.5,
+            py: 0.35,
             borderRadius: `${flowVizTheme.borderRadius.sm}px`,
             transition: `background-color ${flowVizTheme.motion.fast}`,
-            '&:hover': { backgroundColor: inkHover },
-            // The chevron is the only always-on hint that this is actionable;
-            // it firms up on hover rather than appearing from nothing, so the
-            // banner doesn't change shape under the cursor.
+            '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.05)' },
+            // The chevron is the only always-on hint that this is actionable; it
+            // firms up on hover rather than appearing from nothing.
             '&:hover .fv-type-caret': { opacity: 1 },
           }),
         }}
       >
-        {Icon && (
-          <Icon sx={{ fontSize: prominent ? '1rem' : '0.85rem', color: ink }} />
-        )}
+        <TypeToken nodeType={nodeType} size={prominent ? 28 : 22} />
         <Typography
-          variant="caption"
           sx={{
-            color: ink,
+            color: labelColor,
             textTransform: 'uppercase',
-            fontSize: prominent ? '0.82rem' : '0.68rem',
-            letterSpacing: prominent ? '0.06em' : '0.07em',
-            fontWeight: 700,
-            lineHeight: 1.6,
+            fontSize: prominent ? '0.72rem' : '0.6rem',
+            letterSpacing: '0.1em',
+            fontWeight: 600,
+            lineHeight: 1.2,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
           }}
         >
           {getNodeTypeDisplay(nodeType)}
@@ -118,7 +121,7 @@ export function NodeHeader({ nodeType, endSlot, prominent = false, onTypeClick }
             className="fv-type-caret"
             sx={{
               fontSize: '1rem',
-              color: ink,
+              color: labelColor,
               opacity: 0.55,
               transition: `opacity ${flowVizTheme.motion.fast}`,
             }}

@@ -105,11 +105,10 @@ export const FlowToast: React.FC<FlowToastProps> = ({
         color: statusColors.text,
         fontSize: '0.875rem',
         fontWeight: 500,
-        transition: `all ${flowVizTheme.motion.normal}`,
+        transition: `background-color ${flowVizTheme.motion.fast}`,
         cursor: onClose ? 'pointer' : 'default',
         '&:hover': onClose ? {
           backgroundColor: statusColors.bg.replace('0.1)', '0.15)'),
-          transform: 'translateY(-1px)',
         } : {},
       }}
       onClick={onClose}
@@ -172,13 +171,11 @@ export const StatusChip = React.forwardRef<HTMLDivElement, StatusChipProps>((pro
         letterSpacing: '0.05em',
         height: size === 'small' ? '20px' : '24px',
         textTransform: 'uppercase',
-        transition: `all ${flowVizTheme.motion.normal}`,
+        transition: `background-color ${flowVizTheme.motion.fast}`,
         '&:hover': {
-          backgroundColor: variant === 'filled' 
+          backgroundColor: variant === 'filled'
             ? statusColors.bg.replace('0.1)', '0.15)')
             : statusColors.bg,
-          transform: 'translateY(-1px)',
-          boxShadow: flowVizTheme.effects.shadows.sm,
         },
         '& .MuiChip-label': {
           padding: size === 'small' ? '0 6px' : '0 8px',

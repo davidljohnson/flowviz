@@ -161,7 +161,7 @@ export default function SettingsDialog({
       fullWidth
       size="medium"
     >
-      <EnhancedDialogContent sx={createScrollbarStyle('8px')}>
+      <EnhancedDialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
 
           <FormSection>

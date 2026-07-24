@@ -59,13 +59,23 @@ export default function AnalyzeDialog({
       open={open}
       onClose={onClose}
       title="Analyze a report"
+      subtitle="Reads a threat intel report and maps each attack step to a MITRE ATT&CK technique."
       size="medium"
     >
       <EnhancedDialogContent>
         <AnalysisInput
           {...inputProps}
           compact
-          submitLabel={canvasHasContent && mode === 'merge' ? 'Add to canvas' : undefined}
+          // With a flow already on the canvas, the button names what happens to
+          // it and mirrors the toggle above. Empty canvas has no toggle, so it
+          // falls through to the plain "Analyze report".
+          submitLabel={
+            canvasHasContent
+              ? mode === 'merge'
+                ? 'Add to canvas'
+                : 'Replace canvas'
+              : undefined
+          }
         >
           {canvasHasContent && (
             <Box sx={{ mb: 2.5 }}>

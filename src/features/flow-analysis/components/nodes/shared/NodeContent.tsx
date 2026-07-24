@@ -1,62 +1,51 @@
-import { Box, Typography, Link } from '@mui/material';
-import { getTextStyle, getMitreLink, hasDescription, hasName, isAttackAction } from './nodeUtils';
+import { Box, Typography } from '@mui/material';
+import { hasName, isAttackAction } from './nodeUtils';
 import { TACTIC_NAMES } from '../../constants';
 
 interface NodeContentProps {
   data: any;
-  showTechniqueLink?: boolean;
   showCommandLine?: boolean;
   showTacticId?: boolean;
 }
 
+// The card body under the type header: the node's name as the title, then the
+// description, an optional command-line preview, and the tactic beat for
+// techniques. The title wraps to two lines before it truncates, so a long name
+// still reads (and exports) far better than a single clipped line.
 export function NodeContent({
   data,
-  showTechniqueLink = false,
   showCommandLine = false,
   showTacticId = false
 }: NodeContentProps) {
   const displayText = hasName(data) ? data.name : data.type;
-  const { text, style } = getTextStyle(displayText);
   const tacticLabel = data.tactic_name || TACTIC_NAMES[data.tactic_id] || data.tactic_id;
+  const description = typeof data.description === 'string' ? data.description.trim() : '';
 
   return (
     <>
-      {/* Node Name/Title */}
-      <Typography variant="h6" component="div" sx={{
+      {/* Title (the node's name) */}
+      <Typography
+        variant="h6"
+        component="div"
+        sx={{
           color: 'rgba(255, 255, 255, 0.95)',
-          mb: 0.75,
-          fontSize: '0.9rem',
+          mb: 0.5,
+          fontSize: '0.92rem',
           fontWeight: 600,
-          lineHeight: 1.35,
+          lineHeight: 1.3,
           letterSpacing: '-0.01em',
-          maxWidth: '220px',
-          ...style
-        }}>
-          {text}
-          {showTechniqueLink && isAttackAction(data) && data.technique_id && data.technique_id !== data.name && (
-            <Link
-              href={getMitreLink(data.technique_id)}
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={{
-                ml: 0.75,
-                color: 'rgba(255, 255, 255, 0.45)',
-                fontSize: '0.75rem',
-                fontWeight: 500,
-                textDecoration: 'none',
-                '&:hover': {
-                  color: '#fff',
-                  textDecoration: 'underline'
-                }
-              }}
-            >
-              {data.technique_id}
-            </Link>
-          )}
+          wordBreak: 'break-word',
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+        }}
+      >
+        {displayText}
       </Typography>
 
       {/* Description */}
-      {hasDescription(data) && (
+      {description && (
         <Typography
           variant="body2"
           sx={{
@@ -66,12 +55,12 @@ export function NodeContent({
             mb: 1,
             wordBreak: 'break-word',
             display: '-webkit-box',
-            WebkitLineClamp: 3,
+            WebkitLineClamp: 4,
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden'
           }}
         >
-          {data.description}
+          {description}
         </Typography>
       )}
 

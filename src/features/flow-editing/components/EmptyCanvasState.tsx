@@ -95,10 +95,11 @@ const EmptyCanvasState: React.FC<EmptyCanvasStateProps> = ({ onAddNode, onAnalyz
                 backgroundColor: flowVizTheme.colors.surface.active,
                 border: `1px solid ${flowVizTheme.colors.surface.border.emphasis}`,
                 borderRadius: `${flowVizTheme.borderRadius.md}px`,
-                transition: flowVizTheme.motion.normal,
+                // Fill stays put — surface.active is the brightest step — so the
+                // border alone reads as the hover, matching "Add a node" beside it.
+                transition: `border-color ${flowVizTheme.motion.fast}`,
                 '&:hover': {
-                  border: `1px solid ${flowVizTheme.colors.surface.border.focus}`,
-                  transform: 'translateY(-1px)',
+                  borderColor: flowVizTheme.colors.surface.border.focus,
                 },
               }}
             >

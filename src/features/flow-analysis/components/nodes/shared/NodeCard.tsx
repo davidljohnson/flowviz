@@ -1,8 +1,9 @@
 import { Box } from '@mui/material';
-import { getBaseNodeStyle, getNodeSurfaceStyle, getNodeColor, NODE_BODY_BG } from './nodeStyles';
+import { getBaseNodeStyle, getNodeSurfaceStyle, getNodeColor } from './nodeStyles';
 import { NodeHandles } from './NodeHandles';
 import { NodeHeader } from './NodeHeader';
 import { NodeContent } from './NodeContent';
+import { NoteBadge } from './NoteBadge';
 
 interface NodeCardProps {
   data: any;
@@ -13,11 +14,11 @@ interface NodeCardProps {
 }
 
 /**
- * Shared shell for the standard node types: a type-colored banner caps the
- * card (border tinted to match), with the title/description in a padded body
- * below. Operator nodes keep their own pill shape.
+ * Shared shell for the standard node types: the type header (token + type name)
+ * caps the card, with the node's name as the title and the description below on
+ * one unified surface.
  */
-export function NodeCard({ data, selected, showTechniqueLink, showCommandLine, showTacticId }: NodeCardProps) {
+export function NodeCard({ data, selected, showCommandLine, showTacticId }: NodeCardProps) {
   const isNewNode = data.isNewNode;
 
   return (
@@ -26,15 +27,18 @@ export function NodeCard({ data, selected, showTechniqueLink, showCommandLine, s
       sx={{ ...getBaseNodeStyle(selected, isNewNode), '--fv-node-glow': `${getNodeColor(data.type)}4D` }}
     >
       <Box sx={getNodeSurfaceStyle(data.type, selected)}>
-        <NodeHeader nodeType={data.type} />
+        <Box sx={{ px: 1.75, pt: 1.4, pb: 1.5, position: 'relative' }}>
+          <NodeHeader nodeType={data.type} />
 
-        <Box sx={{ px: 1.75, py: 1.5, background: NODE_BODY_BG }}>
-          <NodeContent
-            data={data}
-            showTechniqueLink={showTechniqueLink}
-            showCommandLine={showCommandLine}
-            showTacticId={showTacticId}
-          />
+          <Box sx={{ mt: 1 }}>
+            <NodeContent
+              data={data}
+              showCommandLine={showCommandLine}
+              showTacticId={showTacticId}
+            />
+          </Box>
+
+          <NoteBadge text={typeof data.notes === 'string' ? data.notes : ''} />
         </Box>
       </Box>
 

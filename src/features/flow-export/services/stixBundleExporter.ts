@@ -2,13 +2,16 @@ import { v4 as uuidv4 } from 'uuid';
 import { Node, Edge } from 'reactflow';
 
 // STIX 2.1 Bundle types
+//
+// A Bundle is a container, not an SDO: the 2.1 schema gives it `type`, `id` and
+// `objects` and nothing else, so it carries no spec_version, created or
+// modified of its own — each object inside states its own spec_version. It also
+// declares minItems:1 on `objects`, which is why an empty export omits the
+// property rather than sending an empty array.
 interface STIXBundle {
   type: 'bundle';
   id: string;
-  spec_version: '2.1';
-  created: string;
-  modified: string;
-  objects: STIXObject[];
+  objects?: STIXObject[];
 }
 
 interface STIXObject {
@@ -55,6 +58,10 @@ export class STIXBundleExporter {
       }
     });
 
+    // Groupings can only be filled in once every node has a STIX id, so this
+    // is a second pass rather than part of the conversion above.
+    this.populateGroupingRefs(edges);
+
     // Process edges as relationships
     edges.forEach(edge => {
       const relationship = this.convertEdgeToSTIXRelationship(edge);
@@ -64,19 +71,50 @@ export class STIXBundleExporter {
     });
 
     // Create the bundle
-    const bundle: STIXBundle = {
+    const objects = [
+      ...Array.from(this.stixObjects.values()),
+      ...this.relationships
+    ];
+
+    return {
       type: 'bundle',
       id: `bundle--${uuidv4()}`,
-      spec_version: '2.1',
-      created: this.createdTime,
-      modified: this.modifiedTime,
-      objects: [
-        ...Array.from(this.stixObjects.values()),
-        ...this.relationships
-      ]
+      ...(objects.length > 0 && { objects })
     };
+  }
 
-    return bundle;
+  /**
+   * Fill in object_refs for the groupings that stand in for AND/OR operators.
+   *
+   * The refs are the operator's inputs — the nodes whose edges arrive at it,
+   * which are the things actually being combined. An operator with no inputs
+   * has nothing to group, and `object_refs` may not be empty, so it falls back
+   * to what the operator leads to and is dropped entirely if that is empty too.
+   * Dropping it also drops its edges, since relationships to an absent object
+   * are already skipped.
+   */
+  private populateGroupingRefs(edges: Edge[]): void {
+    for (const [nodeId, stixObject] of this.stixObjects) {
+      if (stixObject.type !== 'grouping') continue;
+
+      const refsFrom = (ids: string[]) =>
+        ids
+          .map(id => this.stixObjects.get(id)?.id)
+          .filter((id): id is string => Boolean(id));
+
+      const inputs = refsFrom(edges.filter(e => e.target === nodeId).map(e => e.source));
+      const objectRefs = inputs.length > 0
+        ? inputs
+        : refsFrom(edges.filter(e => e.source === nodeId).map(e => e.target));
+
+      if (objectRefs.length === 0) {
+        console.warn(`Dropping unconnected operator from STIX export: ${nodeId}`);
+        this.stixObjects.delete(nodeId);
+        continue;
+      }
+
+      stixObject.object_refs = objectRefs;
+    }
   }
 
   /**
@@ -311,6 +349,8 @@ export class STIXBundleExporter {
       name: data.name || 'Unknown Asset',
       description: data.description,
       identity_class: this.mapAssetToIdentityClass(data.role || data.asset_type),
+      // Omitted rather than defaulted when nothing is inferable: `sectors` is
+      // optional, and its vocabulary has no catch-all member to fall back on.
       sectors: this.inferSectors(data),
       x_asset_type: data.asset_type,
       x_role: data.role,
@@ -338,10 +378,10 @@ export class STIXBundleExporter {
   /**
    * Infer sectors from asset data
    */
-  private inferSectors(data: any): string[] {
+  private inferSectors(data: any): string[] | undefined {
     const description = (data.description || '').toLowerCase();
     const sectors = [];
-    
+
     if (description.includes('financial') || description.includes('bank')) {
       sectors.push('financial-services');
     }
@@ -354,8 +394,10 @@ export class STIXBundleExporter {
     if (description.includes('tech') || description.includes('software')) {
       sectors.push('technology');
     }
-    
-    return sectors.length > 0 ? sectors : ['general'];
+
+    // 'general' used to be the default here, but industry-sector-ov has no such
+    // member — every asset we couldn't classify was carrying a made-up value.
+    return sectors.length > 0 ? sectors : undefined;
   }
 
   /**
@@ -370,7 +412,10 @@ export class STIXBundleExporter {
       modified: this.modifiedTime,
       name: data.name || 'Unknown Indicator',
       description: data.description,
-      indicator_types: [indicatorType],
+      // indicator-type-ov describes what the indicator signifies, not what kind
+      // of observable it matches — 'url' is not a member. The observable kind is
+      // already carried by the pattern below.
+      indicator_types: ['malicious-activity'],
       pattern: this.createSTIXPattern(data, indicatorType),
       pattern_type: 'stix',
       valid_from: this.createdTime,
@@ -470,8 +515,8 @@ export class STIXBundleExporter {
     if (lowerLabel.includes('authored')) return 'authored-by';
     if (lowerLabel.includes('located')) return 'located-at';
     if (lowerLabel.includes('consists')) return 'consists-of';
-    if (lowerLabel.includes('uses')) return 'uses';
-    
+
+
     // For attack flow sequences, use 'related-to' with description
     if (lowerLabel.includes('followed by') || lowerLabel.includes('leads to')) return 'related-to';
     if (lowerLabel.includes('enables')) return 'related-to';

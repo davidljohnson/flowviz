@@ -3,6 +3,7 @@ import { NodeProps } from 'reactflow';
 import { Typography, Box } from '@mui/material';
 import { getOperatorNodeStyle, getNodeColor } from './shared/nodeStyles';
 import { NodeHandles } from './shared/NodeHandles';
+import { NoteBadge } from './shared/NoteBadge';
 import { getNodeTypeDisplay } from './shared/nodeUtils';
 
 function OperatorNode({ data, selected }: NodeProps) {
@@ -29,6 +30,21 @@ function OperatorNode({ data, selected }: NodeProps) {
       >
         {gate}
       </Typography>
+      {/* The pill has no body to tuck the glyph into, so it perches on the
+          top-right corner (overflow is visible) with a small backing to stay
+          legible against the canvas. */}
+      <NoteBadge
+        text={typeof data.notes === 'string' ? data.notes : ''}
+        sx={{
+          top: -7,
+          right: -7,
+          bottom: 'auto',
+          p: '2px',
+          borderRadius: '50%',
+          backgroundColor: '#1a1f27',
+          border: '1px solid rgba(255, 255, 255, 0.12)',
+        }}
+      />
       <NodeHandles />
     </Box>
   );

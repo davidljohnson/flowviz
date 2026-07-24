@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Autocomplete, Box, TextField, Typography } from '@mui/material';
+import { Autocomplete, Box, InputBase, Typography } from '@mui/material';
 import { flowVizTheme, createScrollbarStyle } from '../../../shared/theme/flowviz-theme';
+import { inputSx } from './inspectorFieldStyles';
 import {
   AttackTechnique,
   loadTechniques,
@@ -82,17 +83,28 @@ const TechniqueAutocomplete: React.FC<TechniqueAutocompleteProps> = ({
         </Box>
       )}
       renderInput={(params) => (
-        <TextField
-          {...params}
+        // InputBase carrying the shared inputSx, not a TextField, so this reads
+        // identically to every other inspector field. params.InputProps brings
+        // the Autocomplete wiring (root ref for the popper, the clear/dropdown
+        // end adornment); params.inputProps is the native input.
+        <InputBase
+          {...params.InputProps}
+          inputProps={params.inputProps}
           placeholder="Technique (T1078, Valid Accounts...)"
           sx={{
-            '& .MuiOutlinedInput-root': {
-              color: flowVizTheme.colors.text.primary,
-              fontSize: '0.8rem',
-              backgroundColor: 'rgba(0, 0, 0, 0.25)',
-              '& fieldset': { borderColor: flowVizTheme.colors.surface.border.default },
-              '&:hover fieldset': { borderColor: flowVizTheme.colors.surface.border.emphasis },
-              '&.Mui-focused fieldset': { borderColor: flowVizTheme.colors.surface.border.focus },
+            ...inputSx,
+            // Room for the absolutely-positioned clear/dropdown icons, which
+            // Autocomplete only pads for automatically inside its own TextField.
+            pr: 4,
+            '& .MuiAutocomplete-endAdornment': {
+              position: 'absolute',
+              right: 6,
+              top: '50%',
+              transform: 'translateY(-50%)',
+            },
+            '& .MuiAutocomplete-endAdornment .MuiSvgIcon-root': {
+              color: flowVizTheme.colors.text.tertiary,
+              fontSize: '1.1rem',
             },
           }}
         />

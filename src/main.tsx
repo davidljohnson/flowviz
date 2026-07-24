@@ -5,6 +5,12 @@ import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
 import App from './App';
 import ErrorBoundary from './shared/components/ErrorBoundary';
 import { flowVizTheme } from './shared/theme/flowviz-theme';
+// Self-host Inter (the family the theme names) so the UI renders in it rather
+// than falling through to Segoe UI / system sans. Just the weights the app uses.
+import '@fontsource/inter/400.css';
+import '@fontsource/inter/500.css';
+import '@fontsource/inter/600.css';
+import '@fontsource/inter/700.css';
 import './features/flow-editing/editing.css';
 
 const queryClient = new QueryClient({
@@ -50,6 +56,19 @@ const theme = createTheme({
     fontFamily: '"Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif',
   },
   components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          // Inter is drawn for antialiased rendering. Without this the browser
+          // uses subpixel smoothing, which thickens the strokes on a dark UI and
+          // makes every weight read a step heavier than intended — the main
+          // reason the labels looked off before. Grayscale smoothing renders it
+          // at its true weight, the way it's shown on the Inter/Linear specimens.
+          WebkitFontSmoothing: 'antialiased',
+          MozOsxFontSmoothing: 'grayscale',
+        },
+      },
+    },
     MuiTooltip: {
       defaultProps: {
         // Tooltips sit on rows of adjacent icon buttons (inspector headers, the

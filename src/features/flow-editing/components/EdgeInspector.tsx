@@ -7,6 +7,7 @@ import { Edge, MarkerType } from 'reactflow';
 import { flowVizTheme, createScrollbarStyle } from '../../../shared/theme/flowviz-theme';
 import InspectorMenu from './InspectorMenu';
 import SegmentedControl from '../../../shared/components/SegmentedControl';
+import { labelSx, inputSx } from './inspectorFieldStyles';
 
 // STIX-mappable verbs (kept in sync with EdgeLabelEditor).
 const RELATIONSHIP_SUGGESTIONS = [
@@ -44,32 +45,6 @@ interface EdgeInspectorProps {
   onClose: () => void;
 }
 
-const labelSx = {
-  display: 'block',
-  color: flowVizTheme.colors.text.tertiary,
-  fontSize: '0.68rem',
-  fontWeight: 600,
-  letterSpacing: '0.06em',
-  textTransform: 'uppercase' as const,
-  mb: 0.75,
-};
-
-const inputSx = {
-  width: '100%',
-  color: flowVizTheme.colors.text.primary,
-  fontSize: '0.85rem',
-  px: 1.25,
-  py: 0.9,
-  borderRadius: `${flowVizTheme.borderRadius.md}px`,
-  backgroundColor: 'rgba(255, 255, 255, 0.03)',
-  border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,
-  transition: flowVizTheme.motion.fast,
-  '&:hover': { border: `1px solid ${flowVizTheme.colors.surface.border.default}` },
-  '&.Mui-focused': {
-    border: `1px solid ${flowVizTheme.colors.surface.border.focus}`,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
-};
 
 const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <Box sx={{ mb: 2 }}>

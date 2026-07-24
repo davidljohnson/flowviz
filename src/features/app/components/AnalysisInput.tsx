@@ -146,8 +146,11 @@ export default function AnalysisInput({
     (inputMode === 'pdf' && pdfStatus !== 'done') ||
     ((inputMode === 'text' || inputMode === 'pdf') && pdfTextStats.isOverLimit);
 
-  const defaultSubmitLabel =
-    inputMode === 'url' ? 'Analyze Article' : inputMode === 'pdf' ? 'Analyze PDF' : 'Analyze Text';
+  // One stable label across all three inputs. URL, text and PDF are just ways
+  // to hand over the same report, and the analysis they produce is identical —
+  // the selected tab already says which input you are using, so the button
+  // names the outcome instead of restating the tab and shifting under you.
+  const defaultSubmitLabel = 'Analyze report';
 
   const providerWarning =
     providersLoading || hasConfiguredProviders ? null : compact ? (
@@ -432,7 +435,7 @@ export default function AnalysisInput({
                     Drop a PDF report here, or click to browse
                   </Typography>
                   <Typography variant="caption" sx={{ color: flowVizTheme.colors.text.tertiary }}>
-                    Up to 20&nbsp;MB · 100 pages · text-based PDFs
+                    Up to 20&nbsp;MB · 100 pages
                   </Typography>
                 </>
               )}

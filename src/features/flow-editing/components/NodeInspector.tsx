@@ -3,9 +3,7 @@ import {
   Box,
   IconButton,
   InputBase,
-  MenuItem,
   Popover,
-  Select,
   Tooltip,
   Typography,
 } from '@mui/material';
@@ -14,10 +12,10 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { Node } from 'reactflow';
 import { flowVizTheme, createScrollbarStyle } from '../../../shared/theme/flowviz-theme';
 import { NodeHeader } from '../../flow-analysis/components/nodes/shared/NodeHeader';
-import { getNodeColor, getContrastText } from '../../flow-analysis/components/nodes/shared/nodeStyles';
 import { isAttackAction, isOperator, getMitreLink } from '../../flow-analysis/components/nodes/shared/nodeUtils';
 import { AttackTechnique } from '../data/attackTechniques';
 import TechniqueAutocomplete from './TechniqueAutocomplete';
+import { labelSx, inputSx } from './inspectorFieldStyles';
 import InspectorMenu from './InspectorMenu';
 import NodeTypeList from './NodeTypeList';
 import SegmentedControl from '../../../shared/components/SegmentedControl';
@@ -30,6 +28,8 @@ interface NodeInspectorProps {
   onClose: () => void;
   /** When true, the name field grabs focus on open (double-click / new node). */
   focusName?: boolean;
+  /** When true, the notes field grabs focus on open (clicking a node's note glyph). */
+  focusNotes?: boolean;
 }
 
 // Stored lowercase (exporters read the raw value); displayed capitalised.
@@ -40,55 +40,6 @@ const CONFIDENCE_LABELS: Record<typeof CONFIDENCE_OPTIONS[number], string> = {
   high: 'High',
 };
 
-const INDICATOR_TYPES = [
-  'ip-address',
-  'domain',
-  'hostname',
-  'url',
-  'email-address',
-  'file-hash',
-  'file-path',
-  'file-name',
-  'mac-address',
-  'user-account',
-  'registry-key',
-  'process',
-  'mutex',
-  'network-port',
-  'autonomous-system',
-  'certificate',
-  'user-agent',
-];
-
-const labelSx = {
-  display: 'block',
-  color: flowVizTheme.colors.text.tertiary,
-  fontSize: '0.68rem',
-  fontWeight: 600,
-  letterSpacing: '0.06em',
-  textTransform: 'uppercase' as const,
-  mb: 0.75,
-};
-
-const inputSx = {
-  width: '100%',
-  color: flowVizTheme.colors.text.primary,
-  fontSize: '0.85rem',
-  lineHeight: 1.5,
-  px: 1.25,
-  py: 0.9,
-  borderRadius: `${flowVizTheme.borderRadius.md}px`,
-  backgroundColor: 'rgba(255, 255, 255, 0.03)',
-  border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,
-  transition: flowVizTheme.motion.fast,
-  '&:hover': {
-    border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
-  },
-  '&.Mui-focused': {
-    border: `1px solid ${flowVizTheme.colors.surface.border.focus}`,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
-};
 
 /** Label + field wrapper. */
 const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
@@ -135,14 +86,17 @@ const Chip: React.FC<{ label: string; href?: string }> = ({ label, href }) => {
  * blur, selects/toggles on change. Reads live node data so it stays in sync
  * with undo/redo and canvas edits.
  */
-const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete, onClose, focusName }) => {
+const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete, onClose, focusName, focusNotes }) => {
   const data = node.data as Record<string, any>;
   const type = data.type as string;
   const nameRef = useRef<HTMLInputElement>(null);
+  const notesRef = useRef<HTMLInputElement>(null);
 
-  // Ink + hover overlay for the actions that sit on the colored type banner.
-  const bannerInk = getContrastText(getNodeColor(type));
-  const bannerHover = bannerInk === '#ffffff' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.14)';
+  // The header is now a dark tint rather than a saturated slab, so its actions
+  // (change-type, menu, close) read as light neutral icons — the color lives in
+  // the type icon and the selected border, not here.
+  const bannerInk = 'rgba(255, 255, 255, 0.6)';
+  const bannerHover = 'rgba(255, 255, 255, 0.1)';
 
   // Anchor for the change-type switcher hung off the banner.
   const [typeAnchor, setTypeAnchor] = useState<HTMLElement | null>(null);
@@ -163,6 +117,22 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
       return () => clearTimeout(t);
     }
   }, [focusName, node.id]);
+
+  // Opened by clicking a node's note glyph: land the cursor in the note, at the
+  // end of any existing text, and bring it into view (it's the last field).
+  useEffect(() => {
+    if (focusNotes) {
+      const t = setTimeout(() => {
+        const el = notesRef.current;
+        if (!el) return;
+        el.focus();
+        const end = el.value.length;
+        el.setSelectionRange(end, end);
+        el.scrollIntoView({ block: 'nearest' });
+      }, 60);
+      return () => clearTimeout(t);
+    }
+  }, [focusNotes, node.id]);
 
   /**
    * Re-type the node in place. Deliberately non-destructive: type-specific
@@ -216,8 +186,13 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
     onChange(patch);
   };
 
-  const textField = (key: string, placeholder: string, opts?: { multiline?: boolean; mono?: boolean }) => (
+  const textField = (
+    key: string,
+    placeholder: string,
+    opts?: { multiline?: boolean; mono?: boolean; inputRef?: React.Ref<HTMLInputElement> },
+  ) => (
     <InputBase
+      inputRef={opts?.inputRef}
       value={draft[key] ?? ''}
       placeholder={placeholder}
       multiline={opts?.multiline}
@@ -249,39 +224,42 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
         zIndex: 12,
         backgroundColor: flowVizTheme.colors.background.glass,
         border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
-        borderRadius: '10px', // match the node corner radius
+        borderRadius: '12px', // match the node corner radius
         backdropFilter: flowVizTheme.effects.blur.heavy,
         boxShadow: flowVizTheme.effects.shadows.lg,
         overflow: 'hidden',
       }}
     >
-      {/* Type banner — mirrors the node card's banner (corners clipped by the
-          panel's overflow: hidden) so the inspector reads as the same object. */}
-      <NodeHeader
-        nodeType={type}
-        prominent
-        onTypeClick={(e) => setTypeAnchor(e.currentTarget)}
-        endSlot={
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-            <InspectorMenu deleteLabel="Delete node" onDelete={onDelete} ink={bannerInk} hoverBg={bannerHover} />
-            <Tooltip title="Close (Esc)">
-              <IconButton
-                onClick={onClose}
-                size="small"
-                className="node-details-close-button"
-                sx={{
-                  color: bannerInk,
-                  borderRadius: `${flowVizTheme.borderRadius.sm}px`,
-                  transition: flowVizTheme.motion.fast,
-                  '&:hover': { backgroundColor: bannerHover },
-                }}
-              >
-                <CloseIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        }
-      />
+      {/* Header zone — the type token + type name (doubling as the change-type
+          control) with the panel actions, set off from the fields by a hairline.
+          Mirrors the node card so the two read as the same object. */}
+      <Box sx={{ px: 2, pt: 1.75, pb: 1.5, borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
+        <NodeHeader
+          nodeType={type}
+          prominent
+          onTypeClick={(e) => setTypeAnchor(e.currentTarget)}
+          endSlot={
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+              <InspectorMenu deleteLabel="Delete node" onDelete={onDelete} ink={bannerInk} hoverBg={bannerHover} />
+              <Tooltip title="Close (Esc)">
+                <IconButton
+                  onClick={onClose}
+                  size="small"
+                  className="node-details-close-button"
+                  sx={{
+                    color: bannerInk,
+                    borderRadius: `${flowVizTheme.borderRadius.sm}px`,
+                    transition: flowVizTheme.motion.fast,
+                    '&:hover': { backgroundColor: bannerHover },
+                  }}
+                >
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          }
+        />
+      </Box>
 
       {/* Change-type switcher — same list the add-node picker uses. */}
       <Popover
@@ -327,9 +305,9 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
             sx={{
               width: '100%',
               color: flowVizTheme.colors.text.primary,
-              fontSize: '1.05rem',
+              fontSize: '1.15rem',
               fontWeight: 600,
-              letterSpacing: '-0.01em',
+              letterSpacing: '-0.015em',
               lineHeight: 1.3,
               mt: 0.5,
               mb: 2,
@@ -388,60 +366,10 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
           </>
         )}
 
-        {/* Type-specific primary fields */}
+        {/* Type-specific primary fields. Assets carry no extra field — a name
+            and description is all an ATT&CK Flow asset is. */}
         {type === 'vulnerability' && (
-          <>
-            <Field label="CVE ID">{textField('cve_id', 'CVE-2024-...')}</Field>
-            <Field label="CVSS score">{textField('cvss_score', '0.0 – 10.0')}</Field>
-          </>
-        )}
-        {type === 'asset' && (
-          <>
-            <Field label="Type">
-              <Select
-                value={draft.indicator_type ?? ''}
-                onChange={(e) => { set('indicator_type', e.target.value); commit('indicator_type', e.target.value); }}
-                displayEmpty
-                fullWidth
-                MenuProps={{
-                  PaperProps: {
-                    sx: {
-                      mt: 0.5,
-                      backgroundColor: flowVizTheme.colors.menu.dialog,
-                      backdropFilter: flowVizTheme.effects.blur.heavy,
-                      border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
-                      borderRadius: `${flowVizTheme.borderRadius.md}px`,
-                      '& .MuiMenuItem-root': {
-                        fontSize: '0.85rem',
-                        color: flowVizTheme.colors.text.secondary,
-                        '&:hover': { backgroundColor: flowVizTheme.colors.surface.hover },
-                        '&.Mui-selected': {
-                          backgroundColor: flowVizTheme.colors.surface.active,
-                          '&:hover': { backgroundColor: flowVizTheme.colors.surface.hover },
-                        },
-                      },
-                      '& .MuiList-root': createScrollbarStyle(),
-                    },
-                  },
-                }}
-                sx={{
-                  color: flowVizTheme.colors.text.primary,
-                  fontSize: '0.85rem',
-                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                  borderRadius: `${flowVizTheme.borderRadius.md}px`,
-                  '& .MuiSelect-select': { py: 0.9, px: 1.25 },
-                  '& .MuiOutlinedInput-notchedOutline': { borderColor: flowVizTheme.colors.surface.border.subtle },
-                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: flowVizTheme.colors.surface.border.default },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: flowVizTheme.colors.surface.border.focus },
-                  '& .MuiSelect-icon': { color: flowVizTheme.colors.text.tertiary },
-                }}
-              >
-                <MenuItem value=""><Box component="span" sx={{ color: flowVizTheme.colors.text.tertiary }}>—</Box></MenuItem>
-                {INDICATOR_TYPES.map(t => <MenuItem key={t} value={t}>{t.replace('-', ' ')}</MenuItem>)}
-              </Select>
-            </Field>
-            <Field label="Value">{textField('indicator_value', 'e.g. 10.0.0.1', { mono: true })}</Field>
-          </>
+          <Field label="CVE ID">{textField('cve_id', 'CVE-2024-...')}</Field>
         )}
         {type === 'url' && (
           <Field label="URL / value">{textField('value', 'https://...', { mono: true })}</Field>
@@ -489,6 +417,15 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
             </>
           </Field>
         )}
+
+        {/* Notes — the analyst's own annotation, set off from the node's data by
+            a hairline. Every node type gets one. Local only: saved with the flow
+            but never written to the STIX or Attack Flow exports. */}
+        <Box sx={{ mt: 1, pt: 2.5, borderTop: `1px solid ${flowVizTheme.colors.surface.border.subtle}` }}>
+          <Field label="Notes">
+            {textField('notes', 'Add a note for yourself…', { multiline: true, inputRef: notesRef })}
+          </Field>
+        </Box>
       </Box>
     </Box>
   );

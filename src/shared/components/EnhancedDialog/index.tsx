@@ -8,9 +8,11 @@ import {
   IconButton,
   styled,
   DialogProps,
+  Box,
+  Typography,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { flowVizTheme, createGlassStyle } from '../../theme/flowviz-theme';
+import { flowVizTheme, createGlassStyle, createScrollbarStyle } from '../../theme/flowviz-theme';
 
 // Glass dialog variants
 // No default minHeight: forcing every dialog to 40vh left a block of empty
@@ -67,15 +69,29 @@ const StyledDialogTitle = styled(DialogTitle)({
   paddingBottom: flowVizTheme.spacing.md,
   paddingTop: flowVizTheme.spacing.lg,
   paddingLeft: flowVizTheme.spacing.lg,
-  paddingRight: flowVizTheme.spacing.xl, // Extra space for close button
+  paddingRight: flowVizTheme.spacing.md,
   // No border bottom - maintains clean design
-  position: 'relative',
 });
 
-// DialogContent with proper spacing
+// Sits under the title, on the tertiary colour so it reads as context rather
+// than a second heading. One line: it says what the dialog produces, and stops.
+const DialogSubtitle = styled(Typography)({
+  color: flowVizTheme.colors.text.tertiary,
+  fontSize: '0.8rem',
+  fontWeight: 400,
+  letterSpacing: 0,
+  lineHeight: 1.5,
+  marginTop: flowVizTheme.spacing.xs,
+});
+
+// DialogContent with proper spacing. The scrollbar is styled here rather than
+// per-dialog: a tall dialog scrolls its content, and the platform default is a
+// wide grey bar with stepper arrows that reads as nothing else in the app.
+// Dialogs that want no scrollbar at all still override it from sx.
 const StyledDialogContent = styled(DialogContent)({
   padding: flowVizTheme.spacing.lg,
   paddingTop: `${flowVizTheme.spacing.lg}px !important`,
+  ...createScrollbarStyle('8px'),
 });
 
 // DialogActions styling (no border separator)
@@ -88,11 +104,12 @@ const StyledDialogActions = styled(DialogActions)({
 // Close button — a bare icon, like the one on the node inspector's header.
 // It used to borrow createInteractiveStyle, which framed it in a bordered box
 // and dipped it 1px on :active; dismissing a dialog does not need a flourish.
+// It is a flex item rather than absolutely centred in the header: with a
+// subtitle present, centring on the whole block dropped it below the title it
+// belongs to.
 const CloseButton = styled(IconButton)({
-  position: 'absolute',
-  right: flowVizTheme.spacing.md,
-  top: '50%',
-  transform: 'translateY(-50%)',
+  flexShrink: 0,
+  marginLeft: 'auto',
   color: flowVizTheme.colors.text.tertiary,
   padding: flowVizTheme.spacing.sm,
   borderRadius: `${flowVizTheme.borderRadius.sm}px`,
@@ -153,6 +170,9 @@ export const SecondaryButton = styled(Button)({
 // Main Dialog Component
 interface EnhancedDialogProps extends Omit<DialogProps, 'PaperProps'> {
   title?: string;
+  /** One line under the title saying what the dialog produces. Optional — most
+   *  dialogs are self-evident from their title and form and should skip it. */
+  subtitle?: string;
   onClose?: () => void;
   showCloseButton?: boolean;
   children?: React.ReactNode;
@@ -167,6 +187,7 @@ interface EnhancedDialogProps extends Omit<DialogProps, 'PaperProps'> {
 
 export const EnhancedDialog: React.FC<EnhancedDialogProps> = ({
   title,
+  subtitle,
   onClose,
   showCloseButton = true,
   children,
@@ -210,12 +231,15 @@ export const EnhancedDialog: React.FC<EnhancedDialogProps> = ({
     >
       {title && (
         <StyledDialogTitle>
-          {title}
-          {showCloseButton && onClose && (
-            <CloseButton onClick={onClose} size="small">
-              <CloseIcon fontSize="small" />
-            </CloseButton>
-          )}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {title}
+            {showCloseButton && onClose && (
+              <CloseButton onClick={onClose} size="small">
+                <CloseIcon fontSize="small" />
+              </CloseButton>
+            )}
+          </Box>
+          {subtitle && <DialogSubtitle>{subtitle}</DialogSubtitle>}
         </StyledDialogTitle>
       )}
       {children}

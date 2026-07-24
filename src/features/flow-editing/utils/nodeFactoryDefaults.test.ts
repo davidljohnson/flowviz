@@ -35,8 +35,27 @@ describe('export round-trips for manually created nodes', () => {
     // The STIX exporter drops nodes whose data.type it does not recognize -
     // this guards the factory's type strings against that
     const nodes = ALL_TYPES.map(type => createFlowNode(type, { x: 0, y: 0 }));
-    const bundle = new STIXBundleExporter().exportToSTIXBundle(nodes, []);
-    expect(bundle.objects).toHaveLength(ALL_TYPES.length);
+
+    // Operators export as groupings, whose object_refs may not be empty, so an
+    // operator with nothing wired into it is dropped by design. Give each one
+    // an input so this test still measures type-string coverage and not that.
+    const anchor = createFlowNode('action', { x: 0, y: 0 });
+    const edges = nodes
+      .filter(n => n.type?.endsWith('_operator'))
+      .map((n, i) => ({ id: `feed-${i}`, source: anchor.id, target: n.id }));
+
+    const bundle = new STIXBundleExporter().exportToSTIXBundle([...nodes, anchor], edges);
+    const exportedTypes = new Set(
+      bundle.objects!.filter(o => o.type !== 'relationship').map(o => o.type)
+    );
+
+    for (const node of nodes) {
+      expect(
+        bundle.objects!.some(o => o.name === node.data.name),
+        `${node.type} was dropped from the STIX export`
+      ).toBe(true);
+    }
+    expect(exportedTypes.size).toBeGreaterThan(0);
   });
 
   it('edges between manual nodes export as STIX relationships', () => {

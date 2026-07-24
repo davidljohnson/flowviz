@@ -20,10 +20,34 @@ describe('STIXBundleExporter', () => {
 
       expect(bundle.type).toBe('bundle');
       expect(bundle.id).toMatch(/^bundle--/);
-      expect(bundle.spec_version).toBe('2.1');
-      expect(bundle.created).toBeDefined();
-      expect(bundle.modified).toBeDefined();
-      expect(bundle.objects).toEqual([]);
+    });
+
+    // A Bundle is a container, not an SDO. The 2.1 schema allows it type, id
+    // and objects only, so anything else on it is a stray custom property.
+    it('puts no SDO properties on the bundle itself', () => {
+      const exporter = new STIXBundleExporter();
+      const bundle = exporter.exportToSTIXBundle([], []) as Record<string, unknown>;
+
+      expect(bundle.spec_version).toBeUndefined();
+      expect(bundle.created).toBeUndefined();
+      expect(bundle.modified).toBeUndefined();
+    });
+
+    // `objects` declares minItems:1, so an empty array is invalid where an
+    // absent property is fine.
+    it('omits objects entirely when there is nothing to export', () => {
+      const exporter = new STIXBundleExporter();
+      const bundle = exporter.exportToSTIXBundle([], []);
+
+      expect(bundle.objects).toBeUndefined();
+    });
+
+    it('still marks each object with its own spec_version', () => {
+      const exporter = new STIXBundleExporter();
+      const nodes = [makeNode({ id: 't1', type: 'tool', data: { name: 'Cobalt Strike' } })];
+
+      const bundle = exporter.exportToSTIXBundle(nodes, []);
+      expect(bundle.objects![0].spec_version).toBe('2.1');
     });
 
     it('converts nodes to STIX objects', () => {
@@ -97,7 +121,7 @@ describe('STIXBundleExporter', () => {
       ];
 
       const bundle = exporter.exportToSTIXBundle(nodes, []);
-      expect(bundle.objects).toHaveLength(0);
+      expect(bundle.objects).toBeUndefined();
     });
   });
 
@@ -126,11 +150,51 @@ describe('STIXBundleExporter', () => {
           data.technique_id = 'T1190';
         }
 
-        const nodes = [makeNode({ id: `${nodeType}-1`, type: nodeType, data })];
-        const bundle = exporter.exportToSTIXBundle(nodes, []);
-        expect(bundle.objects).toHaveLength(1);
-        expect(bundle.objects[0].type).toBe(stixType);
+        const id = `${nodeType}-1`;
+        const nodes = [makeNode({ id, type: nodeType, data })];
+        const edges: Edge[] = [];
+
+        // An operator needs something to group: object_refs may not be empty,
+        // so an operator with no inputs is dropped rather than exported invalid.
+        if (nodeType.endsWith('_operator')) {
+          nodes.push(makeNode({ id: 'feeder', type: 'tool', data: { name: 'Feeder' } }));
+          edges.push(makeEdge({ id: 'e1', source: 'feeder', target: id }));
+        }
+
+        const bundle = exporter.exportToSTIXBundle(nodes, edges);
+        expect(bundle.objects!.find(o => o.type === stixType)).toBeDefined();
       });
+    });
+
+    it('points an operator grouping at the nodes feeding into it', () => {
+      const exporter = new STIXBundleExporter();
+      const nodes = [
+        makeNode({ id: 'a', type: 'tool', data: { name: 'A' } }),
+        makeNode({ id: 'b', type: 'tool', data: { name: 'B' } }),
+        makeNode({ id: 'op', type: 'AND_operator', data: { operator: 'AND' } }),
+        makeNode({ id: 'downstream', type: 'malware', data: { name: 'C' } })
+      ];
+      const edges = [
+        makeEdge({ id: 'e1', source: 'a', target: 'op' }),
+        makeEdge({ id: 'e2', source: 'b', target: 'op' }),
+        makeEdge({ id: 'e3', source: 'op', target: 'downstream' })
+      ];
+
+      const bundle = exporter.exportToSTIXBundle(nodes, edges);
+      const objects = bundle.objects!;
+      const grouping = objects.find(o => o.type === 'grouping')!;
+      const idOf = (name: string) => objects.find(o => o.name === name)!.id;
+
+      expect(grouping.object_refs).toEqual([idOf('A'), idOf('B')]);
+      expect(grouping.object_refs).not.toContain(idOf('C'));
+    });
+
+    it('drops an operator that has nothing to group', () => {
+      const exporter = new STIXBundleExporter();
+      const nodes = [makeNode({ id: 'op', type: 'OR_operator', data: { operator: 'OR' } })];
+
+      const bundle = exporter.exportToSTIXBundle(nodes, []);
+      expect(bundle.objects).toBeUndefined();
     });
   });
 

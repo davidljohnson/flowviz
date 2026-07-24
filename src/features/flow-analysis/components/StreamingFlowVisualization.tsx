@@ -324,34 +324,43 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   // focused for a quick rename.
   const [inspectorNodeId, setInspectorNodeId] = useState<string | null>(null);
   const [inspectorFocusName, setInspectorFocusName] = useState(false);
+  const [inspectorFocusNotes, setInspectorFocusNotes] = useState(false);
   // Selected edge drives the edge inspector; only one inspector shows at a time.
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
 
-  const openInspector = useCallback((nodeId: string, focusName = false) => {
-    if (isStreamingRef.current) return;
-    setSelectedEdgeId(null);
-    setInspectorNodeId(nodeId);
-    setInspectorFocusName(focusName);
-  }, []);
+  const openInspector = useCallback(
+    (nodeId: string, opts?: { focusName?: boolean; focusNotes?: boolean }) => {
+      if (isStreamingRef.current) return;
+      setSelectedEdgeId(null);
+      setInspectorNodeId(nodeId);
+      setInspectorFocusName(opts?.focusName ?? false);
+      setInspectorFocusNotes(opts?.focusNotes ?? false);
+    },
+    [],
+  );
 
   const closeInspector = useCallback(() => {
     setInspectorNodeId(null);
     setInspectorFocusName(false);
+    setInspectorFocusNotes(false);
   }, []);
 
-  const handleNodeClick = useCallback((_event: React.MouseEvent, node: any) => {
-    openInspector(node.id, false);
+  const handleNodeClick = useCallback((event: React.MouseEvent, node: any) => {
+    // Clicking a node's note glyph opens straight onto its notes field.
+    const onNoteBadge = Boolean((event.target as HTMLElement)?.closest?.('.fv-note-badge'));
+    openInspector(node.id, { focusNotes: onNoteBadge });
   }, [openInspector]);
 
   const handleNodeDoubleClick = useCallback((event: React.MouseEvent, node: any) => {
     event.stopPropagation();
-    openInspector(node.id, true);
+    openInspector(node.id, { focusName: true });
   }, [openInspector]);
 
   const handleEdgeClick = useCallback((_event: React.MouseEvent, edge: any) => {
     if (isStreamingRef.current) return;
     setInspectorNodeId(null);
     setInspectorFocusName(false);
+    setInspectorFocusNotes(false);
     setSelectedEdgeId(edge.id);
   }, []);
 
@@ -447,7 +456,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       : editor.addNode(type, picker.flowPosition);
     // Open the inspector focused on the name so the node is immediately nameable
     if (newNodeId) {
-      openInspector(newNodeId, true);
+      openInspector(newNodeId, { focusName: true });
     }
   }, [editor.addConnectedNode, editor.addNode, openInspector]);
 
@@ -1249,73 +1258,6 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
         position: 'relative'
       }}
     >
-      {/* Story-mode vignette: fades the canvas edges during playback. */}
-      {storyState.steps.length > 0 && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            pointerEvents: 'none',
-            zIndex: 5,
-            opacity: storyState.isPlaying || storyState.currentStep > 0 ? 1 : 0,
-            transition: 'opacity 1.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-          }}
-        >
-          {/* Top Fade */}
-          <Box
-            sx={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              height: '25%',
-              background: 'linear-gradient(to bottom, rgba(13, 17, 23, 0.6) 0%, rgba(13, 17, 23, 0.3) 50%, transparent 100%)',
-              backdropFilter: 'blur(1px)',
-            }}
-          />
-          
-          {/* Bottom Fade */}
-          <Box
-            sx={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: '25%',
-              background: 'linear-gradient(to top, rgba(13, 17, 23, 0.6) 0%, rgba(13, 17, 23, 0.3) 50%, transparent 100%)',
-              backdropFilter: 'blur(1px)',
-            }}
-          />
-          
-          {/* Left Fade */}
-          <Box
-            sx={{
-              position: 'absolute',
-              top: '25%',
-              bottom: '25%',
-              left: 0,
-              width: '15%',
-              background: 'linear-gradient(to right, rgba(13, 17, 23, 0.4) 0%, rgba(13, 17, 23, 0.2) 50%, transparent 100%)',
-            }}
-          />
-          
-          {/* Right Fade */}
-          <Box
-            sx={{
-              position: 'absolute',
-              top: '25%',
-              bottom: '25%',
-              right: 0,
-              width: '15%',
-              background: 'linear-gradient(to left, rgba(13, 17, 23, 0.4) 0%, rgba(13, 17, 23, 0.2) 50%, transparent 100%)',
-            }}
-          />
-        </Box>
-      )}
-
       {/* Floating Keyboard Indicator */}
       {keyIndicator && (
         <Box
@@ -1522,6 +1464,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
           key={inspectorNode.id}
           node={inspectorNode}
           focusName={inspectorFocusName}
+          focusNotes={inspectorFocusNotes}
           onChange={(patch) => editor.updateNodeData(inspectorNode.id, patch)}
           onDelete={() => { editor.deleteNode(inspectorNode.id); closeInspector(); }}
           onClose={closeInspector}
