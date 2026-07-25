@@ -43,6 +43,8 @@ interface EdgeInspectorProps {
   onReverse: (edgeId: string) => void;
   onDelete: (edgeId: string) => void;
   onClose: () => void;
+  /** The assistant is open below: cap height so the two share the right edge. */
+  stacked?: boolean;
 }
 
 
@@ -55,7 +57,7 @@ const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, 
 
 /** Right-hand inspector for a selected edge — relationship, direction, and per-edge style. */
 const EdgeInspector: React.FC<EdgeInspectorProps> = ({
-  edge, sourceLabel, targetLabel, onUpdateLabel, onUpdateEdge, onReverse, onDelete, onClose,
+  edge, sourceLabel, targetLabel, onUpdateLabel, onUpdateEdge, onReverse, onDelete, onClose, stacked,
 }) => {
   const [label, setLabel] = useState(typeof edge.label === 'string' ? edge.label : '');
   useEffect(() => {
@@ -76,8 +78,10 @@ const EdgeInspector: React.FC<EdgeInspectorProps> = ({
         position: 'absolute',
         top: 16,
         right: 16,
-        width: 320,
-        maxHeight: 'calc(100vh - 100px)',
+        // Same width as the node inspector and assistant: the right edge
+        // reads as one column regardless of which surfaces are up
+        width: 340,
+        maxHeight: stacked ? '48%' : 'calc(100vh - 100px)',
         display: 'flex',
         flexDirection: 'column',
         zIndex: 12,

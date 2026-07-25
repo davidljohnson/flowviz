@@ -22,8 +22,8 @@ const isTypingTarget = (): boolean => {
 
 /**
  * Global editing shortcuts: Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z or Ctrl+Y redo,
- * Delete/Backspace delete selection. Follows the same input-focus guard as the
- * story-mode listener so shortcuts never fire while typing. ReactFlow's own
+ * Delete/Backspace delete selection. Guards on input focus so shortcuts never
+ * fire while typing. ReactFlow's own
  * deleteKeyCode stays null — deletion routes through the editor ops so it is
  * always history-captured.
  */

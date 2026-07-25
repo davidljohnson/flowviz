@@ -9,6 +9,9 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
+import AssistantMark from '../../../shared/components/icons/AssistantMark';
 import { Node } from 'reactflow';
 import { flowVizTheme, createScrollbarStyle } from '../../../shared/theme/flowviz-theme';
 import { NodeHeader } from '../../flow-analysis/components/nodes/shared/NodeHeader';
@@ -16,7 +19,7 @@ import { isAttackAction, isOperator, getMitreLink } from '../../flow-analysis/co
 import { AttackTechnique } from '../data/attackTechniques';
 import TechniqueAutocomplete from './TechniqueAutocomplete';
 import { labelSx, inputSx } from './inspectorFieldStyles';
-import InspectorMenu from './InspectorMenu';
+import InspectorMenu, { InspectorMenuItem } from './InspectorMenu';
 import NodeTypeList from './NodeTypeList';
 import SegmentedControl from '../../../shared/components/SegmentedControl';
 import { EditorNodeType, createDefaultNodeData } from '../utils/nodeFactoryDefaults';
@@ -26,10 +29,18 @@ interface NodeInspectorProps {
   onChange: (patch: Record<string, unknown>) => void;
   onDelete: () => void;
   onClose: () => void;
+  /** Clone this node; shown in the overflow menu when provided. */
+  onDuplicate?: () => void;
+  /** Open the source panel on this node's excerpt; menu item when provided. */
+  onShowSource?: () => void;
+  /** Open the AI assistant with this node as the selection. */
+  onAskAssistant?: () => void;
   /** When true, the name field grabs focus on open (double-click / new node). */
   focusName?: boolean;
   /** When true, the notes field grabs focus on open (clicking a node's note glyph). */
   focusNotes?: boolean;
+  /** The assistant is open below: cap height so the two share the right edge. */
+  stacked?: boolean;
 }
 
 // Stored lowercase (exporters read the raw value); displayed capitalised.
@@ -86,7 +97,7 @@ const Chip: React.FC<{ label: string; href?: string }> = ({ label, href }) => {
  * blur, selects/toggles on change. Reads live node data so it stays in sync
  * with undo/redo and canvas edits.
  */
-const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete, onClose, focusName, focusNotes }) => {
+const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete, onClose, onDuplicate, onShowSource, onAskAssistant, focusName, focusNotes, stacked }) => {
   const data = node.data as Record<string, any>;
   const type = data.type as string;
   const nameRef = useRef<HTMLInputElement>(null);
@@ -211,6 +222,36 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
   const isOp = isOperator(data);
   const tacticLabel = draft.tactic_name || draft.tactic_id;
 
+  // Overflow-menu actions; each appears only when its capability is wired up
+  const menuIconSx = { fontSize: '1rem' } as const;
+  const techniqueId = typeof draft.technique_id === 'string' ? draft.technique_id.trim() : '';
+  const menuItems: InspectorMenuItem[] = [
+    ...(onDuplicate ? [{
+      id: 'duplicate',
+      label: 'Duplicate node',
+      icon: <ContentCopyIcon sx={menuIconSx} />,
+      onClick: onDuplicate,
+    }] : []),
+    ...(isAction && /^T\d{4}(\.\d{3})?$/.test(techniqueId) ? [{
+      id: 'open-attack',
+      label: 'Open in MITRE ATT&CK',
+      icon: <OpenInNewIcon sx={menuIconSx} />,
+      onClick: () => window.open(getMitreLink(techniqueId), '_blank', 'noopener'),
+    }] : []),
+    ...(onShowSource ? [{
+      id: 'show-source',
+      label: 'Show in source',
+      icon: <MenuBookIcon sx={menuIconSx} />,
+      onClick: onShowSource,
+    }] : []),
+    ...(onAskAssistant ? [{
+      id: 'ask-assistant',
+      label: 'Ask AI about this node',
+      icon: <AssistantMark size={16} />,
+      onClick: onAskAssistant,
+    }] : []),
+  ];
+
   return (
     <Box
       sx={{
@@ -218,7 +259,7 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
         top: 16,
         right: 16,
         width: 340,
-        maxHeight: 'calc(100vh - 100px)',
+        maxHeight: stacked ? '48%' : 'calc(100vh - 100px)',
         display: 'flex',
         flexDirection: 'column',
         zIndex: 12,
@@ -240,7 +281,7 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
           onTypeClick={(e) => setTypeAnchor(e.currentTarget)}
           endSlot={
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-              <InspectorMenu deleteLabel="Delete node" onDelete={onDelete} ink={bannerInk} hoverBg={bannerHover} />
+              <InspectorMenu items={menuItems} deleteLabel="Delete node" onDelete={onDelete} ink={bannerInk} hoverBg={bannerHover} />
               <Tooltip title="Close (Esc)">
                 <IconButton
                   onClick={onClose}

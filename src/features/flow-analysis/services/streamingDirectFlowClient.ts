@@ -5,6 +5,8 @@ export interface StreamingDirectFlowCallbacks {
   onNode: (node: Node) => void;
   onEdge: (edge: Edge) => void;
   onProgress?: (stage: string, message: string) => void;
+  /** The server-extracted article for URL analyses (readability output). */
+  onArticle?: (article: { title: string; text: string }) => void;
   onComplete: () => void;
   onError: (error: Error) => void;
 }
@@ -59,6 +61,8 @@ export class StreamingDirectFlowClient {
   private processedEdgeIds = new Set<string>();
   private pendingEdges: Array<{edge: Edge, source: string, target: string}> = [];
   private emittedNodeIds = new Set<string>();
+  // Set when analyzing a URL; stamped onto every emitted node as provenance
+  private sourceUrl: string | null = null;
 
   /**
    * Normalize node data as it comes off the stream.
@@ -73,6 +77,12 @@ export class StreamingDirectFlowClient {
       type: node.type,
       id: node.id
     };
+
+    // Provenance: nodes from a URL analysis carry the article's URL, which the
+    // inspector's Source field and the exporters already know how to show
+    if (this.sourceUrl && !nodeData.source_url) {
+      nodeData.source_url = this.sourceUrl;
+    }
 
     if (node.type === 'AND_operator' || node.type === 'OR_operator') {
       const gate = node.type === 'AND_operator' ? 'AND' : 'OR';
@@ -109,6 +119,7 @@ export class StreamingDirectFlowClient {
     try {
       // Determine if input is URL or text content
       const isUrl = input.startsWith('http://') || input.startsWith('https://');
+      this.sourceUrl = isUrl ? input : null;
 
       const response = await fetch('/api/analyze-stream', {
         method: 'POST',
@@ -177,6 +188,11 @@ export class StreamingDirectFlowClient {
               if (event.type === 'progress') {
                 console.log(`📈 ${event.stage}: ${event.message}`);
                 callbacks.onProgress?.(event.stage, event.message);
+              }
+
+              // The extracted article, sent once after readability parsing
+              if (event.type === 'article' && typeof event.text === 'string') {
+                callbacks.onArticle?.({ title: event.title || '', text: event.text });
               }
               
               if (event.type === 'content_block_delta' && event.delta?.text) {

@@ -15,8 +15,7 @@ import {
 } from '../../../shared/components/EnhancedDialog';
 import {
   FormSection,
-  FormSectionTitle,
-  EnhancedSlider
+  FormSectionTitle
 } from '../../../shared/components/EnhancedForm';
 import {
   DropdownFormControl,
@@ -44,21 +43,18 @@ interface SettingsDialogProps {
   edgeColor: string;
   edgeStyle: string;
   edgeCurve: string;
-  storyModeSpeed: number;
   selectedProvider: string;
   selectedModel: string;
   onClose: () => void;
   onEdgeColorChange: (color: string) => void;
   onEdgeStyleChange: (style: string) => void;
   onEdgeCurveChange: (curve: string) => void;
-  onStoryModeSpeedChange: (speed: number) => void;
   onProviderChange: (provider: string) => void;
   onModelChange: (model: string) => void;
   onSave: (settings: {
     edgeColor: string;
     edgeStyle: string;
     edgeCurve: string;
-    storyModeSpeed: number;
     selectedProvider: string;
     selectedModel: string;
   }) => void;
@@ -69,14 +65,12 @@ export default function SettingsDialog({
   edgeColor,
   edgeStyle,
   edgeCurve,
-  storyModeSpeed,
   selectedProvider,
   selectedModel,
   onClose,
   onEdgeColorChange,
   onEdgeStyleChange,
   onEdgeCurveChange,
-  onStoryModeSpeedChange,
   onProviderChange,
   onModelChange,
   onSave,
@@ -93,7 +87,6 @@ export default function SettingsDialog({
   const [localEdgeColor, setLocalEdgeColor] = useState(edgeColor);
   const [localEdgeStyle, setLocalEdgeStyle] = useState(edgeStyle);
   const [localEdgeCurve, setLocalEdgeCurve] = useState(edgeCurve);
-  const [localStoryModeSpeed, setLocalStoryModeSpeed] = useState(storyModeSpeed);
   const [localSelectedProvider, setLocalSelectedProvider] = useState(selectedProvider);
   const [localSelectedModel, setLocalSelectedModel] = useState(selectedModel);
 
@@ -102,7 +95,6 @@ export default function SettingsDialog({
     setLocalEdgeColor(edgeColor);
     setLocalEdgeStyle(edgeStyle);
     setLocalEdgeCurve(edgeCurve);
-    setLocalStoryModeSpeed(storyModeSpeed);
 
     // Determine provider and model to use
     const providerToUse = selectedProvider || defaultProvider || '';
@@ -120,14 +112,13 @@ export default function SettingsDialog({
       setLocalSelectedProvider(providerToUse);
       setLocalSelectedModel(modelToUse);
     }
-  }, [edgeColor, edgeStyle, edgeCurve, storyModeSpeed, selectedProvider, selectedModel, defaultProvider, defaultModel, providers, open]);
+  }, [edgeColor, edgeStyle, edgeCurve, selectedProvider, selectedModel, defaultProvider, defaultModel, providers, open]);
 
   const handleSave = () => {
     // Apply all settings at once by passing the local values directly
     onEdgeColorChange(localEdgeColor);
     onEdgeStyleChange(localEdgeStyle);
     onEdgeCurveChange(localEdgeCurve);
-    onStoryModeSpeedChange(localStoryModeSpeed);
     onProviderChange(localSelectedProvider);
     onModelChange(localSelectedModel);
 
@@ -136,7 +127,6 @@ export default function SettingsDialog({
       edgeColor: localEdgeColor,
       edgeStyle: localEdgeStyle,
       edgeCurve: localEdgeCurve,
-      storyModeSpeed: localStoryModeSpeed,
       selectedProvider: localSelectedProvider,
       selectedModel: localSelectedModel,
     });
@@ -147,7 +137,6 @@ export default function SettingsDialog({
     setLocalEdgeColor(edgeColor);
     setLocalEdgeStyle(edgeStyle);
     setLocalEdgeCurve(edgeCurve);
-    setLocalStoryModeSpeed(storyModeSpeed);
     setLocalSelectedProvider(selectedProvider);
     setLocalSelectedModel(selectedModel);
     onClose();
@@ -292,45 +281,6 @@ export default function SettingsDialog({
             </DropdownFormControl>
           </FormSection>
 
-          <FormSection>
-            <FormSectionTitle>
-              Story Mode
-            </FormSectionTitle>            
-            <Box sx={{ mt: 3 }}>
-              <FormSectionTitle sx={{ 
-                fontSize: '0.9rem',
-                fontWeight: 500,
-                mb: 1,
-              }}>
-                Playback Speed
-              </FormSectionTitle>
-              <Typography sx={{ 
-                color: 'rgba(255, 255, 255, 0.6)', 
-                fontSize: '0.75rem',
-                mb: 2
-              }}>
-                Time between each step in story mode playback
-              </Typography>
-              <Box sx={{ px: 1 }}>
-                <EnhancedSlider
-                  value={localStoryModeSpeed || 3}
-                  onChange={(_, newValue) => setLocalStoryModeSpeed(newValue as number)}
-                  min={1}
-                  max={10}
-                  step={0.5}
-                  marks={[
-                    { value: 1, label: '1s' },
-                    { value: 3, label: '3s' },
-                    { value: 5, label: '5s' },
-                    { value: 10, label: '10s' },
-                  ]}
-                  valueLabelDisplay="auto"
-                  valueLabelFormat={(value) => `${value}s`}
-                />
-              </Box>
-            </Box>
-          </FormSection>
-          
           <FormSection>
             <FormSectionTitle>
               Edge Styling

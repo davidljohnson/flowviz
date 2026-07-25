@@ -148,6 +148,27 @@ export function useFlowEditor({
     commit('Delete', before);
   }, [setNodes, setEdges, currentSnapshot, commit]);
 
+  const duplicateNode = useCallback((nodeId: string): string | null => {
+    if (isStreamingRef.current) return null;
+    const source = nodesRef.current.find(n => n.id === nodeId);
+    if (!source) return null;
+
+    const before = currentSnapshot();
+    const id = crypto.randomUUID();
+    // Offset by roughly a grid step so the copy is visibly its own node;
+    // edges are not cloned - connections are usually what the copy changes
+    const copy: Node = {
+      ...source,
+      id,
+      selected: false,
+      position: { x: source.position.x + 40, y: source.position.y + 40 },
+      data: { ...source.data, id },
+    };
+    setNodes(prev => [...prev, copy]);
+    commit('Duplicate node', before);
+    return id;
+  }, [setNodes, currentSnapshot, commit]);
+
   const relayout = useCallback(() => {
     if (isStreamingRef.current) return;
     if (nodesRef.current.length === 0) return;
@@ -321,6 +342,7 @@ export function useFlowEditor({
     abortBatch,
     deleteSelection,
     deleteNode,
+    duplicateNode,
     relayout,
     connect,
     updateEdgeLabel,

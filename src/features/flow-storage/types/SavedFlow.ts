@@ -1,5 +1,16 @@
 import { Node, Edge, Viewport } from 'reactflow';
 
+/**
+ * Assistant conversation carried with the flow. Structurally typed here so
+ * flow-storage stays decoupled from the flow-assistant feature.
+ */
+export interface SavedAssistantMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'error';
+  text: string;
+  opResults?: unknown[];
+}
+
 export interface SavedFlow {
   id: string;
   title: string;
@@ -25,11 +36,11 @@ export interface SavedFlow {
   // Visualization state
   visualization: {
     viewport?: Viewport;
-    storyMode?: {
-      enabled: boolean;
-      currentStep?: number;
-    };
   };
+
+  // Assistant conversation at save time, so reopening an investigation
+  // restores its context
+  assistantMessages?: SavedAssistantMessage[];
   
   // Analysis metadata
   analysis: {

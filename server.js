@@ -13,6 +13,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { logger } from './src/shared/utils/logger.js';
 import dotenv from 'dotenv';
 import { ProviderFactory } from './providers/provider-factory.js';
+import { buildAssistantSystemPrompt } from './prompts/assistantPrompt.js';
 
 // Load environment variables from .env file
 const dotenvResult = dotenv.config();
@@ -564,6 +565,14 @@ app.post('/api/analyze-stream', rateLimits.streaming, async (req, res) => {
       const doc = new JSDOM(enhancedHtml).window.document;
       finalText = doc.body.textContent || doc.body.innerText || '';
 
+      // Hand the extracted article back to the client for the source panel
+      // and saved-flow provenance; capped so a huge page can't bloat the stream
+      res.write(`data: ${JSON.stringify({
+        type: 'article',
+        title: article.title || '',
+        text: finalText.substring(0, 150000),
+      })}\n\n`);
+
       // Process images with vision analysis if any
       res.write(`data: ${JSON.stringify({ type: 'progress', stage: 'analyzing_images', message: 'Analyzing images...' })}\n\n`);
 
@@ -641,6 +650,76 @@ app.post('/api/analyze-stream', rateLimits.streaming, async (req, res) => {
 
   } catch (err) {
     logger.error('Unified streaming error:', { message: err.message, stack: err.stack });
+    res.write(`data: ${JSON.stringify({ type: 'error', error: err.message })}\n\n`);
+    res.write(`data: [DONE]\n\n`);
+    res.end();
+  }
+});
+
+// AI graph assistant: multi-turn chat over the current canvas graph.
+// Unlike analyze-stream, everything is validated before SSE headers go out,
+// so bad requests get a plain 400 the client can read from response.ok.
+app.post('/api/assistant-stream', rateLimits.assistant, async (req, res) => {
+  logger.info('Starting assistant streaming request...');
+
+  const { provider, model, messages, graph, selection, sourceText } = req.body;
+
+  if (sourceText !== undefined && sourceText !== null && typeof sourceText !== 'string') {
+    return res.status(400).json({ error: 'sourceText must be a string' });
+  }
+
+  if (!Array.isArray(messages) || messages.length === 0 || messages.length > 40) {
+    return res.status(400).json({ error: 'messages must be a non-empty array of at most 40 entries' });
+  }
+  let totalChars = 0;
+  for (const message of messages) {
+    if (!message || (message.role !== 'user' && message.role !== 'assistant') || typeof message.content !== 'string') {
+      return res.status(400).json({ error: 'each message needs a user/assistant role and string content' });
+    }
+    totalChars += message.content.length;
+  }
+  if (totalChars > 32000) {
+    return res.status(400).json({ error: 'conversation too long' });
+  }
+  if (!graph || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) {
+    return res.status(400).json({ error: 'graph with nodes and edges arrays is required' });
+  }
+  if (graph.nodes.length > 500 || graph.edges.length > 1000) {
+    return res.status(400).json({ error: 'graph too large' });
+  }
+
+  const selectedProvider = provider || ProviderFactory.getDefaultProvider();
+  if (!selectedProvider) {
+    return res.status(400).json({ error: 'No AI providers configured. Please set ANTHROPIC_API_KEY or OPENAI_API_KEY.' });
+  }
+
+  const providerConfig = ProviderFactory.getProviderConfig(selectedProvider);
+  if (model) {
+    providerConfig.model = model;
+  }
+  const aiProvider = ProviderFactory.create(selectedProvider, providerConfig);
+  if (!aiProvider.isConfigured()) {
+    return res.status(400).json({ error: `${selectedProvider} provider not properly configured. Check your environment variables.` });
+  }
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+  });
+
+  try {
+    const system = buildAssistantSystemPrompt({
+      graph,
+      selection,
+      // Cap defensively even though the client already truncates
+      sourceText: sourceText ? sourceText.substring(0, 20000) : null,
+    });
+    await aiProvider.streamChat({ system, messages, maxTokens: 8192 }, res);
+    logger.info('Assistant streaming completed successfully');
+    res.end();
+  } catch (err) {
+    logger.error('Assistant streaming error:', { message: err.message, stack: err.stack });
     res.write(`data: ${JSON.stringify({ type: 'error', error: err.message })}\n\n`);
     res.write(`data: [DONE]\n\n`);
     res.end();

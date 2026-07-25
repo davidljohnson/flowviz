@@ -16,7 +16,7 @@ import {
   EnhancedTextField
 } from '../../../shared/components/EnhancedForm';
 import { Node, Edge, Viewport } from 'reactflow';
-import { SavedFlow } from '../types/SavedFlow';
+import { SavedFlow, SavedAssistantMessage } from '../types/SavedFlow';
 import { LocalStorageService, StorageError } from '../services';
 
 interface SaveFlowDialogProps {
@@ -28,6 +28,8 @@ interface SaveFlowDialogProps {
   sourceText?: string;
   inputMode: 'url' | 'text';
   viewport?: Viewport;
+  /** Assistant conversation to carry with the flow. */
+  assistantMessages?: SavedAssistantMessage[];
   /** When set, offers updating that stored flow in place besides save-as-copy. */
   existingFlowId?: string | null;
   onSave: (flow: SavedFlow) => void;
@@ -42,6 +44,7 @@ const SaveFlowDialog: React.FC<SaveFlowDialogProps> = ({
   sourceText,
   inputMode,
   viewport,
+  assistantMessages,
   existingFlowId,
   onSave
 }) => {
@@ -163,8 +166,8 @@ const SaveFlowDialog: React.FC<SaveFlowDialogProps> = ({
         },
         visualization: {
           viewport,
-          storyMode: { enabled: false }
         },
+        assistantMessages: assistantMessages?.length ? assistantMessages : undefined,
         analysis: {
           extractedTechniques: techniques,
           extractedTactics: tactics

@@ -33,6 +33,8 @@ export interface FlowEditorApi {
   deleteSelection: () => void;
   /** Delete a specific node and its connected edges. */
   deleteNode: (nodeId: string) => void;
+  /** Clone a node (data included, edges not); returns the new id. */
+  duplicateNode: (nodeId: string) => string | null;
   relayout: () => void;
   /** Create an edge from a completed handle drag; duplicates are ignored. */
   connect: (connection: { source: string | null; target: string | null }) => void;

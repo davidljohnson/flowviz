@@ -133,6 +133,89 @@ export class OllamaProvider extends BaseProvider {
   }
 
   /**
+   * Stream a multi-turn chat completion (assistant endpoint)
+   * @param {Object} params - { system, messages, maxTokens? }
+   * @param {Object} res - Response object
+   * @returns {Promise<void>}
+   */
+  async streamChat(params, res) {
+    const { system, messages, maxTokens } = params;
+
+    const ollamaApiUrl = `${this.baseUrl}/api/chat`;
+
+    const aiResponse = await fetch(ollamaApiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: this.textModel,
+        messages: [{ role: 'system', content: system }, ...messages],
+        stream: true,
+        options: {
+          temperature: 0.2,
+          num_predict: maxTokens || 4096
+        }
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      const error = await aiResponse.text();
+      this.sendError(res, error);
+      this.sendSSEComplete(res);
+      return;
+    }
+
+    // Same newline-buffered NDJSON loop as stream(), but /api/chat wraps the
+    // delta in message.content instead of response
+    return new Promise((resolve, reject) => {
+      let buffer = '';
+
+      aiResponse.body.on('data', (chunk) => {
+        buffer += chunk.toString();
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const parsed = JSON.parse(line);
+            if (parsed.message?.content) {
+              this.sendContentDelta(res, parsed.message.content);
+            }
+            if (parsed.done) {
+              this.sendSSEComplete(res);
+              resolve();
+            }
+          } catch (e) {
+            // Skip malformed lines
+          }
+        }
+      });
+
+      aiResponse.body.on('end', () => {
+        if (buffer.trim()) {
+          try {
+            const parsed = JSON.parse(buffer);
+            if (parsed.message?.content) {
+              this.sendContentDelta(res, parsed.message.content);
+            }
+          } catch (e) {
+            // Ignore incomplete final chunk
+          }
+        }
+        resolve();
+      });
+
+      aiResponse.body.on('error', (error) => {
+        this.sendError(res, error.message);
+        this.sendSSEComplete(res);
+        reject(error);
+      });
+    });
+  }
+
+  /**
    * Format prompt for Ollama
    * @param {string} text - Input text
    * @param {string} visionAnalysis - Vision analysis results

@@ -61,6 +61,42 @@ export class OpenAIProvider extends BaseProvider {
   }
 
   /**
+   * Stream a multi-turn chat completion (assistant endpoint)
+   */
+  async streamChat(params, res) {
+    const { system, messages, maxTokens } = params;
+
+    try {
+      const stream = await this.client.chat.completions.create({
+        model: this.model,
+        messages: [{ role: 'system', content: system }, ...messages],
+        temperature: 0.2,
+        max_tokens: maxTokens || 8192,
+        stream: true,
+      });
+
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta?.content;
+
+        if (delta) {
+          this.sendContentDelta(res, delta);
+        }
+
+        if (chunk.choices[0]?.finish_reason === 'stop') {
+          break;
+        }
+      }
+
+      this.sendSSEComplete(res);
+
+    } catch (error) {
+      this.sendError(res, error.message);
+      this.sendSSEComplete(res);
+      throw error;
+    }
+  }
+
+  /**
    * Analyze images using OpenAI vision API
    */
   async analyzeVision(images, articleText, prompt) {

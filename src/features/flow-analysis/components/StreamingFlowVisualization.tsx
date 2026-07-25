@@ -17,7 +17,8 @@ import { STIXBundleExporter } from '../../flow-export/services/stixBundleExporte
 import { AttackFlowV3Exporter } from '../../flow-export/services/attackFlowV3Exporter';
 import { SavedFlow } from '../../flow-storage/types/SavedFlow';
 import 'reactflow/dist/style.css';
-import { Box } from '@mui/material';
+import { Box, IconButton, Tooltip } from '@mui/material';
+import { flowVizTheme } from '../../../shared/theme/flowviz-theme';
 import ErrorBoundary from '../../../shared/components/ErrorBoundary';
 
 import { THEME, NODE_TYPES, MERGE_CLUSTER_GAP } from './constants';
@@ -26,7 +27,6 @@ import { getLayoutedElements, boundsOf, type Bounds } from './utils/layoutUtils'
 
 import FloatingConnectionLine from './edges/FloatingConnectionLine';
 import FloatingEdge from './edges/FloatingEdge';
-import { useStoryMode } from './hooks/useStoryMode';
 import LoadingIndicator from '../../../shared/components/LoadingIndicator';
 import { useFlowEditor, useEditorKeyboard, EdgeLabelEditor, CommandPalette } from '../../flow-editing';
 import type { Command } from '../../flow-editing';
@@ -36,7 +36,11 @@ import NodeInspector from '../../flow-editing/components/NodeInspector';
 import EdgeInspector from '../../flow-editing/components/EdgeInspector';
 import EmptyCanvasState from '../../flow-editing/components/EmptyCanvasState';
 import NodeTypePickerMenu, { NodePickerState } from '../../flow-editing/components/NodeTypePickerMenu';
+import SourcePanel from './components/SourcePanel';
+import { normalizeSourceText } from './utils/sourceHighlight';
 import { EditorNodeType } from '../../flow-editing/utils/nodeFactoryDefaults';
+import { AssistantPanel, useAssistant, createOpsSession, serializeGraph, serializeSelection } from '../../flow-assistant';
+import type { AssistantOp, OpResult, OpsSession } from '../../flow-assistant';
 import type { AnalysisRequest } from '../types/analysisRequest';
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
@@ -51,6 +55,8 @@ import AddIcon from '@mui/icons-material/Add';
 import CropFreeIcon from '@mui/icons-material/CropFree';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
+import AssistantMark from '../../../shared/components/icons/AssistantMark';
 
 // Spacing of the background dot grid; the snap-to-grid step matches it so
 // dragged nodes land on the visible dots.
@@ -62,16 +68,16 @@ export interface StreamingFlowVisualizationProps {
     nodes: any[];
     edges: any[];
     viewport?: any;
+    /** Original article/report text, when the saved flow kept it. */
+    sourceText?: string;
+    /** Assistant conversation saved with the flow. */
+    assistantMessages?: any[];
   };
+  /** Fired when a URL analysis yields its extracted article (for saving). */
+  onArticleExtracted?: (text: string, title: string) => void;
   onExportAvailable?: (exportFn: (format: 'png' | 'json' | 'afb' | 'flowviz') => void) => void;
   onClearAvailable?: (clearFn: () => void) => void;
-  onStoryModeAvailable?: (storyData: {
-    storyState: any;
-    controls: any;
-    currentStepData: any;
-    onResetView: () => void;
-  } | null) => void;
-  onSaveAvailable?: (saveFn: (viewport?: any) => { nodes: any[], edges: any[], viewport: any }) => void;
+  onSaveAvailable?: (saveFn: (viewport?: any) => { nodes: any[], edges: any[], viewport: any, assistantMessages?: any[] }) => void;
   onStreamingStart?: () => void;
   onStreamingEnd?: () => void;
   onProgress?: (stage: string, message: string) => void;
@@ -81,7 +87,9 @@ export interface StreamingFlowVisualizationProps {
   edgeColor?: string;
   edgeStyle?: string;
   edgeCurve?: string;
-  storyModeSpeed?: number;
+  /** Provider/model for assistant requests (same pair analysis requests use). */
+  selectedProvider?: string;
+  selectedModel?: string;
   /**
    * What actually starts a stream. `url` is still used for provenance on
    * export and to pick the loading copy, but it no longer triggers analysis —
@@ -100,9 +108,9 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   onAnalyzeRequested,
   onClearRequested,
   loadedFlow,
+  onArticleExtracted,
   onExportAvailable,
   onClearAvailable,
-  onStoryModeAvailable,
   onSaveAvailable,
   onStreamingStart,
   onStreamingEnd,
@@ -112,12 +120,33 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   edgeColor = 'default',
   edgeStyle = 'solid',
   edgeCurve = 'smooth',
-  storyModeSpeed = 3,
+  selectedProvider,
+  selectedModel,
 }) => {
   const reactFlowInstance = useReactFlow();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
+
+  // The source material behind the canvas: pasted text at analysis start, the
+  // server-extracted article for URL analyses, or a saved flow's kept text.
+  // A merge of a second report overwrites it - the panel shows the latest.
+  const [articleText, setArticleText] = useState<string | null>(null);
+  const [articleTitle, setArticleTitle] = useState<string>('');
+  const [sourcePanelOpen, setSourcePanelOpen] = useState(false);
+  // Launched from the bottom-right orb; the panel replaces the orb in place
+  const [assistantOpen, setAssistantOpen] = useState(false);
+
+  // Pasted-text analyses and loaded text flows arrive through the url prop,
+  // so fall back to it when no article event has populated the state.
+  // Normalized here - the single point the panel, the excerpt highlighter,
+  // and the assistant all read from, so their views of the text agree.
+  const rawSourceText = articleText
+    ?? (url && !url.startsWith('http://') && !url.startsWith('https://') ? url : null);
+  const sourceText = useMemo(
+    () => (rawSourceText ? normalizeSourceText(rawSourceText) : null),
+    [rawSourceText],
+  );
   
   // Determine content type based on URL format
   const contentType = useMemo(() => {
@@ -130,18 +159,28 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   // geometry (side-to-side for same-rank nodes); the curve preference travels
   // in edge data.
   const getEdgeConfig = useCallback(() => {
-    const strokeColor = edgeColor === 'blue'
-      ? 'rgba(59, 130, 246, 0.8)'
+    // Line is translucent; the arrow is its opaque twin so the line doesn't show
+    // through the arrowhead. Both must move together — colouring the line without
+    // the marker leaves the previous arrow colour stranded. (arrow colours match
+    // EdgeInspector's per-edge swatches.)
+    const { stroke, arrow } = edgeColor === 'blue'
+      ? { stroke: 'rgba(59, 130, 246, 0.8)', arrow: '#3b82f6' }
       : edgeColor === 'white'
-        ? 'rgba(255, 255, 255, 0.8)'
-        : 'rgba(255, 255, 255, 0.55)'; // default: soft monochrome
+        ? { stroke: 'rgba(255, 255, 255, 0.8)', arrow: 'rgb(224, 227, 232)' }
+        : { stroke: 'rgba(255, 255, 255, 0.55)', arrow: 'rgb(150, 153, 158)' };
     const strokeDasharray = edgeStyle === 'dashed' ? '5 5' : undefined;
 
     return {
       type: 'floating',
       data: { curve: edgeCurve },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        width: 15,
+        height: 15,
+        color: arrow,
+      },
       style: {
-        stroke: strokeColor,
+        stroke,
         strokeWidth: 2,
         strokeDasharray
       }
@@ -156,6 +195,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
         ...edge,
         type: edgeConfig.type,
         data: { ...edge.data, ...edgeConfig.data },
+        markerEnd: edgeConfig.markerEnd,
         style: edgeConfig.style
       }))
     );
@@ -163,27 +203,6 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   
   const [isStreaming, setIsStreaming] = useState(false);
   const streamingClientRef = useRef<StreamingDirectFlowClient | null>(null);
-  
-  // Keyboard indicator state
-  const [keyIndicator, setKeyIndicator] = useState<{
-    action: string;
-    visible: boolean;
-  } | null>(null);
-
-  // Show keyboard indicator with animation
-  const showKeyIndicator = useCallback((action: string) => {
-    setKeyIndicator({ action, visible: true });
-    
-    // Hide after animation
-    setTimeout(() => {
-      setKeyIndicator(prev => prev ? { ...prev, visible: false } : null);
-    }, 600);
-    
-    // Remove from DOM after fade out
-    setTimeout(() => {
-      setKeyIndicator(null);
-    }, 900);
-  }, []);
 
   // Use refs to avoid unstable dependencies
   const isStreamingRef = useRef(isStreaming);
@@ -196,6 +215,13 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   useEffect(() => {
     nodesRef.current = nodes;
   }, [nodes]);
+
+  // Same for edges - assistant ops apply after an async round-trip, so they
+  // must read the graph as it is then, not as it was when the request left
+  const edgesRef = useRef<typeof edges>([]);
+  useEffect(() => {
+    edgesRef.current = edges;
+  }, [edges]);
 
   // The request currently being streamed. Every callback checks this before
   // touching state: the client keeps reading (and can keep emitting nodes)
@@ -221,18 +247,6 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   const handleEdgesChange = useCallback((changes: any) => {
     onEdgesChange(changes);
   }, [onEdgesChange]);
-
-  // Story mode hook
-  const {
-    storyState,
-    controls: storyControls,
-    currentStepData
-  } = useStoryMode({
-    nodes,
-    edges,
-    reactFlowInstance,
-    storyModeSpeed
-  });
 
   // Memoize React Flow props to prevent unnecessary re-renders
   const defaultEdgeOptions = useMemo(() => ({
@@ -304,6 +318,17 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   const editorFitView = useCallback(() => {
     reactFlowInstance?.fitView({ padding: 0.15, duration: 600, maxZoom: 1.5, minZoom: 0.1 });
   }, [reactFlowInstance]);
+
+  // Docking or undocking the source column resizes the canvas, so re-frame
+  // the graph in whatever space is left once the layout has settled
+  const prevSourceOpenRef = useRef(sourcePanelOpen);
+  useEffect(() => {
+    if (prevSourceOpenRef.current === sourcePanelOpen) return;
+    prevSourceOpenRef.current = sourcePanelOpen;
+    if (nodesRef.current.length === 0) return;
+    const t = setTimeout(() => editorFitView(), 80);
+    return () => clearTimeout(t);
+  }, [sourcePanelOpen, editorFitView]);
 
   // Semantic edit operations + undo/redo. All manual graph mutations go
   // through these ops; streaming writes bypass them and reset the history
@@ -475,6 +500,104 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
     });
   }, [inspectorNode]);
 
+  // AI assistant. Ops apply one at a time as they stream, through a session
+  // (a pure pass over the graph) whose ref map and placement state span the
+  // turn. The session keeps its own working copy of the graph because ops
+  // can arrive faster than React re-renders - reading nodesRef between two
+  // same-tick ops would see stale state. The whole turn still lands as ONE
+  // undo entry: the batch opens at the first applied op and finishTurn
+  // closes it (or rolls the partial turn back if the stream failed). The
+  // editor's own semantic ops are unsuitable here: each pushes its own
+  // history entry.
+  const assistantTurnRef = useRef<{
+    session: OpsSession;
+    nodes: typeof nodes;
+    edges: typeof edges;
+    opened: boolean;
+  } | null>(null);
+
+  const handleAssistantOp = useCallback((op: AssistantOp): OpResult => {
+    if (isStreamingRef.current) {
+      // The streaming pipeline owns the graph; dropping is safer than queueing
+      return { index: 0, summary: 'Edit', status: 'skipped', reason: 'analysis in progress' };
+    }
+    let turn = assistantTurnRef.current;
+    if (!turn) {
+      // Seeded from the live graph at the turn's first op. A user edit made
+      // mid-turn can be overwritten by the next applied op - the window is
+      // seconds long and the alternative (re-seeding per op) breaks same-tick
+      // sequences, so the trade goes this way.
+      turn = {
+        session: createOpsSession(getEdgeConfig()),
+        nodes: nodesRef.current,
+        edges: edgesRef.current,
+        opened: false,
+      };
+      assistantTurnRef.current = turn;
+    }
+    const step = turn.session.applyOne(turn.nodes, turn.edges, op);
+    turn.nodes = step.nodes;
+    turn.edges = step.edges;
+    if (step.result.status === 'applied') {
+      if (!turn.opened) {
+        editor.beginBatch();
+        turn.opened = true;
+      }
+      setNodes(step.nodes);
+      setEdges(step.edges);
+    }
+    return step.result;
+  }, [getEdgeConfig, editor, setNodes, setEdges]);
+
+  const finishAssistantTurn = useCallback((instruction: string, ok: boolean) => {
+    const turn = assistantTurnRef.current;
+    assistantTurnRef.current = null;
+    if (!turn?.opened) return;
+    if (!ok) {
+      editor.abortBatch();
+      return;
+    }
+    editor.endBatch(`AI: ${instruction.slice(0, 40)}`);
+    if (turn.session.didRelayout) {
+      // Same deferral relayout uses: let ReactFlow commit positions first
+      setTimeout(() => editorFitView(), 50);
+    }
+  }, [editor, editorFitView]);
+
+  const getAssistantGraph = useCallback(
+    () => serializeGraph(nodesRef.current, edgesRef.current),
+    [],
+  );
+  const getAssistantSelection = useCallback(
+    () => serializeSelection(inspectorNodeId, selectedEdgeId, nodesRef.current, edgesRef.current),
+    [inspectorNodeId, selectedEdgeId],
+  );
+  const getAssistantSourceText = useCallback(() => sourceText, [sourceText]);
+
+  // [[id|label]] references in assistant replies focus their node: center it
+  // and open its inspector, same as clicking the node itself
+  const handleFocusNode = useCallback((nodeId: string) => {
+    const node = nodesRef.current.find(n => n.id === nodeId);
+    if (!node || !reactFlowInstance) return;
+    reactFlowInstance.setCenter(node.position.x, node.position.y, {
+      zoom: Math.max(reactFlowInstance.getZoom(), 0.85),
+      duration: 600,
+    });
+    openInspector(nodeId);
+  }, [reactFlowInstance, openInspector]);
+
+  // Chat history lives here as component state: it survives open/close
+  // toggles but resets with the canvas (clear / load / new analysis remount)
+  const assistant = useAssistant({
+    provider: selectedProvider,
+    model: selectedModel,
+    getGraph: getAssistantGraph,
+    getSelection: getAssistantSelection,
+    getSourceText: getAssistantSourceText,
+    applyOp: handleAssistantOp,
+    finishTurn: finishAssistantTurn,
+  });
+
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   useEditorKeyboard({
@@ -550,7 +673,22 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       icon: gridVisible ? BlurOnIcon : BlurOffIcon,
       run: toggleGrid,
     },
-  ], [onAnalyzeRequested, onClearRequested, isStreaming, openNodePicker, editor, reactFlowInstance, gridVisible, toggleGrid]);
+    {
+      id: 'toggle-assistant',
+      label: assistantOpen ? 'Hide AI assistant' : 'Open AI assistant',
+      keywords: 'chat ai ask edit help',
+      icon: AssistantMark,
+      run: () => setAssistantOpen(prev => !prev),
+    },
+    {
+      id: 'toggle-source',
+      label: sourcePanelOpen ? 'Hide source article' : 'Show source article',
+      keywords: 'article report original text provenance',
+      icon: MenuBookIcon,
+      disabled: !sourceText,
+      run: () => setSourcePanelOpen(prev => !prev),
+    },
+  ], [onAnalyzeRequested, onClearRequested, isStreaming, openNodePicker, editor, reactFlowInstance, gridVisible, toggleGrid, assistantOpen, sourcePanelOpen, sourceText]);
 
   // Edge label editing (double-click an edge)
   const [edgeLabelEdit, setEdgeLabelEdit] = useState<EdgeLabelEditorState | null>(null);
@@ -582,6 +720,9 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       lastLoadedFlowRef.current = loadedFlow;
       console.log('📂 Loading saved flow with', loadedFlow.nodes.length, 'nodes and', loadedFlow.edges.length, 'edges');
       setNodes(loadedFlow.nodes);
+      setArticleText(loadedFlow.sourceText || null);
+      setArticleTitle('');
+      assistant.restore(loadedFlow.assistantMessages ?? []);
       
       // Apply current edge styling to loaded edges
       const edgeConfig = getEdgeConfig();
@@ -610,7 +751,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
 
       return; // Skip streaming if loading saved flow
     }
-  }, [loadedFlow, reactFlowInstance, setNodes, setEdges, getEdgeConfig, editor.resetHistory]);
+  }, [loadedFlow, reactFlowInstance, setNodes, setEdges, getEdgeConfig, editor.resetHistory, assistant.restore]);
 
   // Start streaming when URL is provided
   useEffect(() => {
@@ -647,6 +788,13 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       setIsStreaming(true);
       setShowLoadingIndicator(true); // Show loading indicator when starting
       onStreamingStart?.(); // Notify parent that streaming has started
+
+      // Pasted text IS the source; URL analyses get theirs via onArticle below
+      const inputIsUrl = request.input.startsWith('http://') || request.input.startsWith('https://');
+      if (!inputIsUrl) {
+        setArticleText(request.input);
+        setArticleTitle('');
+      }
       
       console.log('🚀 Starting streaming direct flow extraction...');
       
@@ -662,6 +810,14 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
         onProgress: (stage, message) => {
           if (isStale()) return;
           onProgress?.(stage, message);
+        },
+
+        onArticle: (article) => {
+          if (isStale()) return;
+          setArticleText(article.text);
+          setArticleTitle(article.title);
+          // Hoist to the host so Save can persist it as the flow's sourceText
+          onArticleExtracted?.(article.text, article.title);
         },
 
         onNode: (node) => {
@@ -1098,7 +1254,6 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
         },
         visualization: {
           viewport: reactFlowInstance?.getViewport(),
-          storyMode: { enabled: false }
         },
         analysis: {
           extractedTechniques: [...new Set(techniques)],
@@ -1124,6 +1279,9 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
     setNodes([]);
     setEdges([]);
     setIsStreaming(false);
+    setArticleText(null);
+    setArticleTitle('');
+    assistant.clear();
     editor.resetHistory();
 
     // Reset streaming client and disown any in-flight run, so its callbacks
@@ -1140,9 +1298,12 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
     return {
       nodes: nodes,
       edges: edges,
-      viewport: reactFlowInstance?.getViewport() || { x: 0, y: 0, zoom: 1 }
+      viewport: reactFlowInstance?.getViewport() || { x: 0, y: 0, zoom: 1 },
+      // The conversation is part of the investigation; capped so a long
+      // session can't bloat localStorage
+      assistantMessages: assistant.messages.slice(-50),
     };
-  }, [nodes, edges, reactFlowInstance]);
+  }, [nodes, edges, reactFlowInstance, assistant.messages]);
 
   useEffect(() => {
     if (onExportAvailable) {
@@ -1162,84 +1323,6 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
     }
   }, [onClearAvailable, handleClear]);
 
-  // Notify parent about story mode availability
-  useEffect(() => {
-    if (onStoryModeAvailable && !isStreaming && storyState.steps.length > 0) {
-      onStoryModeAvailable({
-        storyState,
-        controls: storyControls,
-        currentStepData,
-        onResetView: () => {
-          if (reactFlowInstance) {
-            reactFlowInstance.fitView({ duration: 800, padding: 0.1 });
-          }
-        }
-      });
-    } else if (onStoryModeAvailable && (isStreaming || storyState.steps.length === 0)) {
-      onStoryModeAvailable(null);
-    }
-  }, [onStoryModeAvailable, isStreaming, storyState, storyControls, currentStepData]);
-
-  // Keyboard controls for story mode
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // Only handle keyboard shortcuts when story mode is available
-      if (storyState.steps.length === 0) return;
-      
-      // Prevent default behavior only for specific keys
-      if (event.code === 'Space' || event.code === 'ArrowLeft' || event.code === 'ArrowRight' || event.code === 'Escape') {
-        // Don't interfere with typing in inputs
-        const activeElement = document.activeElement;
-        if (activeElement && (
-          activeElement.tagName === 'INPUT' || 
-          activeElement.tagName === 'TEXTAREA' ||
-          (activeElement as HTMLElement).isContentEditable === true
-        )) {
-          return;
-        }
-        
-        event.preventDefault();
-        
-        switch (event.code) {
-          case 'Space':
-            if (storyState.isPlaying) {
-              storyControls.pauseStory();
-              showKeyIndicator('Pause');
-            } else {
-              storyControls.playStory();
-              showKeyIndicator('Play');
-            }
-            break;
-          case 'ArrowRight':
-            storyControls.nextStep();
-            showKeyIndicator('Next Step');
-            break;
-          case 'ArrowLeft':
-            storyControls.prevStep();
-            showKeyIndicator('Previous Step');
-            break;
-          case 'Escape':
-            // Stop story mode and fit view for clean overview
-            storyControls.pauseStory();
-            storyControls.resetStory();
-            if (reactFlowInstance) {
-              reactFlowInstance.fitView({ duration: 800, padding: 0.1 });
-              showKeyIndicator('Fit View');
-            }
-            break;
-        }
-      }
-    };
-
-    // Add event listener to window for global keyboard handling
-    window.addEventListener('keydown', handleKeyDown);
-    
-    // Cleanup
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [storyState, storyControls, showKeyIndicator]);
-
   return (
     <EdgeActionsProvider value={edgeActions}>
     <Box
@@ -1255,75 +1338,24 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
         flex: 1,
         minHeight: 0,
         backgroundColor: THEME.background.primary,
-        position: 'relative'
+        position: 'relative',
+        // Row layout: the docked source column takes real space, and the
+        // canvas region below owns everything that floats over the graph
+        display: 'flex',
       }}
     >
-      {/* Floating Keyboard Indicator */}
-      {keyIndicator && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            zIndex: 1000,
-            pointerEvents: 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 1,
-            opacity: keyIndicator.visible ? 1 : 0,
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            animation: keyIndicator.visible 
-              ? 'keyIndicatorIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)' 
-              : 'keyIndicatorOut 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            '@keyframes keyIndicatorIn': {
-              '0%': {
-                opacity: 0,
-                transform: 'translate(-50%, -50%) scale(0.8)',
-              },
-              '100%': {
-                opacity: 1,
-                transform: 'translate(-50%, -50%) scale(1)',
-              }
-            },
-            '@keyframes keyIndicatorOut': {
-              '0%': {
-                opacity: 1,
-                transform: 'translate(-50%, -50%) scale(1)',
-              },
-              '100%': {
-                opacity: 0,
-                transform: 'translate(-50%, -50%) scale(0.9)',
-              }
-            }
-          }}
-        >
-          {/* Action Indicator */}
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              px: 3,
-              py: 1.5,
-              background: 'linear-gradient(145deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.06) 100%)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              borderRadius: '12px',
-              backdropFilter: 'blur(20px)',
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
-              color: '#fff',
-              fontSize: '0.9rem',
-              fontWeight: 600,
-              letterSpacing: '0.05em',
-              textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)',
-              minWidth: 80,
-            }}
-          >
-            {keyIndicator.action}
-          </Box>
-        </Box>
-      )}
+      {/* Docked source reader; selecting a node highlights its excerpt */}
+      <SourcePanel
+        open={sourcePanelOpen}
+        title={articleTitle}
+        text={sourceText ?? ''}
+        highlightExcerpt={(inspectorNode?.data?.source_excerpt as string) || null}
+        onClose={() => setSourcePanelOpen(false)}
+      />
+
+      {/* Canvas region: the graph plus its floating surfaces, anchored here
+          so overlays share whatever width the source column leaves */}
+      <Box sx={{ position: 'relative', flex: 1, minWidth: 0, height: '100%' }}>
 
       {/* Node type picker (contextual +, connect-drop, right-click) */}
       <NodeTypePickerMenu
@@ -1438,6 +1470,14 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
                 ? <BlurOnIcon sx={{ fontSize: 14 }} />
                 : <BlurOffIcon sx={{ fontSize: 14, opacity: 0.5 }} />}
             </ControlButton>
+            {sourceText && (
+              <ControlButton
+                onClick={() => setSourcePanelOpen(prev => !prev)}
+                title={sourcePanelOpen ? 'Hide source article' : 'Show source article'}
+              >
+                <MenuBookIcon sx={{ fontSize: 14, opacity: sourcePanelOpen ? 1 : 0.6 }} />
+              </ControlButton>
+            )}
           </Controls>
         </ReactFlow>
         
@@ -1467,7 +1507,19 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
           focusNotes={inspectorFocusNotes}
           onChange={(patch) => editor.updateNodeData(inspectorNode.id, patch)}
           onDelete={() => { editor.deleteNode(inspectorNode.id); closeInspector(); }}
+          onDuplicate={() => {
+            const newId = editor.duplicateNode(inspectorNode.id);
+            // Move the inspector onto the copy, name focused for a quick rename
+            if (newId) openInspector(newId, { focusName: true });
+          }}
+          onShowSource={
+            sourceText && inspectorNode.data?.source_excerpt
+              ? () => setSourcePanelOpen(true)
+              : undefined
+          }
+          onAskAssistant={() => setAssistantOpen(true)}
           onClose={closeInspector}
+          stacked={assistantOpen}
         />
       )}
 
@@ -1483,8 +1535,53 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
           onReverse={editor.reverseEdge}
           onDelete={(id) => { editor.deleteEdge(id); setSelectedEdgeId(null); }}
           onClose={() => setSelectedEdgeId(null)}
+          stacked={assistantOpen}
         />
       )}
+
+      {/* AI graph assistant: an orb launcher in the corner the panel opens
+          into - the chat-widget idiom - swapped for the panel while open */}
+      {!assistantOpen && (
+        <Tooltip title="AI assistant" placement="left">
+          <IconButton
+            onClick={() => setAssistantOpen(true)}
+            sx={{
+              position: 'absolute',
+              bottom: 16,
+              right: 16,
+              zIndex: 12,
+              width: 44,
+              height: 44,
+              backgroundColor: flowVizTheme.colors.background.glass,
+              border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
+              backdropFilter: flowVizTheme.effects.blur.heavy,
+              boxShadow: flowVizTheme.effects.shadows.md,
+              transition: `box-shadow ${flowVizTheme.motion.fast}, background-color ${flowVizTheme.motion.fast}`,
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                boxShadow: flowVizTheme.effects.shadows.lg,
+              },
+            }}
+          >
+            <AssistantMark size={30} />
+          </IconButton>
+        </Tooltip>
+      )}
+      <AssistantPanel
+        open={assistantOpen}
+        messages={assistant.messages}
+        pending={assistant.pending}
+        hasGraph={nodes.length > 0}
+        streamingText={assistant.streamingText}
+        disabled={isStreaming}
+        onSend={assistant.send}
+        onClear={assistant.clear}
+        onClose={() => setAssistantOpen(false)}
+        onFocusNode={handleFocusNode}
+        stacked={Boolean(inspectorNode || selectedEdge)}
+      />
+
+      </Box>
 
     </Box>
     </EdgeActionsProvider>

@@ -1,0 +1,369 @@
+import { useEffect, useRef, useState } from 'react';
+import { Box, Chip, CircularProgress, IconButton, InputBase, Tooltip, Typography } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import AssistantMark from '../../../shared/components/icons/AssistantMark';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CheckIcon from '@mui/icons-material/Check';
+import OpenInFullIcon from '@mui/icons-material/OpenInFull';
+import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen';
+import { createScrollbarStyle, flowVizTheme } from '../../../shared/theme/flowviz-theme';
+import { ChatMessage, OpResult } from '../types';
+import { trimStreamingTail } from '../services/markdown';
+import { copyText } from '../services/clipboard';
+import AssistantMarkdown from './AssistantMarkdown';
+
+interface AssistantPanelProps {
+  open: boolean;
+  messages: ChatMessage[];
+  pending: boolean;
+  /** Whether the canvas has nodes; picks which suggested prompts show. */
+  hasGraph: boolean;
+  /** The in-flight reply's text as it streams; null until the answer starts. */
+  streamingText: string | null;
+  /** True while an analysis is streaming - input is held until it finishes. */
+  disabled: boolean;
+  onSend: (text: string) => void;
+  onClear: () => void;
+  onClose: () => void;
+  /** Center the canvas on a node; [[id|label]] refs in replies use this. */
+  onFocusNode?: (nodeId: string) => void;
+  /** An inspector is open above: anchor below it so the two share the edge. */
+  stacked?: boolean;
+}
+
+const bubbleSx = {
+  px: 1.5,
+  py: 1,
+  borderRadius: '10px',
+  fontSize: '0.82rem',
+  lineHeight: 1.5,
+  whiteSpace: 'pre-wrap' as const,
+  wordBreak: 'break-word' as const,
+};
+
+/** Hover copy control for assistant replies; flashes a check on success. */
+function CopyMessageButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <Tooltip title={copied ? 'Copied' : 'Copy'}>
+      <IconButton
+        size="small"
+        className="fv-copy"
+        onClick={() => {
+          copyText(text).then((ok) => {
+            if (!ok) return;
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          });
+        }}
+        sx={{
+          position: 'absolute',
+          top: 4,
+          right: 4,
+          p: 0.4,
+          color: 'rgba(255, 255, 255, 0.55)',
+          backgroundColor: 'rgba(13, 17, 23, 0.85)',
+          opacity: 0,
+          transition: flowVizTheme.motion.fast,
+          '&:hover': { color: 'rgba(255, 255, 255, 0.9)', backgroundColor: 'rgba(13, 17, 23, 0.95)' },
+        }}
+      >
+        {copied ? <CheckIcon sx={{ fontSize: 13 }} /> : <ContentCopyIcon sx={{ fontSize: 13 }} />}
+      </IconButton>
+    </Tooltip>
+  );
+}
+
+const GRAPH_SUGGESTIONS = [
+  'Summarize this attack',
+  'Draft Sigma rules for this attack',
+  'Find coverage gaps in this flow',
+];
+const EMPTY_CANVAS_SUGGESTIONS = [
+  'Build an example phishing attack flow',
+];
+
+function OpChips({ results }: { results: OpResult[] }) {
+  if (results.length === 0) return null;
+  return (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.75 }}>
+      {results.map((result) => (
+        <Tooltip key={result.index} title={result.reason ?? ''} disableHoverListener={!result.reason}>
+          <Chip
+            size="small"
+            label={result.status === 'skipped' ? `Skipped: ${result.summary}` : result.summary}
+            sx={{
+              height: 20,
+              fontSize: '0.66rem',
+              backgroundColor: result.status === 'skipped'
+                ? flowVizTheme.colors.status.warning.bg
+                : 'rgba(255, 255, 255, 0.08)',
+              color: result.status === 'skipped'
+                ? flowVizTheme.colors.status.warning.text
+                : 'rgba(255, 255, 255, 0.75)',
+              border: result.status === 'skipped'
+                ? `1px solid ${flowVizTheme.colors.status.warning.border}`
+                : '1px solid rgba(255, 255, 255, 0.12)',
+              '& .MuiChip-label': { px: 0.75 },
+            }}
+          />
+        </Tooltip>
+      ))}
+    </Box>
+  );
+}
+
+/**
+ * The AI graph assistant chat. Bottom-right on purpose: the node/edge
+ * inspectors own the top-right corner, and keeping both visible lets the user
+ * inspect a node while asking about it.
+ */
+export default function AssistantPanel({
+  open,
+  messages,
+  pending,
+  hasGraph,
+  streamingText,
+  disabled,
+  onSend,
+  onClear,
+  onClose,
+  onFocusNode,
+  stacked,
+}: AssistantPanelProps) {
+  const [draft, setDraft] = useState('');
+  const [expanded, setExpanded] = useState(() => localStorage.getItem('flowviz_assistant_expanded') === 'true');
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const toggleExpanded = () => {
+    setExpanded(prev => {
+      localStorage.setItem('flowviz_assistant_expanded', String(!prev));
+      return !prev;
+    });
+  };
+
+  // Keep the newest message (and the streaming tail) in view
+  useEffect(() => {
+    const list = listRef.current;
+    if (list) list.scrollTop = list.scrollHeight;
+  }, [messages, pending, streamingText]);
+
+  useEffect(() => {
+    if (open) inputRef.current?.focus();
+  }, [open]);
+
+  if (!open) return null;
+
+  const canSend = !pending && !disabled && draft.trim().length > 0;
+
+  const submit = () => {
+    if (!canSend) return;
+    onSend(draft);
+    setDraft('');
+  };
+
+  return (
+    <Box
+      sx={{
+        position: 'absolute',
+        bottom: 16,
+        right: 16,
+        // Base width matches the node inspector so the stacked pair reads as
+        // one column; the wide reading mode only applies when standing alone
+        width: !stacked && expanded ? 520 : 340,
+        // Stacked under an open inspector the panel takes the rest of the
+        // edge; alone it keeps its own height budget
+        ...(stacked ? { top: '52%' } : { maxHeight: expanded ? '80%' : '60%' }),
+        transition: `width ${flowVizTheme.motion.normal}`,
+        display: 'flex',
+        flexDirection: 'column',
+        zIndex: 12,
+        backgroundColor: flowVizTheme.colors.background.glass,
+        border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
+        borderRadius: '12px',
+        backdropFilter: flowVizTheme.effects.blur.heavy,
+        boxShadow: flowVizTheme.effects.shadows.lg,
+        overflow: 'hidden',
+      }}
+    >
+      {/* Header */}
+      <Box
+        sx={{
+          px: 2,
+          py: 1.25,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+        }}
+      >
+        <AssistantMark size={19} />
+        <Typography sx={{ flex: 1, fontSize: '0.82rem', fontWeight: 600, color: 'rgba(255, 255, 255, 0.9)' }}>
+          AI Assistant
+        </Typography>
+        <Tooltip title={expanded ? 'Shrink panel' : 'Expand panel'}>
+          <IconButton size="small" onClick={toggleExpanded} sx={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+            {expanded ? <CloseFullscreenIcon sx={{ fontSize: 16 }} /> : <OpenInFullIcon sx={{ fontSize: 16 }} />}
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Clear conversation">
+          <span>
+            <IconButton size="small" onClick={onClear} disabled={messages.length === 0 || pending} sx={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+              <RestartAltIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title="Close">
+          <IconButton size="small" onClick={onClose} sx={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Box>
+
+      {/* Messages */}
+      <Box ref={listRef} sx={{ flex: 1, overflowY: 'auto', px: 1.5, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1, ...createScrollbarStyle() }}>
+        {messages.length === 0 && !pending && (
+          <>
+            <Typography sx={{ color: 'rgba(255, 255, 255, 0.45)', fontSize: '0.78rem', px: 0.5, py: 1 }}>
+              Ask about the graph or tell me to edit it — "add a C2 server connected to the loader", "delete the phishing node".
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, px: 0.5 }}>
+              {(hasGraph ? GRAPH_SUGGESTIONS : EMPTY_CANVAS_SUGGESTIONS).map((suggestion) => (
+                <Chip
+                  key={suggestion}
+                  label={suggestion}
+                  size="small"
+                  disabled={disabled}
+                  onClick={() => onSend(suggestion)}
+                  sx={{
+                    height: 24,
+                    fontSize: '0.72rem',
+                    color: 'rgba(255, 255, 255, 0.75)',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)', borderColor: 'rgba(255, 255, 255, 0.28)' },
+                  }}
+                />
+              ))}
+            </Box>
+          </>
+        )}
+        {messages.map((message) => (
+          <Box
+            key={message.id}
+            sx={{
+              alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
+              maxWidth: '90%',
+              ...bubbleSx,
+              ...(message.role === 'user' && {
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(255, 255, 255, 0.16)',
+                color: 'rgba(255, 255, 255, 0.92)',
+              }),
+              ...(message.role === 'assistant' && {
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                color: 'rgba(255, 255, 255, 0.85)',
+                position: 'relative' as const,
+                '&:hover .fv-copy': { opacity: 1 },
+              }),
+              ...(message.role === 'error' && {
+                backgroundColor: flowVizTheme.colors.status.error.bg,
+                border: `1px solid ${flowVizTheme.colors.status.error.border}`,
+                color: flowVizTheme.colors.status.error.text,
+              }),
+            }}
+          >
+            {message.role === 'assistant'
+              ? <AssistantMarkdown text={message.text} onFocusNode={onFocusNode} />
+              : message.text}
+            {message.role === 'assistant' && message.text && <CopyMessageButton text={message.text} />}
+            {message.role === 'assistant' && <OpChips results={message.opResults ?? []} />}
+          </Box>
+        ))}
+        {pending && (
+          streamingText ? (
+            <Box sx={{ alignSelf: 'flex-start', maxWidth: '90%', ...bubbleSx, backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.08)', color: 'rgba(255, 255, 255, 0.85)' }}>
+              <AssistantMarkdown text={trimStreamingTail(streamingText)} onFocusNode={onFocusNode} />
+            </Box>
+          ) : (
+            <Box sx={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 1, ...bubbleSx, backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              <CircularProgress size={14} sx={{ color: 'rgba(255, 255, 255, 0.5)' }} />
+              <Typography sx={{ fontSize: '0.78rem', color: 'rgba(255, 255, 255, 0.55)' }}>Thinking…</Typography>
+            </Box>
+          )
+        )}
+      </Box>
+
+      {/* Composer */}
+      <Tooltip title={disabled ? 'Wait for the analysis to finish' : ''} disableHoverListener={!disabled}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'flex-end',
+            gap: 0.5,
+            px: 1.5,
+            py: 1,
+            borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+            opacity: disabled ? 0.5 : 1,
+          }}
+        >
+          <InputBase
+            inputRef={inputRef}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submit();
+              }
+            }}
+            placeholder="Ask or edit…"
+            multiline
+            maxRows={4}
+            disabled={disabled || pending}
+            sx={{
+              flex: 1,
+              fontSize: '0.82rem',
+              color: 'rgba(255, 255, 255, 0.9)',
+              px: 1.25,
+              py: 0.75,
+              borderRadius: '8px',
+              backgroundColor: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              transition: flowVizTheme.motion.fast,
+              '&.Mui-focused': { borderColor: 'rgba(255, 255, 255, 0.3)' },
+            }}
+          />
+          {/* Filled disc reads as the composer's one primary action - the
+              inverted silver keeps it monochrome; grey while there is
+              nothing to send */}
+          <IconButton
+            size="small"
+            onClick={submit}
+            disabled={!canSend}
+            sx={{
+              width: 30,
+              height: 30,
+              mb: 0.25,
+              flexShrink: 0,
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              color: '#0d1117',
+              transition: flowVizTheme.motion.fast,
+              '&:hover': { backgroundColor: '#ffffff' },
+              '&.Mui-disabled': {
+                backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                color: 'rgba(255, 255, 255, 0.28)',
+              },
+            }}
+          >
+            <ArrowUpwardIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+        </Box>
+      </Tooltip>
+    </Box>
+  );
+}

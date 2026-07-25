@@ -102,6 +102,14 @@ export const rateLimits = {
     windowMs: 5 * 60 * 1000, // 5 minutes
     max: parseInt(process.env.RATE_LIMIT_STREAMING) || 5, // Very strict for expensive AI calls
     message: 'Too many streaming analysis requests from this IP, please try again later.'
+  }),
+
+  // Looser than streaming: one chat conversation is many small requests, and
+  // sharing the analysis window would let a chat starve analysis (or vice versa)
+  assistant: createRateLimit({
+    windowMs: 5 * 60 * 1000, // 5 minutes
+    max: parseInt(process.env.RATE_LIMIT_ASSISTANT) || 20,
+    message: 'Too many assistant requests from this IP, please try again later.'
   })
 };
 

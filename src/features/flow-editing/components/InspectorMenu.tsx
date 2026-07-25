@@ -1,10 +1,19 @@
 import React, { useState } from 'react';
-import { Box, IconButton, Menu, MenuItem, Tooltip } from '@mui/material';
+import { Box, Divider, IconButton, Menu, MenuItem, Tooltip } from '@mui/material';
 import MoreHorizRoundedIcon from '@mui/icons-material/MoreHorizRounded';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { flowVizTheme } from '../../../shared/theme/flowviz-theme';
 
+export interface InspectorMenuItem {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+}
+
 interface InspectorMenuProps {
+  /** Non-destructive actions, rendered above the delete item. */
+  items?: InspectorMenuItem[];
   /** Wording for the destructive item, e.g. "Delete node". */
   deleteLabel: string;
   onDelete: () => void;
@@ -14,11 +23,20 @@ interface InspectorMenuProps {
   hoverBg?: string;
 }
 
+const itemSx = {
+  mx: 0.5,
+  gap: 1,
+  fontSize: '0.82rem',
+  borderRadius: `${flowVizTheme.borderRadius.sm}px`,
+  transition: flowVizTheme.motion.fast,
+};
+
 /**
  * Overflow menu for the inspector headers. Destructive actions live here rather
- * than beside the close button so a mis-aimed dismiss can't delete the object.
+ * than beside the close button so a mis-aimed dismiss can't delete the object;
+ * delete always renders last, behind a divider when other actions exist.
  */
-const InspectorMenu: React.FC<InspectorMenuProps> = ({ deleteLabel, onDelete, ink, hoverBg }) => {
+const InspectorMenu: React.FC<InspectorMenuProps> = ({ items = [], deleteLabel, onDelete, ink, hoverBg }) => {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const close = () => setAnchor(null);
 
@@ -63,15 +81,30 @@ const InspectorMenu: React.FC<InspectorMenuProps> = ({ deleteLabel, onDelete, in
         }}
         MenuListProps={{ sx: { py: 0.5 } }}
       >
+        {items.map((item) => (
+          <MenuItem
+            key={item.id}
+            onClick={() => { close(); item.onClick(); }}
+            sx={{
+              ...itemSx,
+              color: flowVizTheme.colors.text.primary,
+              '&:hover': { backgroundColor: flowVizTheme.colors.surface.hover },
+            }}
+          >
+            {item.icon}
+            {item.label}
+          </MenuItem>
+        ))}
+
+        {items.length > 0 && (
+          <Divider sx={{ my: 0.5, borderColor: 'rgba(255, 255, 255, 0.08)' }} />
+        )}
+
         <MenuItem
           onClick={() => { close(); onDelete(); }}
           sx={{
-            mx: 0.5,
-            gap: 1,
-            fontSize: '0.82rem',
-            borderRadius: `${flowVizTheme.borderRadius.sm}px`,
+            ...itemSx,
             color: flowVizTheme.colors.status.error.text,
-            transition: flowVizTheme.motion.fast,
             '&:hover': { backgroundColor: flowVizTheme.colors.status.error.bg },
           }}
         >

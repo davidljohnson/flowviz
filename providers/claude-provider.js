@@ -79,6 +79,62 @@ export class ClaudeProvider extends BaseProvider {
   }
 
   /**
+   * Stream a multi-turn chat completion (assistant endpoint)
+   */
+  async streamChat(params, res) {
+    const { system, messages, maxTokens } = params;
+
+    const anthropicApiUrl = this.baseUrl
+      ? `${this.baseUrl}/v1/messages`
+      : 'https://api.anthropic.com/v1/messages';
+
+    const aiResponse = await fetch(anthropicApiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': this.apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: this.model,
+        max_tokens: maxTokens || 8192,
+        temperature: 0.2,
+        stream: true,
+        system,
+        messages,
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      const error = await aiResponse.text();
+      throw new Error(`Claude API error: ${error}`);
+    }
+
+    if (!aiResponse.body) {
+      throw new Error('No response body available from Claude API');
+    }
+
+    // Pipe Anthropic's native SSE through untouched, as stream() does - the
+    // client only reads data lines carrying delta.text, which both formats share
+    return new Promise((resolve, reject) => {
+      aiResponse.body.on('data', (chunk) => {
+        res.write(chunk.toString());
+      });
+
+      aiResponse.body.on('end', () => {
+        this.sendSSEComplete(res);
+        resolve();
+      });
+
+      aiResponse.body.on('error', (error) => {
+        this.sendError(res, error.message);
+        this.sendSSEComplete(res);
+        reject(error);
+      });
+    });
+  }
+
+  /**
    * Analyze images using Claude vision API
    */
   async analyzeVision(images, articleText, prompt) {

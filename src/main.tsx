@@ -72,7 +72,7 @@ const theme = createTheme({
     MuiTooltip: {
       defaultProps: {
         // Tooltips sit on rows of adjacent icon buttons (inspector headers, the
-        // app bar, story controls). With MUI's defaults, sweeping across such a
+        // app bar). With MUI's defaults, sweeping across such a
         // row fires each one in turn, and because the outgoing tooltip's exit
         // transition outlives the next one's entrance, two poppers are briefly
         // on screen at once — read as a dark patch flashing under the buttons.

@@ -16,7 +16,6 @@ import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import SettingsIcon from '@mui/icons-material/Settings';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import { keyframes } from '@mui/system';
-import ToolbarStoryModeControls from '../../flow-analysis/components/components/ToolbarStoryModeControls';
 import { ActionMenu } from '../../../shared/components/Dropdown';
 import { GlassIconButton } from '../../../shared/components/Button';
 import { FlowIcon } from '../../../shared/components/Typography';
@@ -33,7 +32,6 @@ const streamingGradient = keyframes`
 interface AppBarProps {
   isStreaming: boolean;
   exportFunction: ((format: 'png' | 'json' | 'afb' | 'flowviz') => void) | null;
-  storyModeData: any;
   showGraphActions: boolean;
   onNewSearch: () => void;
   onDownloadClick: (format: 'png' | 'json' | 'afb' | 'flowviz') => void;
@@ -45,7 +43,6 @@ interface AppBarProps {
 export default function AppBar({
   isStreaming,
   exportFunction,
-  storyModeData,
   showGraphActions,
   onNewSearch,
   onDownloadClick,
@@ -111,24 +108,6 @@ export default function AppBar({
           </Typography>
         </Box>
 
-        {/* Center - Story Mode Controls */}
-        <Box sx={{ 
-          flex: '1 1 0', 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center',
-        }}>
-          {storyModeData && (
-            <ToolbarStoryModeControls
-              storyState={storyModeData.storyState}
-              controls={storyModeData.controls}
-              currentStepData={storyModeData.currentStepData}
-              onResetView={storyModeData.onResetView}
-            />
-          )}
-        </Box>
-
-
         {/* Right Side - Action Buttons */}
         <Box sx={{ 
           display: 'flex', 
@@ -139,7 +118,7 @@ export default function AppBar({
         }}>
           {showGraphActions && (
             <Tooltip title="Analyze a report" placement="bottom">
-              <GlassIconButton 
+              <GlassIconButton
                 onClick={onNewSearch}
                 size="small"
               >

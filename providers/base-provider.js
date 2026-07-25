@@ -21,6 +21,17 @@ export class BaseProvider {
   }
 
   /**
+   * Stream a multi-turn chat completion with a caller-supplied conversation.
+   * Unlike stream(), nothing is prepended - the caller owns the full prompt.
+   * @param {object} params - { system, messages: [{role, content}], maxTokens? }
+   * @param {object} res - Express response object for SSE streaming
+   * @returns {Promise<void>}
+   */
+  async streamChat(params, res) {
+    throw new Error(`streamChat() must be implemented by ${this.providerName} provider`);
+  }
+
+  /**
    * Analyze image content (vision)
    * @param {string} imageData - Base64 encoded image
    * @param {string} mediaType - Image MIME type

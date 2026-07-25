@@ -322,7 +322,8 @@ export class LocalStorageService implements IFlowStorage {
           edgeCount: flow.metadata.edgeCount || flow.edges.length,
         },
         visualization: flow.visualization || {},
-        analysis: flow.analysis || {}
+        analysis: flow.analysis || {},
+        assistantMessages: Array.isArray(flow.assistantMessages) ? flow.assistantMessages : undefined
       };
       
       return validatedFlow;

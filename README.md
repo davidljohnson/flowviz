@@ -10,7 +10,6 @@ Open-source tool that analyzes cybersecurity articles and generates interactive 
 - Real-time streaming visualization as content is analyzed
 - MITRE ATT&CK technique mapping
 - Export to PNG, STIX 2.1, Attack Flow Builder (.afb), or JSON
-- Story mode for cinematic attack progression playback
 - Save and load previous analyses
 
 ## Quick Start
@@ -45,7 +44,7 @@ Open-source tool that analyzes cybersecurity articles and generates interactive 
 1. Paste a cybersecurity article URL or text
 2. Click "Analyze Article"
 3. Watch the attack flow build in real-time
-4. Click nodes for details, use Story Mode for playback
+4. Click nodes for details
 5. Export or save your analysis
 
 ## Configuration

@@ -27,12 +27,11 @@ export const useAppState = () => {
   const [urlError, setUrlError] = useState(false);
   const [urlHelperText, setUrlHelperText] = useState('');
   
-  // Content and visualization state
+  // Content and visualization state
   const [exportFunction, setExportFunction] = useState<((format: 'png' | 'json' | 'afb' | 'flowviz') => void) | null>(null);
   const [clearVisualization, setClearVisualization] = useState<(() => void) | null>(null);
-  const [storyModeData, setStoryModeData] = useState<any>(null);
-  const [getSaveData, setGetSaveData] = useState<(() => { nodes: any[], edges: any[], viewport: any }) | null>(null);
-  const [loadedFlow, setLoadedFlow] = useState<{ nodes: any[], edges: any[], viewport?: any } | undefined>(undefined);
+  const [getSaveData, setGetSaveData] = useState<(() => { nodes: any[], edges: any[], viewport: any, assistantMessages?: any[] }) | null>(null);
+  const [loadedFlow, setLoadedFlow] = useState<{ nodes: any[], edges: any[], viewport?: any, sourceText?: string, assistantMessages?: any[] } | undefined>(undefined);
   
   // The current analysis request. Distinct from submittedUrl/submittedText,
   // which gate the landing-page-vs-canvas branch; this is what actually starts
@@ -48,11 +47,10 @@ export const useAppState = () => {
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   
   // Settings state with loading state to prevent flash of default values
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [edgeColor, setEdgeColor] = useState('default');
   const [edgeStyle, setEdgeStyle] = useState('solid');
   const [edgeCurve, setEdgeCurve] = useState('smooth');
-  const [storyModeSpeed, setStoryModeSpeed] = useState(3); // seconds, range 1-10
   const [selectedProvider, setSelectedProvider] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
   
@@ -71,11 +69,6 @@ export const useAppState = () => {
     const storedEdgeCurve = localStorage.getItem('edge_curve');
     if (storedEdgeCurve) {
       setEdgeCurve(storedEdgeCurve);
-    }
-
-    const storedStorySpeed = localStorage.getItem('story_mode_speed');
-    if (storedStorySpeed) {
-      setStoryModeSpeed(parseInt(storedStorySpeed, 10));
     }
 
     const storedProvider = localStorage.getItem('ai_provider');
@@ -98,7 +91,7 @@ export const useAppState = () => {
   // Storage id of the currently open flow (loaded or saved) - lets Save
   // update in place instead of always duplicating
   const [currentFlowId, setCurrentFlowId] = useState<string | null>(null);
-  // Blank-canvas editing mode: visualization without any AI analysis
+  // Blank-canvas editing mode: visualization without any AI analysis
   
   // Toast notification state
   const [toastOpen, setToastOpen] = useState(false);
@@ -147,29 +140,26 @@ export const useAppState = () => {
   };
 
   // Settings save handler
-  const handleSaveSettings = (newSettings?: {
+  const handleSaveSettings = (newSettings?: {
     edgeColor: string;
     edgeStyle: string;
     edgeCurve: string;
-    storyModeSpeed: number;
     selectedProvider: string;
     selectedModel: string;
   }) => {
     // Use provided settings or current state values
-    const settingsToSave = newSettings || {
+    const settingsToSave = newSettings || {
       edgeColor,
       edgeStyle,
       edgeCurve,
-      storyModeSpeed,
       selectedProvider,
       selectedModel,
     };
 
-    // Save to localStorage
+    // Save to localStorage
     localStorage.setItem('edge_color', settingsToSave.edgeColor);
     localStorage.setItem('edge_style', settingsToSave.edgeStyle);
     localStorage.setItem('edge_curve', settingsToSave.edgeCurve);
-    localStorage.setItem('story_mode_speed', settingsToSave.storyModeSpeed.toString());
     localStorage.setItem('ai_provider', settingsToSave.selectedProvider);
     localStorage.setItem('ai_model', settingsToSave.selectedModel);
 
@@ -183,15 +173,14 @@ export const useAppState = () => {
     setTextContent('');
     setSubmittedUrl('');
     setSubmittedText('');
-    setIsSearchExpanded(false);
+    setIsSearchExpanded(false);
     setExportFunction(null);
-    setStoryModeData(null);
     setUrlError(false);
     setUrlHelperText('');
     setLoadedFlow(undefined);
     setHasUnsavedChanges(false);
     setIsLoadedFlow(false);
-    setCurrentFlowId(null);
+    setCurrentFlowId(null);
     // Otherwise a stale request would re-fire the moment the canvas remounts.
     setAnalysisRequest(null);
 
@@ -210,10 +199,9 @@ export const useAppState = () => {
     showError,
     isSearchExpanded,
     urlError,
-    urlHelperText,
+    urlHelperText,
     exportFunction,
     clearVisualization,
-    storyModeData,
     getSaveData,
     loadedFlow,
     
@@ -226,11 +214,10 @@ export const useAppState = () => {
     settingsDialogOpen,
     
     // Settings
-    settingsLoaded,
+    settingsLoaded,
     edgeColor,
     edgeStyle,
     edgeCurve,
-    storyModeSpeed,
     selectedProvider,
     selectedModel,
 
@@ -238,7 +225,7 @@ export const useAppState = () => {
     hasUnsavedChanges,
     isLoadedFlow,
     isStreaming,
-    currentFlowId,
+    currentFlowId,
     
     // Toast
     toastOpen,
@@ -254,10 +241,9 @@ export const useAppState = () => {
     setShowError,
     setIsSearchExpanded,
     setUrlError,
-    setUrlHelperText,
+    setUrlHelperText,
     setExportFunction,
     setClearVisualization,
-    setStoryModeData,
     setGetSaveData,
     setLoadedFlow,
     setAnalysisRequest,
@@ -265,17 +251,16 @@ export const useAppState = () => {
     setAnalyzeDialogOpen,
     setSaveFlowDialogOpen,
     setLoadFlowDialogOpen,
-    setSettingsDialogOpen,
+    setSettingsDialogOpen,
     setEdgeColor,
     setEdgeStyle,
     setEdgeCurve,
-    setStoryModeSpeed,
     setSelectedProvider,
     setSelectedModel,
     setHasUnsavedChanges,
     setIsLoadedFlow,
     setIsStreaming,
-    setCurrentFlowId,
+    setCurrentFlowId,
     setToastOpen,
     setToastMessage,
     setToastSeverity,

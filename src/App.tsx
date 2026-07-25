@@ -25,7 +25,6 @@ export default function App() {
     urlError,
     urlHelperText,
     exportFunction,
-    storyModeData,
     getSaveData,
     loadedFlow,
 
@@ -45,7 +44,6 @@ export default function App() {
     edgeColor,
     edgeStyle,
     edgeCurve,
-    storyModeSpeed,
     selectedProvider,
     selectedModel,
 
@@ -67,7 +65,6 @@ export default function App() {
     setShowError,
     setExportFunction,
     setClearVisualization,
-    setStoryModeData,
     setGetSaveData,
     setLoadedFlow,
     setNewSearchDialogOpen,
@@ -78,7 +75,6 @@ export default function App() {
     setEdgeColor,
     setEdgeStyle,
     setEdgeCurve,
-    setStoryModeSpeed,
     setSelectedProvider,
     setSelectedModel,
     setHasUnsavedChanges,
@@ -98,6 +94,11 @@ export default function App() {
   // local rather than joining the persisted app state.
   const [analyzeMode, setAnalyzeMode] = useState<AnalyzeMode>('merge');
   const [canvasHasContent, setCanvasHasContent] = useState(false);
+
+  // Article text extracted server-side during a URL analysis. Held here so
+  // Save can persist it as the flow's sourceText (pasted text already flows
+  // through submittedText).
+  const [extractedText, setExtractedText] = useState('');
 
   // Get provider defaults
   const providerConfig = useProviderConfig();
@@ -157,6 +158,7 @@ export default function App() {
       setLoadedFlow(undefined);
       setIsLoadedFlow(false);
       setCurrentFlowId(null);
+      setExtractedText('');
     }
     setSubmittedUrl(isUrlMode ? url : '');
     setSubmittedText(isUrlMode ? '' : textContent);
@@ -191,6 +193,7 @@ export default function App() {
   
   const handleConfirmNewSearch = () => {
     setNewSearchDialogOpen(false);
+    setExtractedText('');
     clearAllState();
   };
   
@@ -211,11 +214,7 @@ export default function App() {
     setClearVisualization(() => clearFn);
   };
 
-  const handleStoryModeAvailable = (storyData: any) => {
-    setStoryModeData(storyData);
-  };
-
-  const handleSaveAvailable = (saveFn: () => { nodes: any[], edges: any[], viewport: any }) => {
+  const handleSaveAvailable = (saveFn: () => { nodes: any[], edges: any[], viewport: any, assistantMessages?: any[] }) => {
     setGetSaveData(() => saveFn);
   };
 
@@ -242,11 +241,14 @@ export default function App() {
 
   const handleLoadFlow = (flow: SavedFlow) => {
     setCurrentFlowId(flow.id);
+    setExtractedText(flow.sourceText || '');
     setLoadedFlow({
       nodes: flow.nodes,
       edges: flow.edges,
-      viewport: flow.visualization?.viewport
-    });    
+      viewport: flow.visualization?.viewport,
+      sourceText: flow.sourceText,
+      assistantMessages: flow.assistantMessages
+    });
     if (flow.sourceUrl) {
       setSubmittedUrl(flow.sourceUrl);
       setInputMode('url');
@@ -298,7 +300,6 @@ export default function App() {
       <AppBar 
         isStreaming={isStreaming}
         exportFunction={exportFunction}
-        storyModeData={storyModeData}
         showGraphActions={settingsLoaded}
         onNewSearch={handleNewSearch}
         onDownloadClick={handleDownloadClick}
@@ -316,9 +317,9 @@ export default function App() {
           onAnalyzeRequested={handleNewSearch}
           onClearRequested={() => setNewSearchDialogOpen(true)}
           loadedFlow={loadedFlow}
+          onArticleExtracted={(text) => setExtractedText(text)}
           onExportAvailable={handleExportAvailable}
           onClearAvailable={handleClearAvailable}
-          onStoryModeAvailable={handleStoryModeAvailable}
           onError={(error, mode) => {
             if (mode === 'merge') {
               // The canvas belongs to the user, not to this analysis, so a
@@ -349,7 +350,8 @@ export default function App() {
           edgeColor={edgeColor}
           edgeStyle={edgeStyle}
           edgeCurve={edgeCurve}
-          storyModeSpeed={storyModeSpeed}
+          selectedProvider={selectedProvider}
+          selectedModel={selectedModel}
         />
       )}
       <Snackbar
@@ -444,9 +446,10 @@ export default function App() {
           nodes={getSaveData().nodes}
           edges={getSaveData().edges}
           sourceUrl={submittedUrl}
-          sourceText={submittedText}
+          sourceText={submittedText || extractedText}
           inputMode={inputMode === 'pdf' ? 'text' : inputMode}
           viewport={getSaveData().viewport}
+          assistantMessages={getSaveData().assistantMessages}
           existingFlowId={currentFlowId}
           onSave={handleSaveFlow}
         />
@@ -465,14 +468,12 @@ export default function App() {
         edgeColor={edgeColor}
         edgeStyle={edgeStyle}
         edgeCurve={edgeCurve}
-        storyModeSpeed={storyModeSpeed}
         selectedProvider={selectedProvider}
         selectedModel={selectedModel}
         onClose={() => setSettingsDialogOpen(false)}
         onEdgeColorChange={setEdgeColor}
         onEdgeStyleChange={setEdgeStyle}
         onEdgeCurveChange={setEdgeCurve}
-        onStoryModeSpeedChange={setStoryModeSpeed}
         onProviderChange={setSelectedProvider}
         onModelChange={setSelectedModel}
         onSave={handleSaveSettings}
