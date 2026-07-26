@@ -229,7 +229,7 @@ export default function AnalysisInput({
               }}
             >
               <li>Add your API key to the <code style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                backgroundColor: flowVizTheme.colors.surface.recessed,
                 padding: '2px 6px',
                 borderRadius: '3px',
                 fontFamily: 'monospace',
@@ -246,14 +246,14 @@ export default function AnalysisInput({
                 }}
               >
                 <li>For Claude: <code style={{
-                  backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                  backgroundColor: flowVizTheme.colors.surface.recessed,
                   padding: '2px 6px',
                   borderRadius: '3px',
                   fontFamily: 'monospace',
                   fontSize: '0.8rem'
                 }}>ANTHROPIC_API_KEY=your-key-here</code></li>
                 <li>For GPT: <code style={{
-                  backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                  backgroundColor: flowVizTheme.colors.surface.recessed,
                   padding: '2px 6px',
                   borderRadius: '3px',
                   fontFamily: 'monospace',
@@ -261,7 +261,7 @@ export default function AnalysisInput({
                 }}>OPENAI_API_KEY=your-key-here</code></li>
               </Box>
               <li>Restart the server: <code style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                backgroundColor: flowVizTheme.colors.surface.recessed,
                 padding: '2px 6px',
                 borderRadius: '3px',
                 fontFamily: 'monospace',
@@ -480,9 +480,11 @@ export default function AnalysisInput({
                 }}>
                   {pdfTextStats.chars.toLocaleString()} / {TEXT_LIMITS.MAX_CHARS.toLocaleString()} characters
                 </Typography>
-                <Typography variant="caption" sx={{ color: flowVizTheme.colors.text.tertiary }}>
-                  ~{pdfTextStats.words.toLocaleString()} words
-                </Typography>
+                {pdfTextStats.chars > 0 && (
+                  <Typography variant="caption" sx={{ color: flowVizTheme.colors.text.tertiary }}>
+                    ~{pdfTextStats.words.toLocaleString()} words
+                  </Typography>
+                )}
               </Box>
 
               {pdfTextStats.isNearLimit && (
@@ -539,7 +541,7 @@ export default function AnalysisInput({
                     height: '100%',
                     width: '100%',
                     borderRadius: '100px',
-                    background: 'rgba(255, 255, 255, 0.03)',
+                    background: 'rgba(var(--fv-overlay-rgb), 0.03)',
                     backdropFilter: 'blur(2px)',
                   }}
                 />
@@ -565,7 +567,7 @@ export default function AnalysisInput({
                     height: '100%',
                     width: '100%',
                     borderRadius: '100px',
-                    background: 'rgba(255, 255, 255, 0.02)',
+                    background: 'rgba(var(--fv-overlay-rgb), 0.02)',
                     backdropFilter: 'blur(2px)',
                   }}
                 />

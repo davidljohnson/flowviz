@@ -19,6 +19,7 @@ import { keyframes } from '@mui/system';
 import { ActionMenu } from '../../../shared/components/Dropdown';
 import { GlassIconButton } from '../../../shared/components/Button';
 import { FlowIcon } from '../../../shared/components/Typography';
+import { flowVizTheme } from '../../../shared/theme/flowviz-theme';
 
 const streamingGradient = keyframes`
   0% {
@@ -70,13 +71,17 @@ export default function AppBar({
       position="static" 
       elevation={0}
       sx={{ 
-        backgroundColor: '#0d1117',
+        backgroundColor: flowVizTheme.colors.background.primary,
+        // MuiAppBar defaults to primary.contrastText (white), which is invisible
+        // on a light bar. Anything inheriting from the toolbar wants the
+        // theme's own ink instead.
+        color: flowVizTheme.colors.text.primary,
         backdropFilter: 'blur(20px)',
         background: `
-          linear-gradient(180deg, #0d1117 0%, rgba(13, 17, 23, 0.8) 100%),
-          linear-gradient(90deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.01) 100%)
+          linear-gradient(180deg, ${flowVizTheme.colors.background.primary} 0%, rgba(var(--fv-glass-rgb), 0.8) 100%),
+          linear-gradient(90deg, rgba(var(--fv-overlay-rgb), 0.02) 0%, rgba(var(--fv-overlay-rgb), 0.01) 100%)
         `,
-        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+        borderBottom: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,
       }}
     >
       <Toolbar sx={{ display: 'flex', alignItems: 'center', gap: 2, minHeight: '64px' }}>
@@ -91,9 +96,11 @@ export default function AppBar({
           <Typography
             variant="h6"
             sx={{
-              background: isStreaming 
-                ? 'linear-gradient(90deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 1) 25%, rgba(255, 255, 255, 1) 50%, rgba(255, 255, 255, 1) 75%, rgba(255, 255, 255, 0.3) 100%)'
-                : 'linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.7) 100%)',
+              // The wordmark is drawn in the overlay ink, so it inverts with
+              // the theme: silver on dark, graphite on light.
+              background: isStreaming
+                ? 'linear-gradient(90deg, rgba(var(--fv-overlay-rgb), 0.3) 0%, rgba(var(--fv-overlay-rgb), 1) 25%, rgba(var(--fv-overlay-rgb), 1) 50%, rgba(var(--fv-overlay-rgb), 1) 75%, rgba(var(--fv-overlay-rgb), 0.3) 100%)'
+                : 'linear-gradient(135deg, rgba(var(--fv-overlay-rgb), 1) 0%, rgba(var(--fv-overlay-rgb), 0.7) 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               fontWeight: 700,

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, InputBase, Typography } from '@mui/material';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import { flowVizTheme, createScrollbarStyle } from '../../../shared/theme/flowviz-theme';
-import { getNodeColor } from '../../flow-analysis/components/nodes/shared/nodeStyles';
+import { getNodeColor, getTypeInk } from '../../flow-analysis/components/nodes/shared/nodeStyles';
 import { EditorNodeType, NODE_TYPE_LABELS } from '../utils/nodeFactoryDefaults';
 
 const PICKER_ORDER: EditorNodeType[] = [
@@ -145,7 +145,10 @@ const NodeTypeList: React.FC<NodeTypeListProps> = ({ onChoose, onDismiss, placeh
                 height: 8,
                 borderRadius: '50%',
                 flexShrink: 0,
-                backgroundColor: getNodeColor(r.type),
+                // Drawn ink, not the raw hue, so the dot matches the glyph on
+                // the card you get after picking it — and so amber is still
+                // visible against a white menu.
+                backgroundColor: getTypeInk(r.type),
                 boxShadow: i === active ? `0 0 6px ${getNodeColor(r.type)}66` : 'none',
               }}
             />

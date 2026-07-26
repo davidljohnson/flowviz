@@ -13,6 +13,7 @@ import {
   Refresh as RefreshIcon,
   Home as HomeIcon
 } from '@mui/icons-material';
+import { flowVizTheme } from '../../theme/flowviz-theme';
 
 interface Props {
   children: ReactNode;
@@ -70,7 +71,7 @@ class ErrorBoundary extends Component<Props, State> {
         <Box
           sx={{
             minHeight: '100vh',
-            background: 'radial-gradient(circle at 50% 50%, #0d1117 0%, #090b0f 100%)',
+            background: flowVizTheme.colors.canvas.backdrop,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -82,9 +83,9 @@ class ErrorBoundary extends Component<Props, State> {
               elevation={0}
               sx={{
                 p: 4,
-                backgroundColor: 'rgba(22, 27, 34, 0.4)',
+                backgroundColor: 'rgba(var(--fv-glass-elevated-rgb), 0.4)',
                 backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(var(--fv-overlay-rgb), 0.1)',
                 borderRadius: 3,
                 textAlign: 'center'
               }}
@@ -92,7 +93,7 @@ class ErrorBoundary extends Component<Props, State> {
               <ErrorOutlineIcon
                 sx={{
                   fontSize: 64,
-                  color: '#ef4444',
+                  color: flowVizTheme.colors.accent.red,
                   mb: 2
                 }}
               />
@@ -100,7 +101,7 @@ class ErrorBoundary extends Component<Props, State> {
               <Typography
                 variant="h4"
                 sx={{
-                  color: '#fff',
+                  color: flowVizTheme.colors.text.primary,
                   fontWeight: 600,
                   mb: 2
                 }}
@@ -111,7 +112,7 @@ class ErrorBoundary extends Component<Props, State> {
               <Typography
                 variant="body1"
                 sx={{
-                  color: 'rgba(255, 255, 255, 0.7)',
+                  color: 'rgba(var(--fv-overlay-rgb), 0.7)',
                   mb: 3,
                   maxWidth: 600,
                   mx: 'auto'
@@ -126,11 +127,11 @@ class ErrorBoundary extends Component<Props, State> {
                   severity="error"
                   sx={{
                     mb: 3,
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    border: '1px solid rgba(239, 68, 68, 0.2)',
-                    color: '#fca5a5',
+                    backgroundColor: flowVizTheme.colors.status.error.bg,
+                    border: `1px solid ${flowVizTheme.colors.status.error.border}`,
+                    color: flowVizTheme.colors.status.error.text,
                     '& .MuiAlert-icon': {
-                      color: '#ef4444'
+                      color: flowVizTheme.colors.status.error.accent
                     }
                   }}
                 >
@@ -153,7 +154,7 @@ class ErrorBoundary extends Component<Props, State> {
                           whiteSpace: 'pre-wrap',
                           maxHeight: 200,
                           overflow: 'auto',
-                          backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                          backgroundColor: flowVizTheme.colors.surface.active,
                           p: 1,
                           borderRadius: 1
                         }}
@@ -171,9 +172,9 @@ class ErrorBoundary extends Component<Props, State> {
                   startIcon={<RefreshIcon />}
                   onClick={this.handleReload}
                   sx={{
-                    backgroundColor: '#3b82f6',
+                    backgroundColor: flowVizTheme.colors.accent.blue,
                     '&:hover': {
-                      backgroundColor: '#2563eb'
+                      backgroundColor: flowVizTheme.colors.status.info.accent
                     }
                   }}
                 >
@@ -185,11 +186,11 @@ class ErrorBoundary extends Component<Props, State> {
                   startIcon={<HomeIcon />}
                   onClick={this.handleGoHome}
                   sx={{
-                    borderColor: 'rgba(255, 255, 255, 0.3)',
-                    color: 'rgba(255, 255, 255, 0.9)',
+                    borderColor: 'rgba(var(--fv-overlay-rgb), 0.3)',
+                    color: 'rgba(var(--fv-overlay-rgb), 0.9)',
                     '&:hover': {
-                      borderColor: 'rgba(255, 255, 255, 0.5)',
-                      backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                      borderColor: 'rgba(var(--fv-overlay-rgb), 0.5)',
+                      backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.1)'
                     }
                   }}
                 >

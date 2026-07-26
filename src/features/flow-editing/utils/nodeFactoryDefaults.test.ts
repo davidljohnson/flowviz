@@ -64,7 +64,7 @@ describe('export round-trips for manually created nodes', () => {
     const edge = { id: 'e1', source: source.id, target: target.id, label: 'targets' };
 
     const bundle = new STIXBundleExporter().exportToSTIXBundle([source, target], [edge]);
-    const relationship = bundle.objects.find((o: any) => o.type === 'relationship');
+    const relationship = bundle.objects!.find((o: any) => o.type === 'relationship');
     expect(relationship).toBeDefined();
     // find() is typed as possibly-undefined; the assertion above is the guard.
     expect(relationship!.relationship_type).toBe('targets');

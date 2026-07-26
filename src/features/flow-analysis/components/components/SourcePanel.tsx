@@ -61,18 +61,18 @@ export default function SourcePanel({ open, title, text, highlightExcerpt, onClo
           display: 'flex',
           alignItems: 'center',
           gap: 1,
-          borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+          borderBottom: '1px solid rgba(var(--fv-overlay-rgb), 0.06)',
         }}
       >
-        <ArticleIcon sx={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.7)', flexShrink: 0 }} />
+        <ArticleIcon sx={{ fontSize: 16, color: 'rgba(var(--fv-overlay-rgb), 0.7)', flexShrink: 0 }} />
         <Typography
           noWrap
-          sx={{ flex: 1, fontSize: '0.82rem', fontWeight: 600, color: 'rgba(255, 255, 255, 0.9)' }}
+          sx={{ flex: 1, fontSize: '0.82rem', fontWeight: 600, color: 'rgba(var(--fv-overlay-rgb), 0.9)' }}
         >
           {title || 'Source'}
         </Typography>
         <Tooltip title="Close">
-          <IconButton size="small" onClick={onClose} sx={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+          <IconButton size="small" onClick={onClose} sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.6)' }}>
             <CloseIcon fontSize="small" />
           </IconButton>
         </Tooltip>
@@ -86,7 +86,7 @@ export default function SourcePanel({ open, title, text, highlightExcerpt, onClo
           py: 1.5,
           fontSize: '0.8rem',
           lineHeight: 1.65,
-          color: 'rgba(255, 255, 255, 0.75)',
+          color: 'rgba(var(--fv-overlay-rgb), 0.75)',
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
           ...createScrollbarStyle(),
@@ -99,10 +99,10 @@ export default function SourcePanel({ open, title, text, highlightExcerpt, onClo
               component="span"
               ref={highlightRef}
               sx={{
-                backgroundColor: 'rgba(255, 255, 255, 0.16)',
-                outline: '1px solid rgba(255, 255, 255, 0.35)',
+                backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.16)',
+                outline: '1px solid rgba(var(--fv-overlay-rgb), 0.35)',
                 borderRadius: '3px',
-                color: 'rgba(255, 255, 255, 0.98)',
+                color: 'rgba(var(--fv-overlay-rgb), 0.98)',
               }}
             >
               {text.slice(range.start, range.end)}

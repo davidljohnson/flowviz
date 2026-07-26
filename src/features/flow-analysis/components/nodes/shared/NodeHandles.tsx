@@ -12,10 +12,10 @@ const HANDLE_SIZE = 10;
 // so it neither sinks in nor overhangs.
 const HANDLE_OFFSET = -(HANDLE_SIZE / 2) - 0.5; // -5.5px
 const handleStyle = {
-  background: 'rgba(255, 255, 255, 0.6)',
+  background: 'rgba(var(--fv-overlay-rgb), 0.6)',
   width: HANDLE_SIZE,
   height: HANDLE_SIZE,
-  border: '2px solid rgba(13, 17, 23, 0.9)',
+  border: '2px solid rgba(var(--fv-glass-rgb), 0.9)',
   opacity: 0,
   zIndex: 10,
 };

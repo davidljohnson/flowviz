@@ -43,14 +43,14 @@
 
 .react-flow__node:hover .react-flow__handle {
   opacity: 1 !important;
-  background: #fff;
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.12);
+  background: var(--fv-canvas-handle);
+  box-shadow: 0 0 0 4px rgba(var(--fv-overlay-rgb), 0.12);
 }
 
 .react-flow__node .react-flow__handle:hover {
   opacity: 1 !important;
   cursor: crosshair;
-  background: #fff;
+  background: var(--fv-canvas-handle);
   /* Glow matches the node's type color (set per-node via --fv-node-glow). */
   box-shadow: 0 0 0 6px var(--fv-node-glow, rgba(59, 130, 246, 0.3));
 }
@@ -76,28 +76,28 @@
   font-weight: 500;
   line-height: 1.4;
   white-space: nowrap;
-  color: rgba(255, 255, 255, 0.88);
+  color: rgba(var(--fv-overlay-rgb), 0.88);
   /* Solid dark surface matching the node body — no border; a soft shadow
      gives it depth and separates it from the edge line behind. */
-  background: #20262f;
+  background: var(--fv-node-pill);
   border: none;
   border-radius: 6px;
   padding: 3px 9px;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, calc(0.45 * var(--fv-shadow-alpha)));
   transition: color 0.12s ease, background 0.12s ease;
 }
 
 .fv-edge-pill:hover {
-  color: #fff;
-  background: #2a323d;
+  color: var(--fv-text-primary);
+  background: var(--fv-node-pill-hover);
 }
 
 /* Selected edge's label pill — a bright ring to match the highlighted line. */
 .fv-edge-pill--selected {
-  color: #fff;
-  background: #2a323d;
-  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.75);
+  color: var(--fv-text-primary);
+  background: var(--fv-node-pill-hover);
+  box-shadow: 0 0 0 1.5px rgba(var(--fv-overlay-rgb), 0.75);
 }
 
 /* Ghost variant: the "add a label" prompt shown on edge hover. Muted (not
@@ -106,14 +106,14 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  color: rgba(255, 255, 255, 0.6);
-  background: rgba(32, 38, 47, 0.9);
+  color: rgba(var(--fv-overlay-rgb), 0.6);
+  background: var(--fv-node-pill-ghost);
   padding: 3px 9px 3px 7px;
 }
 
 .fv-edge-pill--ghost:hover {
-  color: rgba(255, 255, 255, 0.92);
-  background: #2a323d;
+  color: rgba(var(--fv-overlay-rgb), 0.92);
+  background: var(--fv-node-pill-hover);
 }
 
 /* --- Streaming animations --- */
@@ -148,16 +148,16 @@
   animation: fvEdgeIn 0.5s ease-out both;
 }
 
-/* --- Dark, glassy zoom controls to match the canvas --- */
+/* --- Glassy zoom controls, tinted to match whichever canvas is under them --- */
 .react-flow__controls {
   border-radius: 10px !important;
   overflow: hidden;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.45 * var(--fv-shadow-alpha))) !important;
 }
 
 .react-flow__controls-button {
-  background: rgba(22, 27, 34, 0.95) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: rgba(var(--fv-glass-elevated-rgb), 0.95) !important;
+  border-bottom: 1px solid rgba(var(--fv-overlay-rgb), 0.08) !important;
   width: 28px;
   height: 28px;
 }
@@ -167,13 +167,13 @@
 }
 
 .react-flow__controls-button svg {
-  fill: rgba(255, 255, 255, 0.75);
+  fill: rgba(var(--fv-overlay-rgb), 0.75);
 }
 
 .react-flow__controls-button:hover {
-  background: rgba(42, 50, 60, 0.95) !important;
+  background: var(--fv-node-pill-hover) !important;
 }
 
 .react-flow__controls-button:hover svg {
-  fill: #fff;
+  fill: var(--fv-text-primary);
 }

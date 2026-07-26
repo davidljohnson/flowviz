@@ -4,6 +4,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
 import { InlineToken, parseMarkdown } from '../services/markdown';
 import { copyText } from '../services/clipboard';
+import { flowVizTheme } from '../../../shared/theme/flowviz-theme';
 
 interface AssistantMarkdownProps {
   text: string;
@@ -17,7 +18,7 @@ const codeSx = {
   px: 0.5,
   py: 0.1,
   borderRadius: '4px',
-  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.08)',
 };
 
 function Inline({ tokens, onFocusNode }: { tokens: InlineToken[]; onFocusNode?: (id: string) => void }) {
@@ -26,7 +27,7 @@ function Inline({ tokens, onFocusNode }: { tokens: InlineToken[]; onFocusNode?: 
       {tokens.map((token, i) => {
         switch (token.kind) {
           case 'bold':
-            return <Box key={i} component="strong" sx={{ fontWeight: 700, color: 'rgba(255, 255, 255, 0.95)' }}>{token.text}</Box>;
+            return <Box key={i} component="strong" sx={{ fontWeight: 700, color: 'rgba(var(--fv-overlay-rgb), 0.95)' }}>{token.text}</Box>;
           case 'italic':
             return <Box key={i} component="em">{token.text}</Box>;
           case 'code':
@@ -39,12 +40,12 @@ function Inline({ tokens, onFocusNode }: { tokens: InlineToken[]; onFocusNode?: 
                 role={onFocusNode ? 'button' : undefined}
                 onClick={onFocusNode ? () => onFocusNode(token.id) : undefined}
                 sx={{
-                  color: 'rgba(255, 255, 255, 0.92)',
+                  color: 'rgba(var(--fv-overlay-rgb), 0.92)',
                   cursor: onFocusNode ? 'pointer' : 'inherit',
                   textDecorationLine: 'underline',
-                  textDecorationColor: 'rgba(255, 255, 255, 0.35)',
+                  textDecorationColor: 'rgba(var(--fv-overlay-rgb), 0.35)',
                   textUnderlineOffset: '2px',
-                  '&:hover': onFocusNode ? { textDecorationColor: 'rgba(255, 255, 255, 0.9)' } : undefined,
+                  '&:hover': onFocusNode ? { textDecorationColor: 'rgba(var(--fv-overlay-rgb), 0.9)' } : undefined,
                 }}
               >
                 {token.label}
@@ -68,8 +69,8 @@ function CodeBlock({ lang, text }: { lang: string; text: string }) {
     <Box
       sx={{
         borderRadius: '8px',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
-        backgroundColor: 'rgba(0, 0, 0, 0.35)',
+        border: '1px solid rgba(var(--fv-overlay-rgb), 0.08)',
+        backgroundColor: flowVizTheme.colors.surface.recessedStrong,
         overflow: 'hidden',
       }}
     >
@@ -81,10 +82,10 @@ function CodeBlock({ lang, text }: { lang: string; text: string }) {
           pl: 1.25,
           pr: 0.5,
           py: 0.25,
-          borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+          borderBottom: '1px solid rgba(var(--fv-overlay-rgb), 0.06)',
         }}
       >
-        <Box sx={{ flex: 1, fontSize: '0.6rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255, 255, 255, 0.35)' }}>
+        <Box sx={{ flex: 1, fontSize: '0.6rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(var(--fv-overlay-rgb), 0.35)' }}>
           {lang || 'code'}
         </Box>
         <Tooltip title={copied ? 'Copied' : 'Copy'}>
@@ -99,9 +100,9 @@ function CodeBlock({ lang, text }: { lang: string; text: string }) {
             }}
             sx={{
               p: 0.4,
-              color: 'rgba(255, 255, 255, 0.45)',
+              color: 'rgba(var(--fv-overlay-rgb), 0.45)',
               transition: '0.15s',
-              '&:hover': { color: 'rgba(255, 255, 255, 0.9)' },
+              '&:hover': { color: 'rgba(var(--fv-overlay-rgb), 0.9)' },
             }}
           >
             {copied ? <CheckIcon sx={{ fontSize: 13 }} /> : <ContentCopyIcon sx={{ fontSize: 13 }} />}
@@ -117,7 +118,7 @@ function CodeBlock({ lang, text }: { lang: string; text: string }) {
           fontFamily: '"JetBrains Mono", Monaco, Consolas, monospace',
           fontSize: '0.72rem',
           lineHeight: 1.55,
-          color: 'rgba(255, 255, 255, 0.82)',
+          color: 'rgba(var(--fv-overlay-rgb), 0.82)',
           overflowX: 'auto',
           whiteSpace: 'pre',
         }}
@@ -136,7 +137,7 @@ export default function AssistantMarkdown({ text, onFocusNode }: AssistantMarkdo
       {blocks.map((block, i) => {
         if (block.kind === 'heading') {
           return (
-            <Typography key={i} sx={{ fontSize: '0.84rem', fontWeight: 700, color: 'rgba(255, 255, 255, 0.95)', mt: i === 0 ? 0 : 0.5 }}>
+            <Typography key={i} sx={{ fontSize: '0.84rem', fontWeight: 700, color: 'rgba(var(--fv-overlay-rgb), 0.95)', mt: i === 0 ? 0 : 0.5 }}>
               <Inline tokens={block.inline} onFocusNode={onFocusNode} />
             </Typography>
           );

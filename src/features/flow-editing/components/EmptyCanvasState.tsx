@@ -1,9 +1,9 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import SearchIcon from '@mui/icons-material/Search';
 import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
-import { flowVizTheme } from '../../../shared/theme/flowviz-theme';
+import { flowVizTheme, shadowInk } from '../../../shared/theme/flowviz-theme';
 
 interface EmptyCanvasStateProps {
   onAddNode: (event: React.MouseEvent<HTMLElement>) => void;
@@ -40,10 +40,10 @@ const EmptyCanvasState: React.FC<EmptyCanvasStateProps> = ({ onAddNode, onAnalyz
           px: 5,
           py: 4.5,
           borderRadius: `${flowVizTheme.borderRadius.lg}px`,
-          backgroundColor: 'rgba(22, 27, 34, 0.72)',
+          backgroundColor: 'rgba(var(--fv-glass-elevated-rgb), 0.72)',
           border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
           backdropFilter: 'blur(8px)',
-          boxShadow: '0 24px 64px rgba(0, 0, 0, 0.45)',
+          boxShadow: `0 24px 64px ${shadowInk(0.45)}`,
         }}
       >
         <Box
@@ -66,12 +66,11 @@ const EmptyCanvasState: React.FC<EmptyCanvasStateProps> = ({ onAddNode, onAnalyz
         <Typography sx={{ color: flowVizTheme.colors.text.primary, fontSize: '1.05rem', fontWeight: 600, mb: 0.75 }}>
           Build your attack flow
         </Typography>
-        {/* This is the app's front door now that there is no landing page, so
-            it has to say what FlowViz is before it says what to click. */}
+        {/* One line, tops - the buttons say the rest. */}
         <Typography sx={{ color: flowVizTheme.colors.text.tertiary, fontSize: '0.85rem', maxWidth: 360, lineHeight: 1.6, mb: 2.5 }}>
           {onAnalyze
-            ? 'FlowViz turns a threat intelligence report into a MITRE ATT&CK attack flow. Analyze one to generate a diagram, or build it by hand a node at a time.'
-            : "Add a node to start, then drag from a node's handle to branch into the next step."}
+            ? 'Turn a threat report into an ATT&CK flow, or build one by hand.'
+            : 'Add a node, then drag from its handle to branch.'}
         </Typography>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -103,7 +102,7 @@ const EmptyCanvasState: React.FC<EmptyCanvasStateProps> = ({ onAddNode, onAnalyz
                 },
               }}
             >
-              <AutoAwesomeIcon sx={{ fontSize: '1rem' }} />
+              <SearchIcon sx={{ fontSize: '1rem' }} />
               Analyze a report
             </Box>
           )}
@@ -138,10 +137,6 @@ const EmptyCanvasState: React.FC<EmptyCanvasStateProps> = ({ onAddNode, onAnalyz
             Add a node
           </Box>
         </Box>
-
-        <Typography sx={{ color: flowVizTheme.colors.text.disabled, fontSize: '0.72rem', mt: 2 }}>
-          Click a node to edit it · double-click to rename
-        </Typography>
       </Box>
     </Box>
   );

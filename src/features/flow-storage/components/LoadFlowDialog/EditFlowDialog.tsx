@@ -49,8 +49,8 @@ const EditFlowDialog: React.FC<EditFlowDialogProps> = ({
       disableEnforceFocus
       PaperProps={{
         sx: {
-          background: 'rgba(13, 17, 23, 0.95)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          background: 'rgba(var(--fv-glass-rgb), 0.95)',
+          border: '1px solid rgba(var(--fv-overlay-rgb), 0.1)',
           borderRadius: '16px',
           backdropFilter: 'blur(20px)',
           maxWidth: '600px',

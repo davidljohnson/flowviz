@@ -37,13 +37,13 @@ export function NoteBadge({ text, sx }: NoteBadgeProps) {
           bottom: 5,
           right: 6,
           display: 'inline-flex',
-          color: 'rgba(255, 255, 255, 0.32)',
+          color: 'rgba(var(--fv-overlay-rgb), 0.32)',
           cursor: 'pointer',
           transition: 'color 0.15s ease',
-          '&:hover': { color: 'rgba(255, 255, 255, 0.85)' },
+          '&:hover': { color: 'rgba(var(--fv-overlay-rgb), 0.85)' },
           // Brighten a touch when the card itself is hovered, so it reads as
           // part of the node rather than a stray mark.
-          '.fv-card:hover &': { color: 'rgba(255, 255, 255, 0.55)' },
+          '.fv-card:hover &': { color: 'rgba(var(--fv-overlay-rgb), 0.55)' },
           ...sx,
         }}
       >

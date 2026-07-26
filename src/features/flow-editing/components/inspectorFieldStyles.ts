@@ -27,7 +27,7 @@ export const inputSx = {
   px: 1.25,
   py: 0.9,
   borderRadius: `${flowVizTheme.borderRadius.md}px`,
-  backgroundColor: 'rgba(255, 255, 255, 0.03)',
+  backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.03)',
   border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,
   transition: flowVizTheme.motion.fast,
   '&:hover': {
@@ -35,6 +35,6 @@ export const inputSx = {
   },
   '&.Mui-focused': {
     border: `1px solid ${flowVizTheme.colors.surface.border.focus}`,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.05)',
   },
 };

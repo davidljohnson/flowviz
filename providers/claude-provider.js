@@ -294,18 +294,48 @@ Focus on actionable technical intelligence that supplements the article text.`;
   }
 
   /**
-   * Get supported models
+   * Get supported models (static fallback list)
+   *
+   * Only consulted when the live /v1/models lookup below fails - offline, bad
+   * key, or a proxy that does not expose the endpoint. Newest first, so the
+   * head of the list is a sensible default.
    */
   static getSupportedModels() {
     return [
-      'claude-sonnet-4-5-20250929',
-      'claude-haiku-4-5-20251001',
-      'claude-3-7-sonnet-20250219',
-      'claude-3-5-sonnet-20241022',
-      'claude-3-5-haiku-20241022',
-      'claude-3-opus-20240229',
-      'claude-3-sonnet-20240229',
-      'claude-3-haiku-20240307'
+      'claude-opus-5',
+      'claude-sonnet-5',
+      'claude-haiku-4-5',
+      'claude-opus-4-8',
+      'claude-sonnet-4-6',
+      'claude-sonnet-4-5-20250929'
     ];
+  }
+
+  /**
+   * Fetch available models from the Anthropic API
+   *
+   * Anthropic returns only Claude models here and orders them newest first,
+   * so no filtering or sorting is needed.
+   * @returns {Promise<string[]>} Model IDs, or [] if the lookup failed
+   */
+  static async fetchAvailableModels() {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) return [];
+
+    try {
+      const config = { apiKey };
+      if (process.env.ANTHROPIC_BASE_URL) {
+        config.baseURL = process.env.ANTHROPIC_BASE_URL;
+      }
+      const client = new Anthropic(config);
+
+      const models = [];
+      for await (const model of client.models.list({ limit: 100 })) {
+        models.push(model.id);
+      }
+      return models;
+    } catch (e) {
+      return [];
+    }
   }
 }

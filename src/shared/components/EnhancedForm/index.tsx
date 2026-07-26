@@ -214,7 +214,7 @@ export const EnhancedSlider = styled(Slider)<SliderProps>({
     backgroundColor: flowVizTheme.colors.text.primary,
     border: `2px solid ${flowVizTheme.colors.surface.border.focus}`,
     '&:focus, &:hover, &.Mui-active, &.Mui-focusVisible': {
-      boxShadow: `0 0 0 8px rgba(255, 255, 255, 0.16)`,
+      boxShadow: `0 0 0 8px rgba(var(--fv-overlay-rgb), 0.16)`,
     },
     '&:before': {
       display: 'none',

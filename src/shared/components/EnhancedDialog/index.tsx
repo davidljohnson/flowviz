@@ -12,7 +12,7 @@ import {
   Typography,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { flowVizTheme, createGlassStyle, createScrollbarStyle } from '../../theme/flowviz-theme';
+import { flowVizTheme, createGlassStyle, createScrollbarStyle, shadowInk } from '../../theme/flowviz-theme';
 
 // Glass dialog variants
 // No default minHeight: forcing every dialog to 40vh left a block of empty
@@ -36,7 +36,14 @@ const createGlassDialogStyles = ({
     ...(minWidth && { minWidth }),
     ...(dialogMaxWidth && { maxWidth: dialogMaxWidth }),
     margin: '16px',
-    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+    boxShadow: `0 20px 25px -5px ${shadowInk(0.3)}, 0 10px 10px -5px ${shadowInk(0.04)}`,
+  },
+  // Darker than MUI's default dim: the paper is translucent glass, and at 50%
+  // a bright element behind it (the empty-canvas card's buttons) ghosts
+  // through the remaining transparency as a phantom shape inside the dialog.
+  // Light mode needs less of it — the paper is opaque enough there.
+  '& .MuiBackdrop-root': {
+    backgroundColor: flowVizTheme.colors.canvas.scrim,
   },
 });
 

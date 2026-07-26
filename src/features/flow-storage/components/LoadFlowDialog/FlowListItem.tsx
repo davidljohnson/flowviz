@@ -37,20 +37,20 @@ const FlowListItem: React.FC<FlowListItemProps> = ({
         borderRadius: 2,
         mb: 1,
         border: isSelected 
-          ? '1px solid rgba(255, 255, 255, 0.1)' 
+          ? '1px solid rgba(var(--fv-overlay-rgb), 0.1)' 
           : '1px solid transparent',
         backgroundColor: isSelected 
-          ? 'rgba(255, 255, 255, 0.03)' 
+          ? 'rgba(var(--fv-overlay-rgb), 0.03)' 
           : 'transparent',
         '&:hover': {
-          backgroundColor: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.03)',
+          border: '1px solid rgba(var(--fv-overlay-rgb), 0.1)',
         },
         '&.Mui-selected': {
-          backgroundColor: 'rgba(255, 255, 255, 0.03) !important',
+          backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.03) !important',
         },
         '&.Mui-selected:hover': {
-          backgroundColor: 'rgba(255, 255, 255, 0.03) !important',
+          backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.03) !important',
         },
         cursor: 'pointer',
       }}
@@ -61,7 +61,7 @@ const FlowListItem: React.FC<FlowListItemProps> = ({
             <Typography 
               variant="subtitle2" 
               sx={{ 
-                color: 'rgba(255, 255, 255, 0.95)',
+                color: 'rgba(var(--fv-overlay-rgb), 0.95)',
                 fontWeight: 500,
                 flex: 1,
               }}
@@ -75,7 +75,7 @@ const FlowListItem: React.FC<FlowListItemProps> = ({
             {flow.metadata.description && (
               <Typography 
                 variant="body2" 
-                sx={{ color: 'rgba(255, 255, 255, 0.7)', mb: 0.5 }}
+                sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.7)', mb: 0.5 }}
               >
                 {flow.metadata.description}
               </Typography>
@@ -91,15 +91,15 @@ const FlowListItem: React.FC<FlowListItemProps> = ({
                     sx={{
                       height: 16,
                       fontSize: '0.6rem',
-                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                      color: 'rgba(255, 255, 255, 0.8)',
+                      backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.1)',
+                      color: 'rgba(var(--fv-overlay-rgb), 0.8)',
                     }}
                   />
                 ))}
                 {flow.metadata.tags.length > 3 && (
                   <Typography 
                     variant="caption" 
-                    sx={{ color: 'rgba(255, 255, 255, 0.5)', alignSelf: 'center' }}
+                    sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.5)', alignSelf: 'center' }}
                   >
                     +{flow.metadata.tags.length - 3} more
                   </Typography>
@@ -107,7 +107,7 @@ const FlowListItem: React.FC<FlowListItemProps> = ({
               </Box>
             )}
             
-            <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.5)' }}>
+            <Typography variant="caption" sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.5)' }}>
               {formatDate(flow.metadata.updatedAt)} • Size: {flow.metadata.nodeCount} nodes, {flow.metadata.edgeCount} edges
               {flow.sourceUrl && ` • ${new URL(flow.sourceUrl).hostname}`}
             </Typography>
@@ -122,10 +122,10 @@ const FlowListItem: React.FC<FlowListItemProps> = ({
           size="small"
           onClick={onMenuClick}
           sx={{
-            color: 'rgba(255, 255, 255, 0.6)',
+            color: 'rgba(var(--fv-overlay-rgb), 0.6)',
             '&:hover': {
-              color: 'rgba(255, 255, 255, 0.9)',
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              color: 'rgba(var(--fv-overlay-rgb), 0.9)',
+              backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.1)',
             }
           }}
         >

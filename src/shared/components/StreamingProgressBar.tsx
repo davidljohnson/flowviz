@@ -40,7 +40,7 @@ const StreamingProgressBar: React.FC<StreamingProgressBarProps> = ({ isVisible }
         left: 0,
         right: 0,
         height: '2px',
-        background: 'rgba(255, 255, 255, 0.05)',
+        background: 'rgba(var(--fv-overlay-rgb), 0.05)',
         overflow: 'hidden',
         zIndex: 1300, // Above AppBar
       }}
@@ -53,7 +53,7 @@ const StreamingProgressBar: React.FC<StreamingProgressBarProps> = ({ isVisible }
           left: 0,
           right: 0,
           height: '100%',
-          background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.6), transparent)',
+          background: 'linear-gradient(90deg, transparent, rgba(var(--fv-overlay-rgb), 0.6), rgba(var(--fv-overlay-rgb), 0.8), rgba(var(--fv-overlay-rgb), 0.6), transparent)',
           animation: `${streamingAnimation} 2s ease-in-out infinite`,
           width: '30%',
         }}
@@ -67,7 +67,7 @@ const StreamingProgressBar: React.FC<StreamingProgressBarProps> = ({ isVisible }
           left: 0,
           right: 0,
           height: '100%',
-          background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent)',
+          background: 'linear-gradient(90deg, transparent, rgba(var(--fv-overlay-rgb), 0.1), transparent)',
           animation: `${pulseGlow} 3s ease-in-out infinite`,
         }}
       />

@@ -242,17 +242,17 @@ const SaveFlowDialog: React.FC<SaveFlowDialogProps> = ({
           
           <Box sx={{ 
             p: 2, 
-            bgcolor: 'rgba(255, 255, 255, 0.02)', 
+            bgcolor: 'rgba(var(--fv-overlay-rgb), 0.02)', 
             borderRadius: 2,
-            border: '1px solid rgba(255, 255, 255, 0.05)'
+            border: '1px solid rgba(var(--fv-overlay-rgb), 0.05)'
           }}>
-            <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+            <Typography variant="caption" sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.6)' }}>
               Analysis Summary
             </Typography>
             <Typography 
               variant="body2" 
               sx={{ 
-                color: 'rgba(255, 255, 255, 0.8)', 
+                color: 'rgba(var(--fv-overlay-rgb), 0.8)', 
                 mt: 0.5,
                 wordBreak: 'break-word',
                 overflowWrap: 'break-word',
@@ -269,9 +269,9 @@ const SaveFlowDialog: React.FC<SaveFlowDialogProps> = ({
           <Box sx={{ mt: 2 }}>
             <LinearProgress 
               sx={{
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.1)',
                 '& .MuiLinearProgress-bar': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                  backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.7)',
                 }
               }}
             />

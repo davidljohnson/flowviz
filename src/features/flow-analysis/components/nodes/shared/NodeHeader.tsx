@@ -31,6 +31,12 @@ const NODE_ICONS: Record<string, ComponentType<{ sx?: object }>> = {
 
 interface NodeHeaderProps {
   nodeType: string;
+  /**
+   * ATT&CK id, shown beside the type label on technique cards. It rides the
+   * header rather than a footer row of its own: the id identifies the node, so
+   * it belongs with the type, and the name keeps the body to itself.
+   */
+  techniqueId?: string;
   /** Right-aligned content (e.g. the inspector's delete/close actions). */
   endSlot?: ReactNode;
   /** Larger token + label for the inspector header. */
@@ -58,8 +64,8 @@ export function TypeToken({ nodeType, size, sx }: { nodeType: string; size: numb
 // Inspector header: the token + type name, doubling as the change-type control,
 // with the panel actions pushed to the right. Node cards do not use this — they
 // set the node's name inline with the token instead, so the name leads.
-export function NodeHeader({ nodeType, endSlot, prominent = false, onTypeClick }: NodeHeaderProps) {
-  const labelColor = 'rgba(255, 255, 255, 0.5)';
+export function NodeHeader({ nodeType, techniqueId, endSlot, prominent = false, onTypeClick }: NodeHeaderProps) {
+  const labelColor = 'rgba(var(--fv-overlay-rgb), 0.5)';
 
   return (
     <Box
@@ -93,7 +99,7 @@ export function NodeHeader({ nodeType, endSlot, prominent = false, onTypeClick }
             py: 0.35,
             borderRadius: `${flowVizTheme.borderRadius.sm}px`,
             transition: `background-color ${flowVizTheme.motion.fast}`,
-            '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.05)' },
+            '&:hover': { backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.05)' },
             // The chevron is the only always-on hint that this is actionable; it
             // firms up on hover rather than appearing from nothing.
             '&:hover .fv-type-caret': { opacity: 1 },
@@ -128,6 +134,33 @@ export function NodeHeader({ nodeType, endSlot, prominent = false, onTypeClick }
           />
         )}
       </Box>
+      {/* Anchored to the header's far edge rather than trailing the type label.
+          Shoulder to shoulder the two invited a comparison they could never
+          win — one is tracked-out uppercase, the other digits — so they read
+          as two voices however carefully they were matched. Apart, each owns
+          an end of the row: type on the left, identity on the right. It keeps
+          the label's family, size, weight and tracking so they are the same
+          class of text, with tabular figures so ids hold one width down a
+          column of cards. Sits outside the type box so it is not swept into
+          the change-type control, and above the note badge's bottom corner. */}
+      {techniqueId && (
+        <Typography
+          sx={{
+            ml: 'auto',
+            pl: 1,
+            color: 'rgba(var(--fv-overlay-rgb), 0.55)',
+            fontSize: prominent ? '0.72rem' : '0.6rem',
+            fontWeight: 600,
+            letterSpacing: '0.1em',
+            lineHeight: 1.2,
+            fontVariantNumeric: 'tabular-nums',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+          }}
+        >
+          {techniqueId}
+        </Typography>
+      )}
       {endSlot}
     </Box>
   );

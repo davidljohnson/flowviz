@@ -409,13 +409,13 @@ const LoadFlowDialog: React.FC<LoadFlowDialogProps> = ({
           
           {loading ? (
             <Box sx={{ textAlign: 'center', py: 4 }}>
-              <Typography sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+              <Typography sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.7)' }}>
                 Loading flows...
               </Typography>
             </Box>
           ) : filteredFlows.length === 0 ? (
             <Box sx={{ textAlign: 'center', py: 4 }}>
-              <Typography sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+              <Typography sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.7)' }}>
                 {flows.length === 0 ? 'No saved flows found' : 'No flows match the current filters'}
               </Typography>
             </Box>

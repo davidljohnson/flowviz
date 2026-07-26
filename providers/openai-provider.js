@@ -268,7 +268,10 @@ Focus on actionable technical intelligence that supplements the article text.`;
   }
 
   /**
-   * Get supported models
+   * Get supported models (static fallback list)
+   *
+   * Only consulted when the live /v1/models lookup below fails - offline, bad
+   * key, or a proxy that does not expose the endpoint.
    */
   static getSupportedModels() {
     return [
@@ -288,5 +291,45 @@ Focus on actionable technical intelligence that supplements the article text.`;
       'gpt-4',
       'gpt-4-0125-preview'
     ];
+  }
+
+  /**
+   * Is this model ID a chat-completions model?
+   *
+   * Unlike Anthropic's, OpenAI's /v1/models returns the whole catalogue -
+   * embeddings, speech, image and moderation models included - so the list has
+   * to be narrowed before it reaches the model dropdown.
+   * @param {string} id - Model ID from the API
+   * @returns {boolean}
+   */
+  static isChatModel(id) {
+    if (!/^(gpt-|o[1-9]|chatgpt-)/.test(id)) return false;
+    return !/(embedding|whisper|tts|audio|realtime|transcribe|moderation|image|instruct|dall-e)/.test(id);
+  }
+
+  /**
+   * Fetch available models from the OpenAI API
+   * @returns {Promise<string[]>} Chat model IDs, or [] if the lookup failed
+   */
+  static async fetchAvailableModels() {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) return [];
+
+    try {
+      const config = { apiKey };
+      if (process.env.OPENAI_BASE_URL) {
+        config.baseURL = process.env.OPENAI_BASE_URL;
+      }
+      const client = new OpenAI(config);
+
+      const models = [];
+      for await (const model of client.models.list()) {
+        if (OpenAIProvider.isChatModel(model.id)) models.push(model.id);
+      }
+      // OpenAI returns creation order; alphabetical groups the families together
+      return models.sort();
+    } catch (e) {
+      return [];
+    }
   }
 }

@@ -148,22 +148,15 @@ app.get('/health', (_req, res) => {
 // Get available AI providers
 app.get('/api/providers', async (_req, res) => {
   try {
-    const providers = ProviderFactory.getAvailableProviders();
+    // Model lists come from each provider's own API (cached for an hour), so
+    // new models appear without a code change and retired ones drop out
+    const providers = await ProviderFactory.getAvailableProvidersLive();
     const defaultProvider = ProviderFactory.getDefaultProvider();
-
-    // Fetch actual models from Ollama if configured
-    const ollamaProvider = providers.find(p => p.id === 'ollama');
-    if (ollamaProvider) {
-      const { OllamaProvider } = await import('./providers/ollama-provider.js');
-      const models = await OllamaProvider.fetchAvailableModels();
-      if (models.length > 0) {
-        ollamaProvider.models = models;
-      }
-    }
 
     logger.info('Providers request', {
       availableCount: providers.length,
-      defaultProvider
+      defaultProvider,
+      modelSources: Object.fromEntries(providers.map(p => [p.id, p.modelsSource]))
     });
 
     res.json({

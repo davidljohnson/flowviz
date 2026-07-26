@@ -115,7 +115,7 @@ describe('ProviderFactory', () => {
       process.env.ANTHROPIC_API_KEY = 'sk-test';
       delete process.env.ANTHROPIC_MODEL;
       const providers = ProviderFactory.getAvailableProviders();
-      expect(providers[0].defaultModel).toBe('claude-sonnet-4-5-20250929');
+      expect(providers[0].defaultModel).toBe('claude-sonnet-5');
     });
   });
 
@@ -259,6 +259,133 @@ describe('ProviderFactory', () => {
       delete process.env.OPENAI_API_KEY;
       delete process.env.OLLAMA_BASE_URL;
       expect(ProviderFactory.getProviderInfo('anthropic')).toBeNull();
+    });
+  });
+
+  // ── getAvailableProvidersLive() ───────────────────────────────────────
+
+  describe('getAvailableProvidersLive()', () => {
+    beforeEach(() => {
+      ProviderFactory.clearModelCache();
+      delete process.env.ANTHROPIC_API_KEY;
+      delete process.env.OPENAI_API_KEY;
+      delete process.env.OLLAMA_BASE_URL;
+      delete process.env.OLLAMA_TEXT_MODEL;
+      delete process.env.ANTHROPIC_MODEL;
+      vi.restoreAllMocks();
+    });
+
+    it('uses live models when the lookup succeeds', async () => {
+      process.env.ANTHROPIC_API_KEY = 'sk-test';
+      vi.spyOn(ClaudeProvider, 'fetchAvailableModels')
+        .mockResolvedValue(['claude-sonnet-5', 'claude-opus-5']);
+
+      const providers = await ProviderFactory.getAvailableProvidersLive();
+      expect(providers[0].models).toEqual(['claude-sonnet-5', 'claude-opus-5']);
+      expect(providers[0].modelsSource).toBe('live');
+    });
+
+    it('falls back to the static list when the lookup fails', async () => {
+      process.env.ANTHROPIC_API_KEY = 'sk-test';
+      vi.spyOn(ClaudeProvider, 'fetchAvailableModels').mockResolvedValue([]);
+
+      const providers = await ProviderFactory.getAvailableProvidersLive();
+      expect(providers[0].models).toEqual(ClaudeProvider.getSupportedModels());
+      expect(providers[0].modelsSource).toBe('fallback');
+    });
+
+    it('includes the configured model even when the catalogue omits it', async () => {
+      process.env.ANTHROPIC_API_KEY = 'sk-test';
+      process.env.ANTHROPIC_MODEL = 'my-org-finetune';
+      vi.spyOn(ClaudeProvider, 'fetchAvailableModels')
+        .mockResolvedValue(['claude-sonnet-5']);
+
+      const providers = await ProviderFactory.getAvailableProvidersLive();
+      expect(providers[0].models).toContain('my-org-finetune');
+    });
+
+    it('caches a successful lookup', async () => {
+      process.env.ANTHROPIC_API_KEY = 'sk-test';
+      const spy = vi.spyOn(ClaudeProvider, 'fetchAvailableModels')
+        .mockResolvedValue(['claude-sonnet-5']);
+
+      await ProviderFactory.getAvailableProvidersLive();
+      await ProviderFactory.getAvailableProvidersLive();
+      expect(spy).toHaveBeenCalledTimes(1);
+    });
+
+    it('briefly caches a failed lookup so a down provider is not retried every request', async () => {
+      process.env.ANTHROPIC_API_KEY = 'sk-test';
+      const spy = vi.spyOn(ClaudeProvider, 'fetchAvailableModels').mockResolvedValue([]);
+
+      await ProviderFactory.getAvailableProvidersLive();
+      await ProviderFactory.getAvailableProvidersLive();
+      expect(spy).toHaveBeenCalledTimes(1);
+    });
+
+    it('retries a failed lookup once the short failure TTL expires', async () => {
+      process.env.ANTHROPIC_API_KEY = 'sk-test';
+      const spy = vi.spyOn(ClaudeProvider, 'fetchAvailableModels').mockResolvedValue([]);
+
+      vi.useFakeTimers();
+      try {
+        await ProviderFactory.getAvailableProvidersLive();
+        vi.setSystemTime(Date.now() + 61_000);
+        await ProviderFactory.getAvailableProvidersLive();
+      } finally {
+        vi.useRealTimers();
+      }
+      expect(spy).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not let a hanging provider stall the response', async () => {
+      process.env.ANTHROPIC_API_KEY = 'sk-test';
+      // Never resolves - only the timeout can unblock this
+      vi.spyOn(ClaudeProvider, 'fetchAvailableModels')
+        .mockImplementation(() => new Promise(() => {}));
+
+      vi.useFakeTimers();
+      try {
+        const pending = ProviderFactory.getAvailableProvidersLive();
+        await vi.advanceTimersByTimeAsync(5000);
+        const providers = await pending;
+        expect(providers[0].modelsSource).toBe('fallback');
+        expect(providers[0].models).toEqual(ClaudeProvider.getSupportedModels());
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('fetches each configured provider independently', async () => {
+      process.env.ANTHROPIC_API_KEY = 'sk-test';
+      process.env.OPENAI_API_KEY = 'sk-oai';
+      vi.spyOn(ClaudeProvider, 'fetchAvailableModels').mockResolvedValue(['claude-sonnet-5']);
+      vi.spyOn(OpenAIProvider, 'fetchAvailableModels').mockResolvedValue(['gpt-4o']);
+
+      const providers = await ProviderFactory.getAvailableProvidersLive();
+      expect(providers.find(p => p.id === 'anthropic').models).toEqual(['claude-sonnet-5']);
+      expect(providers.find(p => p.id === 'openai').models).toEqual(['gpt-4o']);
+    });
+  });
+
+  // ── OpenAIProvider.isChatModel() ──────────────────────────────────────
+
+  describe('OpenAIProvider.isChatModel()', () => {
+    it('accepts chat models', () => {
+      for (const id of ['gpt-4o', 'gpt-4o-mini', 'o1', 'o3-mini', 'chatgpt-4o-latest']) {
+        expect(OpenAIProvider.isChatModel(id), id).toBe(true);
+      }
+    });
+
+    it('rejects non-chat models from the same catalogue', () => {
+      const nonChat = [
+        'text-embedding-3-small', 'whisper-1', 'tts-1', 'dall-e-3',
+        'omni-moderation-latest', 'gpt-4o-realtime-preview',
+        'gpt-4o-transcribe', 'gpt-image-1', 'gpt-3.5-turbo-instruct'
+      ];
+      for (const id of nonChat) {
+        expect(OpenAIProvider.isChatModel(id), id).toBe(false);
+      }
     });
   });
 });

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
 import { keyframes } from '@mui/system';
+import { shadowInk } from '../../theme/flowviz-theme';
 
 const pulseAnimation = keyframes`
   0%, 100% {
@@ -118,14 +119,14 @@ const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
         transform: 'translate(-50%, -50%)',
         zIndex: 1000,
         p: 4,
-        background: 'rgba(13, 17, 23, 0.95)',
+        background: 'rgba(var(--fv-glass-rgb), 0.95)',
         backdropFilter: 'blur(20px)',
         borderRadius: '16px',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
+        border: '1px solid rgba(var(--fv-overlay-rgb), 0.1)',
         overflow: 'hidden',
         width: '100%',
         maxWidth: '500px',
-        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
+        boxShadow: `0 4px 16px ${shadowInk(0.4)}`,
       }}
     >
       {/* Subtle top highlight */}
@@ -136,7 +137,7 @@ const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
           left: 0,
           right: 0,
           height: '1px',
-          background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent)',
+          background: 'linear-gradient(90deg, transparent, rgba(var(--fv-overlay-rgb), 0.1), transparent)',
         }}
       />
 
@@ -148,7 +149,7 @@ const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
               width: '12px',
               height: '12px',
               borderRadius: '50%',
-              backgroundColor: 'rgba(255, 255, 255, 0.8)',
+              backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.8)',
               position: 'relative',
               animation: `${pulseAnimation} 1.5s ease-in-out infinite`,
               '&::before': {
@@ -156,7 +157,7 @@ const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
                 position: 'absolute',
                 inset: '-8px',
                 borderRadius: '50%',
-                border: '2px solid rgba(255, 255, 255, 0.2)',
+                border: '2px solid rgba(var(--fv-overlay-rgb), 0.2)',
                 animation: `${breatheEffect} 2s ease-in-out infinite`,
               },
               '&::after': {
@@ -164,7 +165,7 @@ const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
                 position: 'absolute',
                 inset: '-16px',
                 borderRadius: '50%',
-                border: '2px solid rgba(255, 255, 255, 0.1)',
+                border: '2px solid rgba(var(--fv-overlay-rgb), 0.1)',
                 animation: `${breatheEffect} 2s ease-in-out infinite 0.5s`,
               },
             }}
@@ -175,7 +176,7 @@ const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
           <Typography
             variant="h6"
             sx={{
-              background: 'linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.8) 100%)',
+              background: 'linear-gradient(135deg, #fff 0%, rgba(var(--fv-overlay-rgb), 0.8) 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               fontSize: '1.1rem',
@@ -191,7 +192,7 @@ const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
           <Typography
             variant="body2"
             sx={{
-              color: 'rgba(255, 255, 255, 0.7)',
+              color: 'rgba(var(--fv-overlay-rgb), 0.7)',
               fontSize: '0.875rem',
               letterSpacing: '0.01em',
               transition: 'opacity 0.3s ease',
@@ -206,7 +207,7 @@ const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
             sx={{
               mt: 2.5,
               height: '3px',
-              background: 'rgba(255, 255, 255, 0.08)',
+              background: 'rgba(var(--fv-overlay-rgb), 0.08)',
               borderRadius: '3px',
               overflow: 'hidden',
             }}
@@ -215,7 +216,7 @@ const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
               sx={{
                 height: '100%',
                 width: `${((loadingStateIndex + 1) / contextualStates.length) * 100}%`,
-                background: 'linear-gradient(90deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.6))',
+                background: 'linear-gradient(90deg, rgba(var(--fv-overlay-rgb), 0.3), rgba(var(--fv-overlay-rgb), 0.6))',
                 borderRadius: 'inherit',
                 transition: 'width 0.3s ease-in-out',
               }}

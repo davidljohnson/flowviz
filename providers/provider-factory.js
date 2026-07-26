@@ -2,6 +2,17 @@ import { ClaudeProvider } from './claude-provider.js';
 import { OpenAIProvider } from './openai-provider.js';
 import { OllamaProvider } from './ollama-provider.js';
 
+// Model catalogues change monthly at most, and /api/providers would otherwise
+// fan out to three upstream APIs on every request.
+const MODEL_CACHE_TTL_MS = 60 * 60 * 1000;
+// Failures are cached far more briefly, so a provider that comes back online is
+// picked up quickly - but a persistently unreachable one isn't retried on every
+// single request.
+const MODEL_CACHE_FAILURE_TTL_MS = 60 * 1000;
+// No single provider gets to hold up the whole response
+const MODEL_FETCH_TIMEOUT_MS = 5000;
+const modelCache = new Map();
+
 /**
  * Factory for creating AI provider instances
  */
@@ -46,7 +57,7 @@ export class ProviderFactory {
         name: 'Anthropic',
         displayName: 'Anthropic',
         models: ClaudeProvider.getSupportedModels(),
-        defaultModel: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20250929',
+        defaultModel: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5',
         configured: true
       });
     }
@@ -76,6 +87,92 @@ export class ProviderFactory {
     }
 
     return providers;
+  }
+
+  /**
+   * Fetch the live model list for one provider, with a TTL cache
+   *
+   * Successes are cached for an hour; failures for a minute, so a slow or
+   * unreachable provider can't make every /api/providers request pay the
+   * timeout while still recovering quickly once it's back.
+   * @param {string} providerId - 'anthropic', 'openai', or 'ollama'
+   * @returns {Promise<string[]>} Model IDs, or [] if the lookup failed
+   */
+  static async fetchModelsFor(providerId) {
+    const cached = modelCache.get(providerId);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.models;
+    }
+
+    let fetchModels;
+    switch (providerId) {
+      case 'anthropic':
+        fetchModels = () => ClaudeProvider.fetchAvailableModels();
+        break;
+      case 'openai':
+        fetchModels = () => OpenAIProvider.fetchAvailableModels();
+        break;
+      case 'ollama':
+        fetchModels = () => OllamaProvider.fetchAvailableModels();
+        break;
+      default:
+        return [];
+    }
+
+    let models = [];
+    try {
+      // Belt and braces: the providers apply their own timeouts, but a hung
+      // SDK call must not be able to stall the endpoint either
+      models = await Promise.race([
+        fetchModels(),
+        new Promise((resolve) => setTimeout(() => resolve([]), MODEL_FETCH_TIMEOUT_MS))
+      ]);
+    } catch (e) {
+      models = [];
+    }
+
+    const ttl = models.length > 0 ? MODEL_CACHE_TTL_MS : MODEL_CACHE_FAILURE_TTL_MS;
+    modelCache.set(providerId, { models, expiresAt: Date.now() + ttl });
+    return models;
+  }
+
+  /**
+   * Get available providers with their model lists fetched live from each
+   * provider's API, falling back to the static lists when a lookup fails.
+   *
+   * This is what keeps the model dropdown current without anyone editing a
+   * hardcoded array - use it for anything user-facing. getAvailableProviders()
+   * stays synchronous for callers that only need to know which providers exist.
+   * @returns {Promise<Array<object>>} Available providers
+   */
+  static async getAvailableProvidersLive() {
+    const providers = this.getAvailableProviders();
+
+    await Promise.all(providers.map(async (provider) => {
+      const models = await this.fetchModelsFor(provider.id);
+      if (models.length > 0) {
+        provider.models = models;
+        provider.modelsSource = 'live';
+      } else {
+        provider.modelsSource = 'fallback';
+      }
+
+      // The configured model is what the backend will actually call, so it
+      // belongs in the dropdown even when the catalogue doesn't list it
+      // (a fine-tune, a proxy alias, or a stale ANTHROPIC_MODEL).
+      if (provider.defaultModel && !provider.models.includes(provider.defaultModel)) {
+        provider.models = [provider.defaultModel, ...provider.models];
+      }
+    }));
+
+    return providers;
+  }
+
+  /**
+   * Clear the cached model lists (exposed for tests and manual refresh)
+   */
+  static clearModelCache() {
+    modelCache.clear();
   }
 
   /**
@@ -119,7 +216,7 @@ export class ProviderFactory {
     if (normalized === 'anthropic' || normalized === 'claude') {
       return {
         apiKey: process.env.ANTHROPIC_API_KEY,
-        model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20250929',
+        model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5',
         baseUrl: process.env.ANTHROPIC_BASE_URL
       };
     }

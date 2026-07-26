@@ -1,5 +1,6 @@
 import { NodeFactory } from './nodes';
 import { NodeProps } from 'reactflow';
+import { flowVizTheme, shadowInk } from '../../../shared/theme/flowviz-theme';
 
 export type ValidNodeTypes = 
   | 'action'
@@ -26,36 +27,36 @@ export const NODE_TYPES: Record<ValidNodeTypes, React.ComponentType<NodeProps>> 
 
 export const THEME = {
   background: {
-    primary: '#0d1117',
-    secondary: 'rgba(22, 27, 34, 0.95)',
-    tertiary: 'rgba(13, 17, 23, 0.95)',
+    primary: flowVizTheme.colors.background.primary,
+    secondary: 'rgba(var(--fv-glass-elevated-rgb), 0.95)',
+    tertiary: 'rgba(var(--fv-glass-rgb), 0.95)',
   },
   text: {
-    primary: '#fff',
-    secondary: 'rgba(255, 255, 255, 0.7)',
-    muted: 'rgba(255, 255, 255, 0.5)',
+    primary: flowVizTheme.colors.text.primary,
+    secondary: 'rgba(var(--fv-overlay-rgb), 0.7)',
+    muted: 'rgba(var(--fv-overlay-rgb), 0.5)',
   },
   border: {
-    default: '1px solid rgba(255, 255, 255, 0.1)',
-    hover: '1px solid rgba(255, 255, 255, 0.2)',
+    default: '1px solid rgba(var(--fv-overlay-rgb), 0.1)',
+    hover: '1px solid rgba(var(--fv-overlay-rgb), 0.2)',
   },
   spacing: {
     panel: 16,
     section: 24,
   },
   shadow: {
-    panel: '0 4px 20px rgba(0, 0, 0, 0.4)',
+    panel: `0 4px 20px ${shadowInk(0.4)}`,
   }
 } as const;
 
 export const EDGE_STYLES = {
   default: {
-    stroke: 'rgba(255, 255, 255, 0.7)',
+    stroke: 'rgba(var(--fv-overlay-rgb), 0.7)',
     strokeWidth: 1.5,
     strokeDasharray: '4 4',
   },
   highlighted: {
-    stroke: '#3b82f6',
+    stroke: flowVizTheme.colors.accent.blue,
     strokeWidth: 2,
     strokeDasharray: '0',
   },
@@ -67,15 +68,15 @@ export const EDGE_STYLES = {
 
 export const LABEL_STYLES = {
   fontSize: 11,
-  color: 'rgba(255, 255, 255, 0.7)',
+  color: 'rgba(var(--fv-overlay-rgb), 0.7)',
   fontWeight: 500,
-  backgroundColor: 'rgba(13, 17, 23, 0.95)',
+  backgroundColor: 'rgba(var(--fv-glass-rgb), 0.95)',
   padding: '2px 6px',
   borderRadius: '3px',
 } as const;
 
 export const LABEL_BG_STYLES = {
-  fill: 'rgba(13, 17, 23, 0.95)',
+  fill: 'rgba(var(--fv-glass-rgb), 0.95)',
   rx: 3,
   ry: 3,
 } as const;

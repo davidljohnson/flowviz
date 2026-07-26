@@ -10,7 +10,6 @@ interface NodeCardProps {
   selected: boolean;
   showTechniqueLink?: boolean;
   showCommandLine?: boolean;
-  showTacticId?: boolean;
 }
 
 /**
@@ -18,8 +17,9 @@ interface NodeCardProps {
  * caps the card, with the node's name as the title and the description below on
  * one unified surface.
  */
-export function NodeCard({ data, selected, showCommandLine, showTacticId }: NodeCardProps) {
+export function NodeCard({ data, selected, showCommandLine }: NodeCardProps) {
   const isNewNode = data.isNewNode;
+  const techniqueId = typeof data.technique_id === 'string' ? data.technique_id.trim() : '';
 
   return (
     <Box
@@ -28,13 +28,12 @@ export function NodeCard({ data, selected, showCommandLine, showTacticId }: Node
     >
       <Box sx={getNodeSurfaceStyle(data.type, selected)}>
         <Box sx={{ px: 1.75, pt: 1.4, pb: 1.5, position: 'relative' }}>
-          <NodeHeader nodeType={data.type} />
+          <NodeHeader nodeType={data.type} techniqueId={techniqueId || undefined} />
 
           <Box sx={{ mt: 1 }}>
             <NodeContent
               data={data}
               showCommandLine={showCommandLine}
-              showTacticId={showTacticId}
             />
           </Box>
 

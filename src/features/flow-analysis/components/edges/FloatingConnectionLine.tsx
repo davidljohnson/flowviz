@@ -41,9 +41,12 @@ const FloatingConnectionLine: React.FC<ConnectionLineComponentProps> = ({
 
   return (
     <g>
+      {/* Colors go through `style`, not the fill/stroke presentation
+          attributes: var() only resolves in CSS, and these have to track the
+          theme. */}
       <path
         fill="none"
-        stroke="rgba(255, 255, 255, 0.5)"
+        style={{ stroke: 'rgba(var(--fv-overlay-rgb), 0.5)' }}
         strokeWidth={1.5}
         strokeDasharray="4 4"
         className="animated"
@@ -52,9 +55,11 @@ const FloatingConnectionLine: React.FC<ConnectionLineComponentProps> = ({
       <circle
         cx={tx || toX}
         cy={ty || toY}
-        fill="#fff"
+        style={{
+          fill: 'var(--fv-canvas-handle)',
+          stroke: 'rgba(var(--fv-overlay-rgb), 0.5)',
+        }}
         r={3}
-        stroke="rgba(255, 255, 255, 0.5)"
         strokeWidth={1.5}
       />
     </g>

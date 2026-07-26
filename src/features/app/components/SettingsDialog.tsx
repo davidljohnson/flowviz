@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Typography,
   Box,
@@ -25,7 +25,13 @@ import {
 } from '../../../shared/components/Dropdown';
 import SegmentedControl from '../../../shared/components/SegmentedControl';
 import { useProviderConfig } from '../hooks/useProviderConfig';
-import { createScrollbarStyle, flowVizTheme } from '../../../shared/theme/flowviz-theme';
+import { createScrollbarStyle, flowVizTheme, type ThemeMode } from '../../../shared/theme/flowviz-theme';
+import { useThemeMode } from '../../../shared/theme/ThemeModeProvider';
+
+const THEME_OPTIONS = [
+  { value: 'dark', label: 'Dark' },
+  { value: 'light', label: 'Light' },
+] as const satisfies readonly { value: ThemeMode; label: string }[];
 
 /** Field label, matching the inspector's uppercase micro-label. */
 const fieldLabelSx = {
@@ -83,6 +89,19 @@ export default function SettingsDialog({
     setSelectedProvider: setProviderConfigProvider,
   } = useProviderConfig();
 
+  // The theme is the one setting applied live rather than on save: picking it
+  // blind and then hunting for the Save button is a worse way to choose a
+  // theme than just seeing it. Cancel puts back whatever was in effect when
+  // the dialog opened.
+  const { mode, setMode } = useThemeMode();
+  const modeOnOpenRef = useRef<ThemeMode>(mode);
+  useEffect(() => {
+    if (open) modeOnOpenRef.current = mode;
+    // Only when the dialog opens — `mode` changing while it's open is the
+    // user previewing, which must not move the restore point.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   // Local state for dialog - only apply on save
   const [localEdgeColor, setLocalEdgeColor] = useState(edgeColor);
   const [localEdgeStyle, setLocalEdgeStyle] = useState(edgeStyle);
@@ -133,6 +152,7 @@ export default function SettingsDialog({
   };
 
   const handleCancel = () => {
+    setMode(modeOnOpenRef.current);
     // Reset local state to current values
     setLocalEdgeColor(edgeColor);
     setLocalEdgeStyle(edgeStyle);
@@ -152,6 +172,23 @@ export default function SettingsDialog({
     >
       <EnhancedDialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
+
+          <FormSection>
+            <FormSectionTitle>
+              Appearance
+            </FormSectionTitle>
+
+            <Box>
+              <Typography component="label" sx={fieldLabelSx}>Theme</Typography>
+              <SegmentedControl
+                fullWidth
+                aria-label="Colour theme"
+                options={THEME_OPTIONS}
+                value={mode}
+                onChange={setMode}
+              />
+            </Box>
+          </FormSection>
 
           <FormSection>
             <FormSectionTitle>
@@ -209,7 +246,7 @@ export default function SettingsDialog({
                       top: 0,
                       zIndex: 10,
                       backgroundColor: flowVizTheme.colors.menu.appBar,
-                      color: 'rgba(255, 255, 255, 0.45)',
+                      color: 'rgba(var(--fv-overlay-rgb), 0.45)',
                       fontWeight: 600,
                       fontSize: '0.7rem',
                       letterSpacing: '0.1em',
@@ -237,18 +274,18 @@ export default function SettingsDialog({
                           py: 1,
                           fontSize: '0.875rem',
                           fontFamily: 'monospace',
-                          color: 'rgba(255, 255, 255, 0.9)',
+                          color: 'rgba(var(--fv-overlay-rgb), 0.9)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
                           gap: 1.5,
                           '&:hover': {
-                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                            backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.05)',
                           },
                           '&.Mui-selected': {
-                            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                            backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.08)',
                             '&:hover': {
-                              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                              backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.1)',
                             },
                           },
                         }}
@@ -263,9 +300,9 @@ export default function SettingsDialog({
                               fontSize: '0.625rem',
                               fontWeight: 600,
                               letterSpacing: '0.03em',
-                              backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                              color: 'rgba(255, 255, 255, 0.7)',
-                              border: '1px solid rgba(255, 255, 255, 0.2)',
+                              backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.08)',
+                              color: 'rgba(var(--fv-overlay-rgb), 0.7)',
+                              border: '1px solid rgba(var(--fv-overlay-rgb), 0.2)',
                               '& .MuiChip-label': {
                                 px: 1,
                                 py: 0,
@@ -297,7 +334,9 @@ export default function SettingsDialog({
                   aria-label="Default edge color"
                   options={[
                     { value: 'default', label: 'Default' },
-                    { value: 'white', label: 'White' },
+                    // Stored as 'white' since that's what it has always been
+                    // written as; on a light canvas it renders as graphite.
+                    { value: 'white', label: 'Mono' },
                     { value: 'blue', label: 'Blue' },
                   ]}
                   value={localEdgeColor}

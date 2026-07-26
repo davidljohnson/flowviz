@@ -14,11 +14,11 @@ const StorageStats: React.FC<StorageStatsProps> = ({ stats, formatFileSize }) =>
     <Box sx={{ 
       mb: 2, 
       p: 2, 
-      bgcolor: 'rgba(255, 255, 255, 0.02)', 
+      bgcolor: 'rgba(var(--fv-overlay-rgb), 0.02)', 
       borderRadius: 2,
-      border: '1px solid rgba(255, 255, 255, 0.05)'
+      border: '1px solid rgba(var(--fv-overlay-rgb), 0.05)'
     }}>
-      <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+      <Typography variant="caption" sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.6)' }}>
         Storage: {formatFileSize(stats.storageUsed)} • {stats.totalFlows} flows
         {stats.averageNodes && ` • Avg: ${stats.averageNodes} nodes`}
       </Typography>

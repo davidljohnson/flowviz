@@ -62,10 +62,12 @@ export default function AssistantMark({ size = 16, sx }: AssistantMarkProps) {
       }}
     >
       <defs>
+        {/* stop-color as a style rather than an attribute: var() resolves in
+            CSS only, and the ribbon is drawn in the theme's overlay ink. */}
         <linearGradient id="fvTriGrad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="rgba(255, 255, 255, 0.95)" />
-          <stop offset="0.55" stopColor="rgba(255, 255, 255, 0.45)" />
-          <stop offset="1" stopColor="rgba(255, 255, 255, 0.12)" />
+          <stop offset="0" style={{ stopColor: 'rgba(var(--fv-overlay-rgb), 0.95)' }} />
+          <stop offset="0.55" style={{ stopColor: 'rgba(var(--fv-overlay-rgb), 0.45)' }} />
+          <stop offset="1" style={{ stopColor: 'rgba(var(--fv-overlay-rgb), 0.12)' }} />
         </linearGradient>
       </defs>
       {/* One triangle, three ribbon passes: wide and faint underneath,

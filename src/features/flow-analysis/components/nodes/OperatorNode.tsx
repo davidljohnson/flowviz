@@ -20,7 +20,7 @@ function OperatorNode({ data, selected }: NodeProps) {
       <Typography
         component="span"
         sx={{
-          color: 'rgba(255, 255, 255, 0.9)',
+          color: 'rgba(var(--fv-overlay-rgb), 0.9)',
           fontWeight: 700,
           fontSize: '0.8rem',
           letterSpacing: '0.12em',
@@ -42,7 +42,7 @@ function OperatorNode({ data, selected }: NodeProps) {
           p: '2px',
           borderRadius: '50%',
           backgroundColor: '#1a1f27',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
+          border: '1px solid rgba(var(--fv-overlay-rgb), 0.12)',
         }}
       />
       <NodeHandles />

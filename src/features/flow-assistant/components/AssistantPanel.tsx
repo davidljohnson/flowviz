@@ -63,11 +63,11 @@ function CopyMessageButton({ text }: { text: string }) {
           top: 4,
           right: 4,
           p: 0.4,
-          color: 'rgba(255, 255, 255, 0.55)',
-          backgroundColor: 'rgba(13, 17, 23, 0.85)',
+          color: 'rgba(var(--fv-overlay-rgb), 0.55)',
+          backgroundColor: 'rgba(var(--fv-glass-rgb), 0.85)',
           opacity: 0,
           transition: flowVizTheme.motion.fast,
-          '&:hover': { color: 'rgba(255, 255, 255, 0.9)', backgroundColor: 'rgba(13, 17, 23, 0.95)' },
+          '&:hover': { color: 'rgba(var(--fv-overlay-rgb), 0.9)', backgroundColor: 'rgba(var(--fv-glass-rgb), 0.95)' },
         }}
       >
         {copied ? <CheckIcon sx={{ fontSize: 13 }} /> : <ContentCopyIcon sx={{ fontSize: 13 }} />}
@@ -99,13 +99,13 @@ function OpChips({ results }: { results: OpResult[] }) {
               fontSize: '0.66rem',
               backgroundColor: result.status === 'skipped'
                 ? flowVizTheme.colors.status.warning.bg
-                : 'rgba(255, 255, 255, 0.08)',
+                : 'rgba(var(--fv-overlay-rgb), 0.08)',
               color: result.status === 'skipped'
                 ? flowVizTheme.colors.status.warning.text
-                : 'rgba(255, 255, 255, 0.75)',
+                : 'rgba(var(--fv-overlay-rgb), 0.75)',
               border: result.status === 'skipped'
                 ? `1px solid ${flowVizTheme.colors.status.warning.border}`
-                : '1px solid rgba(255, 255, 255, 0.12)',
+                : '1px solid rgba(var(--fv-overlay-rgb), 0.12)',
               '& .MuiChip-label': { px: 0.75 },
             }}
           />
@@ -197,27 +197,27 @@ export default function AssistantPanel({
           display: 'flex',
           alignItems: 'center',
           gap: 1,
-          borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+          borderBottom: '1px solid rgba(var(--fv-overlay-rgb), 0.06)',
         }}
       >
         <AssistantMark size={19} />
-        <Typography sx={{ flex: 1, fontSize: '0.82rem', fontWeight: 600, color: 'rgba(255, 255, 255, 0.9)' }}>
+        <Typography sx={{ flex: 1, fontSize: '0.82rem', fontWeight: 600, color: 'rgba(var(--fv-overlay-rgb), 0.9)' }}>
           AI Assistant
         </Typography>
         <Tooltip title={expanded ? 'Shrink panel' : 'Expand panel'}>
-          <IconButton size="small" onClick={toggleExpanded} sx={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+          <IconButton size="small" onClick={toggleExpanded} sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.6)' }}>
             {expanded ? <CloseFullscreenIcon sx={{ fontSize: 16 }} /> : <OpenInFullIcon sx={{ fontSize: 16 }} />}
           </IconButton>
         </Tooltip>
         <Tooltip title="Clear conversation">
           <span>
-            <IconButton size="small" onClick={onClear} disabled={messages.length === 0 || pending} sx={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+            <IconButton size="small" onClick={onClear} disabled={messages.length === 0 || pending} sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.6)' }}>
               <RestartAltIcon fontSize="small" />
             </IconButton>
           </span>
         </Tooltip>
         <Tooltip title="Close">
-          <IconButton size="small" onClick={onClose} sx={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+          <IconButton size="small" onClick={onClose} sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.6)' }}>
             <CloseIcon fontSize="small" />
           </IconButton>
         </Tooltip>
@@ -227,7 +227,7 @@ export default function AssistantPanel({
       <Box ref={listRef} sx={{ flex: 1, overflowY: 'auto', px: 1.5, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1, ...createScrollbarStyle() }}>
         {messages.length === 0 && !pending && (
           <>
-            <Typography sx={{ color: 'rgba(255, 255, 255, 0.45)', fontSize: '0.78rem', px: 0.5, py: 1 }}>
+            <Typography sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.45)', fontSize: '0.78rem', px: 0.5, py: 1 }}>
               Ask about the graph or tell me to edit it — "add a C2 server connected to the loader", "delete the phishing node".
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, px: 0.5 }}>
@@ -241,10 +241,10 @@ export default function AssistantPanel({
                   sx={{
                     height: 24,
                     fontSize: '0.72rem',
-                    color: 'rgba(255, 255, 255, 0.75)',
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)', borderColor: 'rgba(255, 255, 255, 0.28)' },
+                    color: 'rgba(var(--fv-overlay-rgb), 0.75)',
+                    backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.05)',
+                    border: '1px solid rgba(var(--fv-overlay-rgb), 0.12)',
+                    '&:hover': { backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.1)', borderColor: 'rgba(var(--fv-overlay-rgb), 0.28)' },
                   }}
                 />
               ))}
@@ -259,14 +259,14 @@ export default function AssistantPanel({
               maxWidth: '90%',
               ...bubbleSx,
               ...(message.role === 'user' && {
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                border: '1px solid rgba(255, 255, 255, 0.16)',
-                color: 'rgba(255, 255, 255, 0.92)',
+                backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.1)',
+                border: '1px solid rgba(var(--fv-overlay-rgb), 0.16)',
+                color: 'rgba(var(--fv-overlay-rgb), 0.92)',
               }),
               ...(message.role === 'assistant' && {
-                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                color: 'rgba(255, 255, 255, 0.85)',
+                backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.05)',
+                border: '1px solid rgba(var(--fv-overlay-rgb), 0.08)',
+                color: 'rgba(var(--fv-overlay-rgb), 0.85)',
                 position: 'relative' as const,
                 '&:hover .fv-copy': { opacity: 1 },
               }),
@@ -286,13 +286,13 @@ export default function AssistantPanel({
         ))}
         {pending && (
           streamingText ? (
-            <Box sx={{ alignSelf: 'flex-start', maxWidth: '90%', ...bubbleSx, backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.08)', color: 'rgba(255, 255, 255, 0.85)' }}>
+            <Box sx={{ alignSelf: 'flex-start', maxWidth: '90%', ...bubbleSx, backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.05)', border: '1px solid rgba(var(--fv-overlay-rgb), 0.08)', color: 'rgba(var(--fv-overlay-rgb), 0.85)' }}>
               <AssistantMarkdown text={trimStreamingTail(streamingText)} onFocusNode={onFocusNode} />
             </Box>
           ) : (
-            <Box sx={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 1, ...bubbleSx, backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-              <CircularProgress size={14} sx={{ color: 'rgba(255, 255, 255, 0.5)' }} />
-              <Typography sx={{ fontSize: '0.78rem', color: 'rgba(255, 255, 255, 0.55)' }}>Thinking…</Typography>
+            <Box sx={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 1, ...bubbleSx, backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.05)', border: '1px solid rgba(var(--fv-overlay-rgb), 0.08)' }}>
+              <CircularProgress size={14} sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.5)' }} />
+              <Typography sx={{ fontSize: '0.78rem', color: 'rgba(var(--fv-overlay-rgb), 0.55)' }}>Thinking…</Typography>
             </Box>
           )
         )}
@@ -307,7 +307,7 @@ export default function AssistantPanel({
             gap: 0.5,
             px: 1.5,
             py: 1,
-            borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+            borderTop: '1px solid rgba(var(--fv-overlay-rgb), 0.06)',
             opacity: disabled ? 0.5 : 1,
           }}
         >
@@ -328,14 +328,14 @@ export default function AssistantPanel({
             sx={{
               flex: 1,
               fontSize: '0.82rem',
-              color: 'rgba(255, 255, 255, 0.9)',
+              color: 'rgba(var(--fv-overlay-rgb), 0.9)',
               px: 1.25,
               py: 0.75,
               borderRadius: '8px',
-              backgroundColor: 'rgba(255, 255, 255, 0.04)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
+              backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.04)',
+              border: '1px solid rgba(var(--fv-overlay-rgb), 0.08)',
               transition: flowVizTheme.motion.fast,
-              '&.Mui-focused': { borderColor: 'rgba(255, 255, 255, 0.3)' },
+              '&.Mui-focused': { borderColor: 'rgba(var(--fv-overlay-rgb), 0.3)' },
             }}
           />
           {/* Filled disc reads as the composer's one primary action - the
@@ -350,13 +350,13 @@ export default function AssistantPanel({
               height: 30,
               mb: 0.25,
               flexShrink: 0,
-              backgroundColor: 'rgba(255, 255, 255, 0.9)',
-              color: '#0d1117',
+              backgroundColor: flowVizTheme.colors.inverse.surface,
+              color: flowVizTheme.colors.inverse.text,
               transition: flowVizTheme.motion.fast,
-              '&:hover': { backgroundColor: '#ffffff' },
+              '&:hover': { backgroundColor: flowVizTheme.colors.inverse.surfaceHover },
               '&.Mui-disabled': {
-                backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                color: 'rgba(255, 255, 255, 0.28)',
+                backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.06)',
+                color: 'rgba(var(--fv-overlay-rgb), 0.28)',
               },
             }}
           >

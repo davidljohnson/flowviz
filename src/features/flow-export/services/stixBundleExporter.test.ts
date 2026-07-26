@@ -26,7 +26,7 @@ describe('STIXBundleExporter', () => {
     // and objects only, so anything else on it is a stray custom property.
     it('puts no SDO properties on the bundle itself', () => {
       const exporter = new STIXBundleExporter();
-      const bundle = exporter.exportToSTIXBundle([], []) as Record<string, unknown>;
+      const bundle = exporter.exportToSTIXBundle([], []) as unknown as Record<string, unknown>;
 
       expect(bundle.spec_version).toBeUndefined();
       expect(bundle.created).toBeUndefined();
@@ -74,10 +74,10 @@ describe('STIXBundleExporter', () => {
 
       const bundle = exporter.exportToSTIXBundle(nodes, []);
       expect(bundle.objects).toHaveLength(2);
-      expect(bundle.objects[0].type).toBe('attack-pattern');
-      expect(bundle.objects[0].name).toBe('Spearphishing');
-      expect(bundle.objects[1].type).toBe('tool');
-      expect(bundle.objects[1].name).toBe('Cobalt Strike');
+      expect(bundle.objects![0].type).toBe('attack-pattern');
+      expect(bundle.objects![0].name).toBe('Spearphishing');
+      expect(bundle.objects![1].type).toBe('tool');
+      expect(bundle.objects![1].name).toBe('Cobalt Strike');
     });
 
     it('converts edges to STIX relationships', () => {
@@ -94,7 +94,7 @@ describe('STIXBundleExporter', () => {
       // 2 nodes + 1 relationship
       expect(bundle.objects).toHaveLength(3);
 
-      const rel = bundle.objects[2];
+      const rel = bundle.objects![2];
       expect(rel.type).toBe('relationship');
       expect(rel.relationship_type).toBe('uses');
       expect(rel.description).toBe('Uses');
@@ -216,7 +216,7 @@ describe('STIXBundleExporter', () => {
       ];
 
       const bundle = exporter.exportToSTIXBundle(nodes, []);
-      const refs = bundle.objects[0].external_references;
+      const refs = bundle.objects![0].external_references;
       expect(refs).toContainEqual({
         source_name: 'mitre-attack',
         external_id: 'T1190',
@@ -239,7 +239,7 @@ describe('STIXBundleExporter', () => {
       ];
 
       const bundle = exporter.exportToSTIXBundle(nodes, []);
-      const refs = bundle.objects[0].external_references;
+      const refs = bundle.objects![0].external_references;
       expect(refs[0].url).toBe('https://attack.mitre.org/techniques/T1059/001');
     });
 
@@ -254,7 +254,7 @@ describe('STIXBundleExporter', () => {
       ];
 
       const bundle = exporter.exportToSTIXBundle(nodes, []);
-      expect(bundle.objects[0].external_references).toEqual([]);
+      expect(bundle.objects![0].external_references).toEqual([]);
     });
   });
 
@@ -269,7 +269,7 @@ describe('STIXBundleExporter', () => {
       ];
       const edges = [makeEdge({ id: 'e1', source: 'a', target: 'b', label })];
       const bundle = exporter.exportToSTIXBundle(nodes, edges);
-      const rel = bundle.objects.find((o: any) => o.type === 'relationship');
+      const rel = bundle.objects!.find((o: any) => o.type === 'relationship');
       return rel?.relationship_type;
     }
 
@@ -299,8 +299,8 @@ describe('STIXBundleExporter', () => {
       ];
 
       const bundle = exporter.exportToSTIXBundle(nodes, []);
-      expect(bundle.objects[0].pattern).toBe("[url:value = 'https://evil.com/payload']");
-      expect(bundle.objects[0].pattern_type).toBe('stix');
+      expect(bundle.objects![0].pattern).toBe("[url:value = 'https://evil.com/payload']");
+      expect(bundle.objects![0].pattern_type).toBe('stix');
     });
 
     it('uses name as fallback when value is not set', () => {
@@ -314,7 +314,7 @@ describe('STIXBundleExporter', () => {
       ];
 
       const bundle = exporter.exportToSTIXBundle(nodes, []);
-      expect(bundle.objects[0].pattern).toBe("[url:value = 'https://example.com']");
+      expect(bundle.objects![0].pattern).toBe("[url:value = 'https://example.com']");
     });
   });
 
@@ -332,7 +332,7 @@ describe('STIXBundleExporter', () => {
       ];
 
       const bundle = exporter.exportToSTIXBundle(nodes, []);
-      const vuln = bundle.objects[0];
+      const vuln = bundle.objects![0];
       expect(vuln.external_references[0].external_id).toBe('CVE-2021-44228');
       expect(vuln.external_references[0].source_name).toBe('cve');
     });
@@ -348,7 +348,7 @@ describe('STIXBundleExporter', () => {
       ];
 
       const bundle = exporter.exportToSTIXBundle(nodes, []);
-      expect(bundle.objects[0].name).toBe('CVE-2024-0001');
+      expect(bundle.objects![0].name).toBe('CVE-2024-0001');
     });
   });
 });

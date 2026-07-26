@@ -280,7 +280,7 @@ export default function App() {
       // with the canvas taking whatever the app bar leaves.
       height: '100vh',
       overflow: 'hidden',
-      background: 'radial-gradient(circle at 50% 50%, #0d1117 0%, #090b0f 100%)',
+      background: flowVizTheme.colors.canvas.backdrop,
       position: 'relative',
       '&::before': {
         content: '""',
@@ -290,7 +290,7 @@ export default function App() {
         transform: 'translate(-50%, -50%)',
         width: '80%',
         height: '70%',
-        background: 'radial-gradient(circle at center, rgba(59, 130, 246, 0.15), transparent 70%)',
+        background: flowVizTheme.colors.canvas.bloom,
         filter: 'blur(100px)',
         pointerEvents: 'none',
       },

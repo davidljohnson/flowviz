@@ -52,10 +52,18 @@ const CONFIDENCE_LABELS: Record<typeof CONFIDENCE_OPTIONS[number], string> = {
 };
 
 
-/** Label + field wrapper. */
-const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+/**
+ * Label + field wrapper. `action` rides beside the label rather than inside the
+ * field: pinned to the field's right edge it stacked under the panel's close
+ * button and read as panel chrome, and an input stretches to fill its box so
+ * there is no way to sit an adornment against the text itself.
+ */
+const Field: React.FC<{ label: string; action?: React.ReactNode; children: React.ReactNode }> = ({ label, action, children }) => (
   <Box sx={{ mb: 2 }}>
-    <Typography component="label" sx={labelSx}>{label}</Typography>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: labelSx.mb }}>
+      <Typography component="label" sx={{ ...labelSx, mb: 0 }}>{label}</Typography>
+      {action}
+    </Box>
     {children}
   </Box>
 );
@@ -72,7 +80,7 @@ const Chip: React.FC<{ label: string; href?: string }> = ({ label, href }) => {
         px: 1,
         py: 0.5,
         borderRadius: `${flowVizTheme.borderRadius.sm}px`,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.05)',
         border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,
         color: flowVizTheme.colors.text.secondary,
         fontSize: '0.72rem',
@@ -106,8 +114,8 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
   // The header is now a dark tint rather than a saturated slab, so its actions
   // (change-type, menu, close) read as light neutral icons — the color lives in
   // the type icon and the selected border, not here.
-  const bannerInk = 'rgba(255, 255, 255, 0.6)';
-  const bannerHover = 'rgba(255, 255, 255, 0.1)';
+  const bannerInk = 'rgba(var(--fv-overlay-rgb), 0.6)';
+  const bannerHover = 'rgba(var(--fv-overlay-rgb), 0.1)';
 
   // Anchor for the change-type switcher hung off the banner.
   const [typeAnchor, setTypeAnchor] = useState<HTMLElement | null>(null);
@@ -220,7 +228,6 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
 
   const isAction = isAttackAction(data);
   const isOp = isOperator(data);
-  const tacticLabel = draft.tactic_name || draft.tactic_id;
 
   // Overflow-menu actions; each appears only when its capability is wired up
   const menuIconSx = { fontSize: '1rem' } as const;
@@ -274,7 +281,7 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
       {/* Header zone — the type token + type name (doubling as the change-type
           control) with the panel actions, set off from the fields by a hairline.
           Mirrors the node card so the two read as the same object. */}
-      <Box sx={{ px: 2, pt: 1.75, pb: 1.5, borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
+      <Box sx={{ px: 2, pt: 1.75, pb: 1.5, borderBottom: '1px solid rgba(var(--fv-overlay-rgb), 0.06)' }}>
         <NodeHeader
           nodeType={type}
           prominent
@@ -357,9 +364,9 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
               borderRadius: `${flowVizTheme.borderRadius.md}px`,
               border: '1px solid transparent',
               transition: flowVizTheme.motion.fast,
-              '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.03)' },
+              '&:hover': { backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.03)' },
               '&.Mui-focused': {
-                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.05)',
                 border: `1px solid ${flowVizTheme.colors.surface.border.focus}`,
               },
             }}
@@ -384,26 +391,43 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
         {/* Technique + tactic (actions) */}
         {isAction && (
           <>
-            <Field label="MITRE Technique">
+            <Field
+              label="MITRE Technique"
+              action={/^T\d{4}(\.\d{3})?$/.test(techniqueId) ? (
+                <Tooltip title="Open in MITRE ATT&CK">
+                  <Box
+                    component="a"
+                    href={getMitreLink(techniqueId)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Open in MITRE ATT&CK"
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                      width: 18,
+                      height: 18,
+                      borderRadius: `${flowVizTheme.borderRadius.sm}px`,
+                      color: flowVizTheme.colors.text.tertiary,
+                      transition: flowVizTheme.motion.fast,
+                      '&:hover': {
+                        color: flowVizTheme.colors.text.primary,
+                        backgroundColor: flowVizTheme.colors.surface.hover,
+                      },
+                    }}
+                  >
+                    <OpenInNewIcon sx={{ fontSize: '0.8rem' }} />
+                  </Box>
+                </Tooltip>
+              ) : undefined}
+            >
               <TechniqueAutocomplete
                 value={String(draft.technique_id ?? '')}
                 onSelect={handleTechnique}
                 onFreeText={(id) => { set('technique_id', id); commit('technique_id', id); }}
               />
             </Field>
-            {(tacticLabel || draft.technique_id) && (
-              <Box sx={{ display: 'flex', gap: 1, mt: -1, mb: 2, flexWrap: 'wrap' }}>
-                {tacticLabel && (
-                  <Chip
-                    href={draft.tactic_id ? `https://attack.mitre.org/tactics/${draft.tactic_id}/` : undefined}
-                    label={`${draft.tactic_id ? draft.tactic_id + ': ' : ''}${draft.tactic_name || ''}`.trim()}
-                  />
-                )}
-                {draft.technique_id && (
-                  <Chip href={getMitreLink(String(draft.technique_id))} label={String(draft.technique_id)} />
-                )}
-              </Box>
-            )}
           </>
         )}
 

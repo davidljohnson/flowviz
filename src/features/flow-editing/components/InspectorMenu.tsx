@@ -97,7 +97,7 @@ const InspectorMenu: React.FC<InspectorMenuProps> = ({ items = [], deleteLabel, 
         ))}
 
         {items.length > 0 && (
-          <Divider sx={{ my: 0.5, borderColor: 'rgba(255, 255, 255, 0.08)' }} />
+          <Divider sx={{ my: 0.5, borderColor: 'rgba(var(--fv-overlay-rgb), 0.08)' }} />
         )}
 
         <MenuItem

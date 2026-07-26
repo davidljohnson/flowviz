@@ -3,6 +3,7 @@ import { Alert, AlertTitle, Box, Button, Typography } from '@mui/material';
 import { Refresh as RefreshIcon } from '@mui/icons-material';
 import ErrorBoundary from './ErrorBoundary';
 import { ClaudeServiceError, NetworkError, APIError, ValidationError } from '../../../features/flow-analysis/services';
+import { flowVizTheme } from '../../theme/flowviz-theme';
 
 interface ServiceErrorBoundaryProps {
   children: React.ReactNode;
@@ -88,14 +89,14 @@ const ServiceErrorFallback: React.FC<{ error: Error; onRetry?: () => void }> = (
         severity={errorInfo.severity}
         sx={{
           backgroundColor: errorInfo.severity === 'error' 
-            ? 'rgba(239, 68, 68, 0.1)' 
-            : 'rgba(234, 179, 8, 0.1)',
+            ? flowVizTheme.colors.status.error.bg
+            : flowVizTheme.colors.status.warning.bg,
           border: errorInfo.severity === 'error'
-            ? '1px solid rgba(239, 68, 68, 0.2)'
-            : '1px solid rgba(234, 179, 8, 0.2)',
-          color: errorInfo.severity === 'error' ? '#fca5a5' : '#fbbf24',
+            ? `1px solid ${flowVizTheme.colors.status.error.border}`
+            : `1px solid ${flowVizTheme.colors.status.warning.border}`,
+          color: errorInfo.severity === 'error' ? flowVizTheme.colors.status.error.text : flowVizTheme.colors.status.warning.text,
           '& .MuiAlert-icon': {
-            color: errorInfo.severity === 'error' ? '#ef4444' : '#eab308'
+            color: errorInfo.severity === 'error' ? flowVizTheme.colors.status.error.accent : flowVizTheme.colors.status.warning.accent
           }
         }}
       >
@@ -120,7 +121,7 @@ const ServiceErrorFallback: React.FC<{ error: Error; onRetry?: () => void }> = (
               borderColor: 'currentColor',
               color: 'inherit',
               '&:hover': {
-                backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.1)'
               }
             }}
           >

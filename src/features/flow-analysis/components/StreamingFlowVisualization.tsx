@@ -18,7 +18,8 @@ import { AttackFlowV3Exporter } from '../../flow-export/services/attackFlowV3Exp
 import { SavedFlow } from '../../flow-storage/types/SavedFlow';
 import 'reactflow/dist/style.css';
 import { Box, IconButton, Tooltip } from '@mui/material';
-import { flowVizTheme } from '../../../shared/theme/flowviz-theme';
+import { flowVizTheme, themePalettes, currentThemeMode } from '../../../shared/theme/flowviz-theme';
+import { useThemeMode } from '../../../shared/theme/ThemeModeProvider';
 import ErrorBoundary from '../../../shared/components/ErrorBoundary';
 
 import { THEME, NODE_TYPES, MERGE_CLUSTER_GAP } from './constants';
@@ -53,7 +54,7 @@ import BlurOnIcon from '@mui/icons-material/BlurOn';
 import BlurOffIcon from '@mui/icons-material/BlurOff';
 import AddIcon from '@mui/icons-material/Add';
 import CropFreeIcon from '@mui/icons-material/CropFree';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import SearchIcon from '@mui/icons-material/Search';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import AssistantMark from '../../../shared/components/icons/AssistantMark';
@@ -124,6 +125,9 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   selectedModel,
 }) => {
   const reactFlowInstance = useReactFlow();
+  // Only the bits the theme can't reach through CSS variables need this —
+  // arrowhead markers and the PNG canvas fill.
+  const { mode } = useThemeMode();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
@@ -163,11 +167,16 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
     // through the arrowhead. Both must move together — colouring the line without
     // the marker leaves the previous arrow colour stranded. (arrow colours match
     // EdgeInspector's per-edge swatches.)
+    // The line is CSS, so it can ride the overlay token and flip with the
+    // theme on its own. The arrow can't (SVG marker attribute), so it's read
+    // as a raw value for the active mode — which is why `mode` is a dependency
+    // below: the effect that follows recolours edges already on the canvas.
+    const canvas = themePalettes[mode].colors.canvas;
     const { stroke, arrow } = edgeColor === 'blue'
-      ? { stroke: 'rgba(59, 130, 246, 0.8)', arrow: '#3b82f6' }
+      ? { stroke: 'rgba(59, 130, 246, 0.8)', arrow: themePalettes[mode].colors.accent.blue }
       : edgeColor === 'white'
-        ? { stroke: 'rgba(255, 255, 255, 0.8)', arrow: 'rgb(224, 227, 232)' }
-        : { stroke: 'rgba(255, 255, 255, 0.55)', arrow: 'rgb(150, 153, 158)' };
+        ? { stroke: 'rgba(var(--fv-overlay-rgb), 0.8)', arrow: canvas.edgeArrowStrong }
+        : { stroke: 'rgba(var(--fv-overlay-rgb), 0.55)', arrow: canvas.edgeArrow };
     const strokeDasharray = edgeStyle === 'dashed' ? '5 5' : undefined;
 
     return {
@@ -185,7 +194,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
         strokeDasharray
       }
     };
-  }, [edgeColor, edgeStyle, edgeCurve]);
+  }, [edgeColor, edgeStyle, edgeCurve, mode]);
 
   // Update existing edges when style settings change
   useEffect(() => {
@@ -258,23 +267,23 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       type: MarkerType.ArrowClosed,
       width: 15,
       height: 15,
-      color: 'rgb(150, 153, 158)',
+      color: themePalettes[mode].colors.canvas.edgeArrow,
     },
     style: {
-      stroke: 'rgba(255, 255, 255, 0.5)',
+      stroke: 'rgba(var(--fv-overlay-rgb), 0.5)',
       strokeWidth: 1.5,
       strokeDasharray: '4 4',
     },
     labelStyle: {
       fontSize: 11,
-      fill: 'rgba(255, 255, 255, 0.7)',
+      fill: 'rgba(var(--fv-overlay-rgb), 0.7)',
       fontWeight: 500,
     },
     labelBgStyle: {
-      fill: 'rgba(13, 17, 23, 0.95)',
+      fill: 'rgba(var(--fv-glass-rgb), 0.95)',
       fillOpacity: 0.95,
     },
-  }), []);
+  }), [mode]);
 
   // Snap grid matches the background dot gap so nodes land on the visible dots.
   const snapGrid = useMemo(() => [GRID_SIZE, GRID_SIZE] as [number, number], []);
@@ -628,7 +637,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       id: 'analyze',
       label: 'Analyze a report…',
       keywords: 'url text pdf article import threat intel merge',
-      icon: AutoAwesomeIcon,
+      icon: SearchIcon,
       disabled: !onAnalyzeRequested,
       run: () => onAnalyzeRequested?.(),
     },
@@ -1170,7 +1179,9 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
 
       try {
         const dataUrl = await toPng(viewportElement, {
-          backgroundColor: '#0d1117',
+          // A canvas fill, not CSS, so this can't be a var() token — the raw
+          // color for whichever theme is on screen is read directly.
+          backgroundColor: themePalettes[currentThemeMode()].colors.background.primary,
           width: imageWidth,
           height: imageHeight,
           pixelRatio: PIXEL_RATIO,
@@ -1425,7 +1436,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
         >
           {gridVisible && (
             <Background
-              color="rgba(255, 255, 255, 0.22)"
+              color={flowVizTheme.colors.canvas.dots}
               variant={BackgroundVariant.Dots}
               gap={GRID_SIZE}
               size={2}
@@ -1558,7 +1569,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
               boxShadow: flowVizTheme.effects.shadows.md,
               transition: `box-shadow ${flowVizTheme.motion.fast}, background-color ${flowVizTheme.motion.fast}`,
               '&:hover': {
-                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.08)',
                 boxShadow: flowVizTheme.effects.shadows.lg,
               },
             }}

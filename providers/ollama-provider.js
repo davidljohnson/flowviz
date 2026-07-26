@@ -319,7 +319,11 @@ Article text:
     if (!baseUrl) return [];
 
     try {
-      const response = await fetch(`${baseUrl}/api/tags`);
+      // A wedged or unreachable Ollama host would otherwise hang this request
+      // for the OS TCP timeout, stalling /api/providers behind it
+      const response = await fetch(`${baseUrl}/api/tags`, {
+        signal: AbortSignal.timeout(5000)
+      });
       if (!response.ok) return [];
       const data = await response.json();
       return (data.models || []).map(m => m.name);
