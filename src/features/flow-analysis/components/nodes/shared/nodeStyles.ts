@@ -94,7 +94,7 @@ export const getBaseNodeStyle = (
   return {
     minWidth: 210,
     maxWidth: 280,
-    borderRadius: '12px',
+    borderRadius: flowVizTheme.borderRadius.lg,
     // Layered: a tight contact shadow plus a soft ambient one, so the card sits
     // on the canvas with real depth rather than a single flat drop.
     boxShadow: `0 1px 2px ${shadowInk(0.35)}, 0 14px 32px -12px ${shadowInk(0.55)}`,
@@ -141,7 +141,7 @@ export const getNodeSurfaceStyle = (type: string, isSelected: boolean) => {
     boxShadow: isSelected
       ? `0 0 0 3px ${hexToRgba(nodeColor, 0.16)}, inset 0 1px 0 ${flowVizTheme.colors.node.highlight}`
       : `inset 0 1px 0 ${flowVizTheme.colors.node.highlight}`,
-    borderRadius: '12px',
+    borderRadius: flowVizTheme.borderRadius.lg,
     overflow: 'hidden',
     boxSizing: 'border-box' as const,
   };
@@ -157,9 +157,8 @@ export const getOperatorNodeStyle = (
     maxWidth: 300,
     height: 40,
     background: flowVizTheme.colors.node.operatorSurface,
-    backdropFilter: 'blur(14px)',
     border: isSelected ? '1px solid rgba(var(--fv-overlay-rgb), 0.55)' : '1px solid rgba(var(--fv-overlay-rgb), 0.14)',
-    borderRadius: '999px',
+    borderRadius: flowVizTheme.borderRadius.full,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',

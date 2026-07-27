@@ -15,7 +15,7 @@ const TRI_PATH = 'M13.4 7.03 L17.5 14.17 Q18.9 16.6 16.1 16.6 L7.9 16.6 Q5.1 16.
  * The AI assistant mark: a rounded triangle drawn as three stacked ribbon
  * strokes in a silver gradient, each layer gliding a few degrees against the
  * others on its own slow cycle so the form shifts without ever reading as a
- * spinner. Monochrome to sit inside the app's glass language. Reduced motion
+ * spinner. Monochrome to sit inside the app's restrained surface language. Reduced motion
  * gets the static mark.
  *
  * Accepts { sx } so it can stand in for an icon component wherever one is

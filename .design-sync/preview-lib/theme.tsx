@@ -29,7 +29,7 @@ export type Mode = 'dark' | 'light';
 /**
  * A patch of the app's own page surface, in `mode`. Components are built to sit
  * on it — previewing them against the card's bare white would misrepresent
- * every translucent and glass surface in the system.
+ * every translucent surface in the system.
  */
 export const Surface = ({
   children,

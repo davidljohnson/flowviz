@@ -73,7 +73,7 @@ export function NodeHeader({ nodeType, techniqueId, endSlot, prominent = false, 
         display: 'flex',
         alignItems: 'center',
         justifyContent: endSlot ? 'space-between' : 'flex-start',
-        gap: 0.6,
+        gap: 0.5,
       }}
     >
       <Box
@@ -96,8 +96,8 @@ export function NodeHeader({ nodeType, techniqueId, endSlot, prominent = false, 
             cursor: 'pointer',
             mx: -0.5,
             px: 0.5,
-            py: 0.35,
-            borderRadius: `${flowVizTheme.borderRadius.sm}px`,
+            py: 0.25,
+            borderRadius: flowVizTheme.borderRadius.sm,
             transition: `background-color ${flowVizTheme.motion.fast}`,
             '&:hover': { backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.05)' },
             // The chevron is the only always-on hint that this is actionable; it

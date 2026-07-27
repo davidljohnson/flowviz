@@ -10,6 +10,7 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material';
 import { FlowDialogTitle } from '../../../../shared/components/Typography';
+import { flowVizTheme } from '../../../../shared/theme/flowviz-theme';
 import { 
   PrimaryButton,
   SecondaryButton 
@@ -49,10 +50,9 @@ const EditFlowDialog: React.FC<EditFlowDialogProps> = ({
       disableEnforceFocus
       PaperProps={{
         sx: {
-          background: 'rgba(var(--fv-glass-rgb), 0.95)',
+          background: 'rgba(var(--fv-panel-rgb), 0.95)',
           border: '1px solid rgba(var(--fv-overlay-rgb), 0.1)',
-          borderRadius: '16px',
-          backdropFilter: 'blur(20px)',
+          borderRadius: flowVizTheme.borderRadius.xl,
           maxWidth: '600px',
           width: '100%',
           overflow: 'hidden',

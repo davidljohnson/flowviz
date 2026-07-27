@@ -93,18 +93,17 @@ const EdgeInspector: React.FC<EdgeInspectorProps> = ({
         maxHeight: stacked ? '48%' : 'calc(100vh - 100px)',
         display: 'flex',
         flexDirection: 'column',
-        zIndex: 12,
-        backgroundColor: flowVizTheme.colors.background.glass,
+        zIndex: flowVizTheme.zIndex.canvasPanel,
+        backgroundColor: flowVizTheme.colors.background.panel,
         border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
-        borderRadius: '10px',
-        backdropFilter: flowVizTheme.effects.blur.heavy,
+        borderRadius: flowVizTheme.borderRadius.lg,
         boxShadow: flowVizTheme.effects.shadows.lg,
         overflow: 'hidden',
       }}
     >
       {/* Header: source -> target */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, py: 1.25, borderBottom: `1px solid ${flowVizTheme.colors.surface.border.subtle}` }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0, color: flowVizTheme.colors.text.secondary, fontSize: '0.82rem', fontWeight: 600 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, color: flowVizTheme.colors.text.secondary, fontSize: '0.82rem', fontWeight: 600 }}>
           <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 108 }}>{sourceLabel}</Box>
           <EastRoundedIcon sx={{ fontSize: '0.9rem', color: flowVizTheme.colors.text.tertiary, flexShrink: 0 }} />
           <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 108 }}>{targetLabel}</Box>
@@ -137,8 +136,8 @@ const EdgeInspector: React.FC<EdgeInspectorProps> = ({
                 component="button"
                 onClick={() => { setLabel(s); onUpdateLabel(edge.id, s); }}
                 sx={{
-                  cursor: 'pointer', px: 0.9, py: 0.35, fontSize: '0.7rem',
-                  borderRadius: `${flowVizTheme.borderRadius.sm}px`,
+                  cursor: 'pointer', px: 1, py: 0.25, fontSize: '0.7rem',
+                  borderRadius: flowVizTheme.borderRadius.sm,
                   color: label === s ? flowVizTheme.colors.text.primary : flowVizTheme.colors.text.tertiary,
                   backgroundColor: label === s ? flowVizTheme.colors.surface.active : 'rgba(var(--fv-overlay-rgb), 0.03)',
                   border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,
@@ -158,9 +157,9 @@ const EdgeInspector: React.FC<EdgeInspectorProps> = ({
             onClick={() => onReverse(edge.id)}
             sx={{
               width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 0.75,
-              cursor: 'pointer', py: 0.8, fontSize: '0.8rem', fontWeight: 600,
+              cursor: 'pointer', py: 0.75, fontSize: '0.8rem', fontWeight: 600,
               color: flowVizTheme.colors.text.secondary, backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.03)',
-              border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`, borderRadius: `${flowVizTheme.borderRadius.md}px`,
+              border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`, borderRadius: flowVizTheme.borderRadius.md,
               transition: flowVizTheme.motion.fast,
               '&:hover': { color: flowVizTheme.colors.text.primary, borderColor: flowVizTheme.colors.surface.border.default },
             }}
@@ -203,7 +202,7 @@ const EdgeInspector: React.FC<EdgeInspectorProps> = ({
                   title={c.name}
                   onClick={() => onUpdateEdge(edge.id, { style: { stroke: c.line }, markerEnd: { type: MarkerType.ArrowClosed, width: 15, height: 15, color: c.arrow } })}
                   sx={{
-                    width: 26, height: 26, p: 0, cursor: 'pointer', borderRadius: '50%',
+                    width: 26, height: 26, p: 0, cursor: 'pointer', borderRadius: flowVizTheme.borderRadius.circle,
                     backgroundColor: c.swatch,
                     border: `2px solid ${active ? 'rgba(var(--fv-overlay-rgb), 0.95)' : 'rgba(var(--fv-overlay-rgb), 0.15)'}`,
                     boxShadow: active ? '0 0 0 2px rgba(var(--fv-overlay-rgb), 0.2)' : 'none',

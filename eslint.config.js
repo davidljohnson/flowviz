@@ -5,7 +5,21 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist'] },
+  {
+    ignores: [
+      'dist',
+      // Other Claude Code sessions keep git worktrees here. Each carries its
+      // own tsconfig, which makes typescript-eslint see several candidate
+      // roots and fail to parse *every* file in the repo — so this one is
+      // load-bearing, not tidiness.
+      '.claude',
+      // Generated: the design-system bundle and the staged converter scripts.
+      // See .design-sync/NOTES.md. The hand-written inputs under
+      // .design-sync/ are linted normally.
+      'ds-bundle',
+      '.ds-sync',
+    ],
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],

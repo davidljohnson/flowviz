@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { DropdownMenu, DropdownMenuItem, DropdownMenuItemDanger, GlassMorphButton } from 'flowviz';
+import { DropdownMenu, DropdownMenuItem, DropdownMenuItemDanger, SecondaryButton } from 'flowviz';
 import { Surface } from '../preview-lib/theme';
 
 /** As with ActionMenu, the popper needs a mounted element to anchor against. */
@@ -17,7 +17,7 @@ const Anchored = ({
   return (
     <div style={{ height: 210 }}>
       <div ref={ref} style={{ display: 'inline-block' }}>
-        <GlassMorphButton>Export</GlassMorphButton>
+        <SecondaryButton>Export</SecondaryButton>
       </div>
       <DropdownMenu anchorEl={anchor} open={Boolean(anchor)} onClose={() => {}} variant={variant} minWidth={200}>
         {children}

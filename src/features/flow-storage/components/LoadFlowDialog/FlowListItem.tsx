@@ -12,6 +12,7 @@ import {
   MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
 import { SavedFlow } from '../../types/SavedFlow';
+import { flowVizTheme } from '../../../../shared/theme/flowviz-theme';
 
 interface FlowListItemProps {
   flow: SavedFlow;
@@ -34,7 +35,7 @@ const FlowListItem: React.FC<FlowListItemProps> = ({
     <ListItem
       onClick={onClick}
       sx={{
-        borderRadius: 2,
+        borderRadius: flowVizTheme.borderRadius.md,
         mb: 1,
         border: isSelected 
           ? '1px solid rgba(var(--fv-overlay-rgb), 0.1)' 

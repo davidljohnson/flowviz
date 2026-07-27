@@ -36,7 +36,7 @@ interface AssistantPanelProps {
 const bubbleSx = {
   px: 1.5,
   py: 1,
-  borderRadius: '10px',
+  borderRadius: flowVizTheme.borderRadius.lg,
   fontSize: '0.82rem',
   lineHeight: 1.5,
   whiteSpace: 'pre-wrap' as const,
@@ -62,12 +62,12 @@ function CopyMessageButton({ text }: { text: string }) {
           position: 'absolute',
           top: 4,
           right: 4,
-          p: 0.4,
+          p: 0.5,
           color: 'rgba(var(--fv-overlay-rgb), 0.55)',
-          backgroundColor: 'rgba(var(--fv-glass-rgb), 0.85)',
+          backgroundColor: 'rgba(var(--fv-panel-rgb), 0.85)',
           opacity: 0,
           transition: flowVizTheme.motion.fast,
-          '&:hover': { color: 'rgba(var(--fv-overlay-rgb), 0.9)', backgroundColor: 'rgba(var(--fv-glass-rgb), 0.95)' },
+          '&:hover': { color: 'rgba(var(--fv-overlay-rgb), 0.9)', backgroundColor: 'rgba(var(--fv-panel-rgb), 0.95)' },
         }}
       >
         {copied ? <CheckIcon sx={{ fontSize: 13 }} /> : <ContentCopyIcon sx={{ fontSize: 13 }} />}
@@ -180,11 +180,10 @@ export default function AssistantPanel({
         transition: `width ${flowVizTheme.motion.normal}`,
         display: 'flex',
         flexDirection: 'column',
-        zIndex: 12,
-        backgroundColor: flowVizTheme.colors.background.glass,
+        zIndex: flowVizTheme.zIndex.canvasPanel,
+        backgroundColor: flowVizTheme.colors.background.panel,
         border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
-        borderRadius: '12px',
-        backdropFilter: flowVizTheme.effects.blur.heavy,
+        borderRadius: flowVizTheme.borderRadius.lg,
         boxShadow: flowVizTheme.effects.shadows.lg,
         overflow: 'hidden',
       }}
@@ -331,7 +330,7 @@ export default function AssistantPanel({
               color: 'rgba(var(--fv-overlay-rgb), 0.9)',
               px: 1.25,
               py: 0.75,
-              borderRadius: '8px',
+              borderRadius: flowVizTheme.borderRadius.md,
               backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.04)',
               border: '1px solid rgba(var(--fv-overlay-rgb), 0.08)',
               transition: flowVizTheme.motion.fast,

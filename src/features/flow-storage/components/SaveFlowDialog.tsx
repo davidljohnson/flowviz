@@ -18,6 +18,7 @@ import {
 import { Node, Edge, Viewport } from 'reactflow';
 import { SavedFlow, SavedAssistantMessage } from '../types/SavedFlow';
 import { LocalStorageService, StorageError } from '../services';
+import { flowVizTheme } from '../../../shared/theme/flowviz-theme';
 
 interface SaveFlowDialogProps {
   open: boolean;
@@ -243,7 +244,7 @@ const SaveFlowDialog: React.FC<SaveFlowDialogProps> = ({
           <Box sx={{ 
             p: 2, 
             bgcolor: 'rgba(var(--fv-overlay-rgb), 0.02)', 
-            borderRadius: 2,
+            borderRadius: flowVizTheme.borderRadius.md,
             border: '1px solid rgba(var(--fv-overlay-rgb), 0.05)'
           }}>
             <Typography variant="caption" sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.6)' }}>

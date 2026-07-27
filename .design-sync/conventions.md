@@ -53,15 +53,35 @@ The families, with real names:
 | Node cards | `--fv-node-surface`, `--fv-node-border`, `--fv-node-pill` |
 | Shadows | `--fv-shadow-{sm,md,lg,glow}` |
 | Scrollbar | `--fv-scrollbar-thumb` |
+| Focus | `--fv-focus-ring` |
+| Type | `--fv-text-{xs,sm,md,lg,xl,2xl}-{size,leading,tracking}` |
+
+Corner radii come from `flowVizTheme.borderRadius`, and they are **strings with
+units** (`'4px'`, `'6px'`, `'8px'`, `'12px'`, `'16px'`, plus `full` for pills and
+`circle` for discs). Use them as-is — never pass a bare number to MUI's `sx` for
+`borderRadius`, which multiplies it by `theme.shape.borderRadius` and silently
+renders four times too round.
 
 Three are not colours and are used differently:
 
 - `--fv-overlay-rgb` — an rgb **triple** (white on dark, slate on light). Write
   `rgba(var(--fv-overlay-rgb), 0.08)` wherever you'd have hardcoded a
   translucent white.
-- `--fv-glass-rgb` — same shape, for tinting translucent panels.
+- `--fv-panel-rgb` — same shape, for the few surfaces that still tint at an
+  alpha. Panels themselves are opaque; there is no backdrop blur in this system.
+  Depth comes from the background ladder (`primary` → `menu-app-bar` →
+  `panel` → `raised`) plus a hairline border, and shadows are reserved for
+  things that genuinely float.
 - `--fv-shadow-alpha` — a multiplier; light mode needs weaker shadows. Write
   `rgba(0, 0, 0, calc(0.4 * var(--fv-shadow-alpha)))`.
+
+## Focus
+
+Keyboard focus is handled globally by `ThemeModeProvider` — a 2px
+`--fv-focus-ring` outline at 2px offset, on `:focus-visible` only, so it shows
+for keyboard and not for mouse press. **Do not add per-component focus styling
+and never set `outline: none`**; the whole point is that one rule covers every
+control, which is how it was missed before.
 
 ## Where the truth lives
 
@@ -104,6 +124,34 @@ Library components for the controls; tokens for your own layout.
 </div>
 ```
 
-Text uses the `Typography` family (`SectionHeader`, `SubsectionHeader`,
-`CaptionText`, `SmallText`, `TinyText`, `LinkText`) rather than raw `<h*>`/`<p>`
-— there is no separate type scale to apply by hand.
+## Type
+
+Six steps, and they are the only sizes the UI uses:
+
+| Step | Size | Use |
+|---|---|---|
+| `xs` | 11px | micro labels, chips, the node type row |
+| `sm` | 12px | captions, helper text |
+| `md` | 13px | default UI text |
+| `lg` | 14px | emphasis, field labels, subsection headers |
+| `xl` | 16px | section headers |
+| `2xl` | 18px | dialog and page titles |
+
+Tracking tightens as size grows (`+0.02em` at `xs` down to `-0.02em` at `2xl`)
+and is baked into each step — take the whole step, don't pick sizes à la carte:
+
+```css
+font-size:      var(--fv-text-lg-size);
+line-height:    var(--fv-text-lg-leading);
+letter-spacing: var(--fv-text-lg-tracking);
+```
+
+MUI's own variants are mapped onto the same steps in the theme, so
+`<Typography variant="body2">` is 13px and `variant="caption"` is 12px — a MUI
+Typography and a FlowViz one agree rather than diverging.
+
+Prefer the `Typography` components (`SectionHeader`, `SubsectionHeader`,
+`CaptionText`, `SmallText`, `TinyText`, `LinkText`) over raw `<h*>`/`<p>` —
+they already carry the right step. Reach for the variables only for your own
+layout text. Uppercase runs need `letter-spacing: 0.06em` on top of their step;
+caps set too tight otherwise.

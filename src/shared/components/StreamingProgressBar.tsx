@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box } from '@mui/material';
 import { keyframes } from '@mui/system';
+import { flowVizTheme } from '../theme/flowviz-theme';
 
 const streamingAnimation = keyframes`
   0% {
@@ -34,6 +35,8 @@ const StreamingProgressBar: React.FC<StreamingProgressBarProps> = ({ isVisible }
 
   return (
     <Box
+      // A status indicator: keeps animating under reduce-motion.
+      data-fv-motion="progress"
       sx={{
         position: 'absolute',
         top: 0,
@@ -42,7 +45,9 @@ const StreamingProgressBar: React.FC<StreamingProgressBarProps> = ({ isVisible }
         height: '2px',
         background: 'rgba(var(--fv-overlay-rgb), 0.05)',
         overflow: 'hidden',
-        zIndex: 1300, // Above AppBar
+        // Above the app bar but below modals. It was 1300, which is exactly
+        // MUI's modal, so the winner was whichever mounted last.
+        zIndex: flowVizTheme.zIndex.progress,
       }}
     >
       {/* Main streaming line */}

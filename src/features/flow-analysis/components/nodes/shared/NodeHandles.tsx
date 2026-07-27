@@ -15,7 +15,7 @@ const handleStyle = {
   background: 'rgba(var(--fv-overlay-rgb), 0.6)',
   width: HANDLE_SIZE,
   height: HANDLE_SIZE,
-  border: '2px solid rgba(var(--fv-glass-rgb), 0.9)',
+  border: '2px solid rgba(var(--fv-panel-rgb), 0.9)',
   opacity: 0,
   zIndex: 10,
 };

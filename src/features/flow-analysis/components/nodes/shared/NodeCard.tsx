@@ -27,7 +27,7 @@ export function NodeCard({ data, selected, showCommandLine }: NodeCardProps) {
       sx={{ ...getBaseNodeStyle(selected, isNewNode), '--fv-node-glow': `${getNodeColor(data.type)}4D` }}
     >
       <Box sx={getNodeSurfaceStyle(data.type, selected)}>
-        <Box sx={{ px: 1.75, pt: 1.4, pb: 1.5, position: 'relative' }}>
+        <Box sx={{ px: 1.75, pt: 1.5, pb: 1.5, position: 'relative' }}>
           <NodeHeader nodeType={data.type} techniqueId={techniqueId || undefined} />
 
           <Box sx={{ mt: 1 }}>

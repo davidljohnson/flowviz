@@ -58,7 +58,7 @@ export function SegmentedControl<T extends string>({
         gap: '2px',
         p: '3px',
         backgroundColor: flowVizTheme.colors.surface.rest,
-        borderRadius: `${flowVizTheme.borderRadius.lg}px`,
+        borderRadius: flowVizTheme.borderRadius.lg,
         border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,
       }}
     >
@@ -88,7 +88,7 @@ export function SegmentedControl<T extends string>({
               letterSpacing: '0.01em',
               lineHeight: 1.5,
               whiteSpace: 'nowrap',
-              borderRadius: `${flowVizTheme.borderRadius.md}px`,
+              borderRadius: flowVizTheme.borderRadius.md,
               cursor: 'pointer',
               userSelect: 'none',
               color: active ? flowVizTheme.colors.text.primary : flowVizTheme.colors.text.tertiary,

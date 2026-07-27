@@ -26,7 +26,7 @@ export const inputSx = {
   lineHeight: 1.5,
   px: 1.25,
   py: 0.9,
-  borderRadius: `${flowVizTheme.borderRadius.md}px`,
+  borderRadius: flowVizTheme.borderRadius.md,
   backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.03)',
   border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,
   transition: flowVizTheme.motion.fast,

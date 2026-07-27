@@ -126,6 +126,30 @@ Warns triaged as legitimate. A warn **not** in this list is new — look at it.
 - Serve the review page through a tracked background task. A bare `&` dies with
   the shell and the page silently returns blank screenshots.
 
+## The dead-component audit
+
+`node .design-sync/dead-scan.mjs` classifies every component in
+`componentSrcMap` as used elsewhere, used only inside its own module, or
+unreferenced. Run it before authoring previews — 30 of the original 77
+components had **no references anywhere**, and nine of them had rich preview
+cards written for them before anyone checked.
+
+The three-way split matters. A naive "is this name used outside its own file"
+scan reported 35 dead and was wrong by five: `ActionMenu` renders
+`DropdownMenu`, `NodeHeader` renders `TypeToken`, and so on. Components used
+only by a sibling in the same module look dead but are not.
+
+`GlassMorphButton` was a later straggler — it fell out of use once
+`CompactButton` (a `styled(GlassMorphButton)`) went — and has since been
+deleted too. **The consequence is worth knowing:** the system has no
+general-purpose text button any more. What remains is icon-only
+(`GlassIconButton`), the hero CTA (`HeroSubmitButton`), and the dialog-scoped
+pair (`PrimaryButton`, `SecondaryButton`) which live in the `EnhancedDialog`
+module. A feature needing a plain button either reaches for the dialog pair out
+of context or adds a new one.
+
+The scan now reports **zero unreferenced components**.
+
 ## Re-sync risks
 
 - **`gen-entry.mjs` is a regex parser, not a compiler.** It handles

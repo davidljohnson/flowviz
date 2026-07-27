@@ -39,8 +39,8 @@ export interface AnalysisInputProps {
   onTextChange: (text: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   /**
-   * Dialog placement: the host already provides a surface, so drop the glass
-   * card and the decorative blur behind the submit button, shrink the PDF
+   * Dialog placement: the host already provides a surface, so drop the panel
+   * card and the decorative glow behind the submit button, shrink the PDF
    * dropzone, and state the missing-provider problem in one line instead of a
    * full setup guide.
    */
@@ -178,9 +178,8 @@ export default function AnalysisInput({
           p: { xs: 3, md: 4 },
           mb: 3,
           backgroundColor: flowVizTheme.colors.status.warning.bg,
-          backdropFilter: flowVizTheme.effects.blur.heavy,
           border: `1px solid ${flowVizTheme.colors.status.warning.border}`,
-          borderRadius: 3,
+          borderRadius: flowVizTheme.borderRadius.lg,
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
@@ -231,7 +230,7 @@ export default function AnalysisInput({
               <li>Add your API key to the <code style={{
                 backgroundColor: flowVizTheme.colors.surface.recessed,
                 padding: '2px 6px',
-                borderRadius: '3px',
+                borderRadius: flowVizTheme.borderRadius.xs,
                 fontFamily: 'monospace',
                 fontSize: '0.85rem'
               }}>.env</code> file:</li>
@@ -248,14 +247,14 @@ export default function AnalysisInput({
                 <li>For Claude: <code style={{
                   backgroundColor: flowVizTheme.colors.surface.recessed,
                   padding: '2px 6px',
-                  borderRadius: '3px',
+                  borderRadius: flowVizTheme.borderRadius.xs,
                   fontFamily: 'monospace',
                   fontSize: '0.8rem'
                 }}>ANTHROPIC_API_KEY=your-key-here</code></li>
                 <li>For GPT: <code style={{
                   backgroundColor: flowVizTheme.colors.surface.recessed,
                   padding: '2px 6px',
-                  borderRadius: '3px',
+                  borderRadius: flowVizTheme.borderRadius.xs,
                   fontFamily: 'monospace',
                   fontSize: '0.8rem'
                 }}>OPENAI_API_KEY=your-key-here</code></li>
@@ -263,7 +262,7 @@ export default function AnalysisInput({
               <li>Restart the server: <code style={{
                 backgroundColor: flowVizTheme.colors.surface.recessed,
                 padding: '2px 6px',
-                borderRadius: '3px',
+                borderRadius: flowVizTheme.borderRadius.xs,
                 fontFamily: 'monospace',
                 fontSize: '0.85rem'
               }}>npm run dev:full</code></li>
@@ -353,9 +352,9 @@ export default function AnalysisInput({
                 px: 3,
                 py: compact ? 3 : 6,
                 minHeight: compact ? 150 : 240,
-                borderRadius: `${flowVizTheme.borderRadius.md}px`,
+                borderRadius: flowVizTheme.borderRadius.md,
                 cursor: pdfBusy ? 'default' : 'pointer',
-                // Match the URL/Text input fields: same glass background and
+                // Match the URL/Text input fields: same panel background and
                 // border treatment (default → emphasis on hover, focus on drag).
                 border: `1.5px dashed ${
                   pdfStatus === 'error'
@@ -365,15 +364,15 @@ export default function AnalysisInput({
                       : flowVizTheme.colors.surface.border.default
                 }`,
                 backgroundColor: isDragging
-                  ? flowVizTheme.colors.background.glassLight
-                  : flowVizTheme.colors.background.glass,
+                  ? flowVizTheme.colors.background.raised
+                  : flowVizTheme.colors.background.panel,
                 // Scope the transition (not `all`) so nothing flashes on toggle.
                 transition: `border-color ${flowVizTheme.motion.fast}, background-color ${flowVizTheme.motion.fast}`,
                 '&:hover': pdfBusy
                   ? undefined
                   : {
                       borderColor: flowVizTheme.colors.surface.border.emphasis,
-                      backgroundColor: flowVizTheme.colors.background.glassLight,
+                      backgroundColor: flowVizTheme.colors.background.raised,
                     },
               }}
             >
@@ -530,7 +529,7 @@ export default function AnalysisInput({
                   height: 'calc(100% + 2px)',
                   width: 'calc(100% + 2px)',
                   transform: 'translate(-50%, -50%)',
-                  borderRadius: '100px',
+                  borderRadius: flowVizTheme.borderRadius.full,
                   willChange: 'transform',
                   opacity: 0.4,
                 }}
@@ -540,9 +539,8 @@ export default function AnalysisInput({
                     position: 'relative',
                     height: '100%',
                     width: '100%',
-                    borderRadius: '100px',
+                    borderRadius: flowVizTheme.borderRadius.full,
                     background: 'rgba(var(--fv-overlay-rgb), 0.03)',
-                    backdropFilter: 'blur(2px)',
                   }}
                 />
               </Box>
@@ -556,7 +554,7 @@ export default function AnalysisInput({
                   height: 'calc(100% + 2px)',
                   width: 'calc(100% + 2px)',
                   transform: 'translate(-50%, -50%) scaleX(-1)',
-                  borderRadius: '100px',
+                  borderRadius: flowVizTheme.borderRadius.full,
                   willChange: 'transform',
                   opacity: 0.2,
                 }}
@@ -566,9 +564,8 @@ export default function AnalysisInput({
                     position: 'relative',
                     height: '100%',
                     width: '100%',
-                    borderRadius: '100px',
+                    borderRadius: flowVizTheme.borderRadius.full,
                     background: 'rgba(var(--fv-overlay-rgb), 0.02)',
-                    backdropFilter: 'blur(2px)',
                   }}
                 />
               </Box>
@@ -591,7 +588,7 @@ export default function AnalysisInput({
                     height: 36,
                     px: '18px',
                     fontSize: '0.9rem',
-                    borderRadius: `${flowVizTheme.borderRadius.md}px`,
+                    borderRadius: flowVizTheme.borderRadius.md,
                     gap: 1,
                   }
                 : undefined
@@ -623,10 +620,9 @@ export default function AnalysisInput({
         elevation={0}
         sx={{
           p: { xs: 3, md: 4 },
-          backgroundColor: flowVizTheme.colors.background.glass,
-          backdropFilter: flowVizTheme.effects.blur.heavy,
+          backgroundColor: flowVizTheme.colors.background.panel,
           border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
-          borderRadius: 3,
+          borderRadius: flowVizTheme.borderRadius.lg,
           position: 'relative',
           overflow: 'hidden',
           '&::before': {

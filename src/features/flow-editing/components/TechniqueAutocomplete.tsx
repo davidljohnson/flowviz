@@ -112,12 +112,11 @@ const TechniqueAutocomplete: React.FC<TechniqueAutocompleteProps> = ({
       slotProps={{
         popper: {
           // Keep the dropdown usable at canvas zoom levels
-          sx: { zIndex: 2000 },
+          sx: { zIndex: flowVizTheme.zIndex.popper },
         },
         paper: {
           sx: {
             backgroundColor: flowVizTheme.colors.menu.dialog,
-            backdropFilter: flowVizTheme.effects.blur.heavy,
             border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
             '& .MuiAutocomplete-option:hover': {
               backgroundColor: flowVizTheme.colors.surface.hover,

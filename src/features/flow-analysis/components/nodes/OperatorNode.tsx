@@ -5,6 +5,7 @@ import { getOperatorNodeStyle, getNodeColor } from './shared/nodeStyles';
 import { NodeHandles } from './shared/NodeHandles';
 import { NoteBadge } from './shared/NoteBadge';
 import { getNodeTypeDisplay } from './shared/nodeUtils';
+import { flowVizTheme } from '../../../../shared/theme/flowviz-theme';
 
 function OperatorNode({ data, selected }: NodeProps) {
   const isNewNode = data.isNewNode;
@@ -40,7 +41,7 @@ function OperatorNode({ data, selected }: NodeProps) {
           right: -7,
           bottom: 'auto',
           p: '2px',
-          borderRadius: '50%',
+          borderRadius: flowVizTheme.borderRadius.circle,
           backgroundColor: '#1a1f27',
           border: '1px solid rgba(var(--fv-overlay-rgb), 0.12)',
         }}

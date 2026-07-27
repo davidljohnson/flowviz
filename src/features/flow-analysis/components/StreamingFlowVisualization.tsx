@@ -280,7 +280,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       fontWeight: 500,
     },
     labelBgStyle: {
-      fill: 'rgba(var(--fv-glass-rgb), 0.95)',
+      fill: 'rgba(var(--fv-panel-rgb), 0.95)',
       fillOpacity: 0.95,
     },
   }), [mode]);
@@ -1446,7 +1446,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
             style={{
               backgroundColor: THEME.background.secondary,
               border: THEME.border.default,
-              borderRadius: '8px'
+              borderRadius: flowVizTheme.borderRadius.md
             }}
           >
             {/* Editing controls live with the zoom cluster, not a floating bar */}
@@ -1560,12 +1560,11 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
               position: 'absolute',
               bottom: 16,
               right: 16,
-              zIndex: 12,
+              zIndex: flowVizTheme.zIndex.canvasPanel,
               width: 44,
               height: 44,
-              backgroundColor: flowVizTheme.colors.background.glass,
+              backgroundColor: flowVizTheme.colors.background.panel,
               border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
-              backdropFilter: flowVizTheme.effects.blur.heavy,
               boxShadow: flowVizTheme.effects.shadows.md,
               transition: `box-shadow ${flowVizTheme.motion.fast}, background-color ${flowVizTheme.motion.fast}`,
               '&:hover': {

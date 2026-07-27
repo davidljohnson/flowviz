@@ -42,9 +42,8 @@ const NodeTypePickerMenu: React.FC<NodeTypePickerMenuProps> = ({ state, onSelect
           sx: {
             width: 236,
             backgroundColor: flowVizTheme.colors.menu.appBar,
-            backdropFilter: flowVizTheme.effects.blur.heavy,
             border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
-            borderRadius: `${flowVizTheme.borderRadius.md}px`,
+            borderRadius: flowVizTheme.borderRadius.md,
             boxShadow: flowVizTheme.effects.shadows.lg,
             overflow: 'hidden',
           },

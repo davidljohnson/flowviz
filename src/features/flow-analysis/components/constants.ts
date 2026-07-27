@@ -28,8 +28,8 @@ export const NODE_TYPES: Record<ValidNodeTypes, React.ComponentType<NodeProps>> 
 export const THEME = {
   background: {
     primary: flowVizTheme.colors.background.primary,
-    secondary: 'rgba(var(--fv-glass-elevated-rgb), 0.95)',
-    tertiary: 'rgba(var(--fv-glass-rgb), 0.95)',
+    secondary: 'rgba(var(--fv-raised-rgb), 0.95)',
+    tertiary: 'rgba(var(--fv-panel-rgb), 0.95)',
   },
   text: {
     primary: flowVizTheme.colors.text.primary,
@@ -70,13 +70,13 @@ export const LABEL_STYLES = {
   fontSize: 11,
   color: 'rgba(var(--fv-overlay-rgb), 0.7)',
   fontWeight: 500,
-  backgroundColor: 'rgba(var(--fv-glass-rgb), 0.95)',
+  backgroundColor: 'rgba(var(--fv-panel-rgb), 0.95)',
   padding: '2px 6px',
-  borderRadius: '3px',
+  borderRadius: flowVizTheme.borderRadius.xs,
 } as const;
 
 export const LABEL_BG_STYLES = {
-  fill: 'rgba(var(--fv-glass-rgb), 0.95)',
+  fill: 'rgba(var(--fv-panel-rgb), 0.95)',
   rx: 3,
   ry: 3,
 } as const;

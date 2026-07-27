@@ -21,50 +21,27 @@
   "componentSrcMap": {
     "ActionMenu": "src/shared/components/Dropdown/index.tsx",
     "ActionNode": "src/features/flow-analysis/components/nodes/ActionNode.tsx",
-    "AnimatedSubmitButton": "src/shared/components/Button/index.tsx",
     "AssistantMark": "src/shared/components/icons/AssistantMark.tsx",
-    "CaptionText": "src/shared/components/Typography/index.tsx",
-    "CaptionTextMuted": "src/shared/components/Typography/index.tsx",
-    "CaptionTextSecondary": "src/shared/components/Typography/index.tsx",
-    "CaptionTextUppercase": "src/shared/components/Typography/index.tsx",
-    "CompactButton": "src/shared/components/Button/index.tsx",
-    "CompactIconButton": "src/shared/components/Button/index.tsx",
-    "ConfidenceChip": "src/shared/components/Alert/index.tsx",
-    "DangerButton": "src/shared/components/Button/index.tsx",
-    "DialogButtonCancel": "src/shared/components/Button/index.tsx",
-    "DialogButtonPrimary": "src/shared/components/Button/index.tsx",
-    "DialogButtonSecondary": "src/shared/components/Button/index.tsx",
     "DropdownFormControl": "src/shared/components/Dropdown/index.tsx",
     "DropdownMenu": "src/shared/components/Dropdown/index.tsx",
     "DropdownMenuItem": "src/shared/components/Dropdown/index.tsx",
     "DropdownMenuItemDanger": "src/shared/components/Dropdown/index.tsx",
     "DropdownMenuItemWithIcon": "src/shared/components/Dropdown/index.tsx",
     "DropdownSelect": "src/shared/components/Dropdown/index.tsx",
-    "DropdownSelectCompact": "src/shared/components/Dropdown/index.tsx",
     "EnhancedDialog": "src/shared/components/EnhancedDialog/index.tsx",
     "EnhancedDialogActions": "src/shared/components/EnhancedDialog/index.tsx",
     "EnhancedDialogContent": "src/shared/components/EnhancedDialog/index.tsx",
-    "EnhancedFormControl": "src/shared/components/EnhancedForm/index.tsx",
-    "EnhancedMenuItem": "src/shared/components/EnhancedForm/index.tsx",
-    "EnhancedSelect": "src/shared/components/EnhancedForm/index.tsx",
-    "EnhancedSlider": "src/shared/components/EnhancedForm/index.tsx",
     "EnhancedTextField": "src/shared/components/EnhancedForm/index.tsx",
     "ErrorBoundary": "src/shared/components/ErrorBoundary/ErrorBoundary.tsx",
     "FlowAlert": "src/shared/components/Alert/index.tsx",
     "FlowDialogContent": "src/shared/components/Typography/index.tsx",
     "FlowDialogTitle": "src/shared/components/Typography/index.tsx",
     "FlowIcon": "src/shared/components/Typography/index.tsx",
-    "FlowToast": "src/shared/components/Alert/index.tsx",
     "FormSection": "src/shared/components/EnhancedForm/index.tsx",
     "FormSectionTitle": "src/shared/components/EnhancedForm/index.tsx",
     "GenericNode": "src/features/flow-analysis/components/nodes/GenericNode.tsx",
     "GlassIconButton": "src/shared/components/Button/index.tsx",
-    "GlassMorphButton": "src/shared/components/Button/index.tsx",
-    "GradientText": "src/shared/components/Typography/index.tsx",
     "HeroSubmitButton": "src/shared/components/Button/index.tsx",
-    "IconText": "src/shared/components/Typography/index.tsx",
-    "LinkText": "src/shared/components/Typography/index.tsx",
-    "LoadingAlert": "src/shared/components/Alert/index.tsx",
     "LoadingIndicator": "src/shared/components/LoadingIndicator/LoadingIndicator.tsx",
     "MalwareNode": "src/features/flow-analysis/components/nodes/MalwareNode.tsx",
     "NodeCard": "src/features/flow-analysis/components/nodes/shared/NodeCard.tsx",
@@ -76,24 +53,16 @@
     "OperatorNode": "src/features/flow-analysis/components/nodes/OperatorNode.tsx",
     "PrimaryButton": "src/shared/components/EnhancedDialog/index.tsx",
     "SearchInput": "src/shared/components/SearchInput/index.tsx",
-    "SearchInputCompact": "src/shared/components/SearchInput/index.tsx",
     "SearchInputMultiline": "src/shared/components/SearchInput/index.tsx",
     "SearchInputURL": "src/shared/components/SearchInput/index.tsx",
     "SearchInputWithClear": "src/shared/components/SearchInput/index.tsx",
-    "SearchInputWithStatus": "src/shared/components/SearchInput/index.tsx",
     "SecondaryButton": "src/shared/components/EnhancedDialog/index.tsx",
-    "SectionHeader": "src/shared/components/Typography/index.tsx",
     "SegmentedControl": "src/shared/components/SegmentedControl/index.tsx",
     "ServiceErrorBoundary": "src/shared/components/ErrorBoundary/ServiceErrorBoundary.tsx",
     "ServiceErrorFallback": "src/shared/components/ErrorBoundary/ServiceErrorBoundary.tsx",
-    "SmallText": "src/shared/components/Typography/index.tsx",
-    "SmallTextMuted": "src/shared/components/Typography/index.tsx",
     "StatusChip": "src/shared/components/Alert/index.tsx",
-    "StatusText": "src/shared/components/Typography/index.tsx",
     "StreamingProgressBar": "src/shared/components/StreamingProgressBar.tsx",
-    "SubsectionHeader": "src/shared/components/Typography/index.tsx",
     "ThemeModeProvider": null,
-    "TinyText": "src/shared/components/Typography/index.tsx",
     "ToolNode": "src/features/flow-analysis/components/nodes/ToolNode.tsx",
     "TypeToken": "src/features/flow-analysis/components/nodes/shared/NodeHeader.tsx"
   },
@@ -113,40 +82,13 @@
       "primaryStory": "Default",
       "viewport": "520x320"
     },
-    "ConfidenceChip": {
-      "cardMode": "column"
-    },
     "FlowAlert": {
-      "cardMode": "column"
-    },
-    "FlowToast": {
-      "cardMode": "column"
-    },
-    "LoadingAlert": {
-      "cardMode": "column"
-    },
-    "DangerButton": {
-      "cardMode": "column"
-    },
-    "DialogButtonPrimary": {
-      "cardMode": "column"
-    },
-    "GlassMorphButton": {
-      "cardMode": "column"
-    },
-    "EnhancedSelect": {
-      "cardMode": "column"
-    },
-    "EnhancedSlider": {
       "cardMode": "column"
     },
     "EnhancedTextField": {
       "cardMode": "column"
     },
     "SearchInputWithClear": {
-      "cardMode": "column"
-    },
-    "SearchInputWithStatus": {
       "cardMode": "column"
     },
     "LoadingIndicator": {
@@ -159,9 +101,6 @@
       "cardMode": "column"
     },
     "StreamingProgressBar": {
-      "cardMode": "column"
-    },
-    "SectionHeader": {
       "cardMode": "column"
     }
   },

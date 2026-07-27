@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { StorageStats as StorageStatsType } from '../../types/SavedFlow';
+import { flowVizTheme } from '../../../../shared/theme/flowviz-theme';
 
 interface StorageStatsProps {
   stats: StorageStatsType | null;
@@ -15,7 +16,7 @@ const StorageStats: React.FC<StorageStatsProps> = ({ stats, formatFileSize }) =>
       mb: 2, 
       p: 2, 
       bgcolor: 'rgba(var(--fv-overlay-rgb), 0.02)', 
-      borderRadius: 2,
+      borderRadius: flowVizTheme.borderRadius.md,
       border: '1px solid rgba(var(--fv-overlay-rgb), 0.05)'
     }}>
       <Typography variant="caption" sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.6)' }}>

@@ -1,35 +1,16 @@
-import React from 'react';
 import {
-  Button,
-  IconButton,
-  ButtonProps,
-  IconButtonProps,
-  styled,
-  Box,
-  keyframes,
+    Box,
+    Button,
+    ButtonProps,
+    IconButton,
+    IconButtonProps,
+    keyframes,
+    styled,
 } from '@mui/material';
+import React from 'react';
 import { flowVizTheme } from '../../theme/flowviz-theme';
 
 // ============= Animation Keyframes =============
-
-const shimmer = keyframes`
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-`;
-
-const dotPattern = keyframes`
-  0% {
-    background-position: 0 0;
-  }
-  100% {
-    background-position: 8px 8px;
-  }
-`;
-
 // Hover rule for the whole app: nothing moves. Surfaces lighten, borders and
 // text brighten, and that is the entire vocabulary — no translateY lift, no
 // shadow bloom, no dip on :active. Transitions are scoped to the properties
@@ -48,7 +29,7 @@ export const GlassIconButton = styled(IconButton)<IconButtonProps>({
   color: flowVizTheme.colors.text.secondary,
   backgroundColor: flowVizTheme.colors.surface.rest,
   border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,
-  borderRadius: `${flowVizTheme.borderRadius.md}px`,
+  borderRadius: flowVizTheme.borderRadius.md,
   padding: `${flowVizTheme.spacing.sm}px`,
   // Scoped to the two properties that actually change, so no future style
   // addition silently animates as well.
@@ -65,108 +46,7 @@ export const GlassIconButton = styled(IconButton)<IconButtonProps>({
   },
 });
 
-// ============= Glass Morph Button =============
-
-export const GlassMorphButton = styled(Button)<ButtonProps>({
-  background: flowVizTheme.colors.surface.active,
-  color: flowVizTheme.colors.text.primary,
-  textTransform: 'none',
-  fontSize: '0.9rem',
-  fontWeight: 500,
-  letterSpacing: '0.01em',
-  padding: `${flowVizTheme.spacing.sm - 1}px ${flowVizTheme.spacing.lg}px`,
-  borderRadius: `${flowVizTheme.borderRadius.md}px`,
-  border: `1px solid ${flowVizTheme.colors.surface.border.emphasis}`,
-  // Resting fill is already surface.active, the brightest step in the scale, so
-  // the border carries the hover on its own.
-  transition: `border-color ${flowVizTheme.motion.fast}`,
-  boxShadow: 'none',
-
-  '&:hover': {
-    background: flowVizTheme.colors.surface.active,
-    border: `1px solid ${flowVizTheme.colors.surface.border.focus}`,
-    boxShadow: 'none',
-  },
-
-  '&:disabled': {
-    background: flowVizTheme.colors.surface.rest,
-    color: flowVizTheme.colors.text.disabled,
-    border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,
-  },
-});
-
 // ============= Dialog Button Variants =============
-
-export const DialogButtonCancel = styled(Button)<ButtonProps>({
-  color: flowVizTheme.colors.text.secondary,
-  textTransform: 'none',
-  fontSize: '0.9rem',
-  fontWeight: 500,
-  letterSpacing: '0.01em',
-  padding: `${flowVizTheme.spacing.sm - 1}px ${flowVizTheme.spacing.lg}px`,
-  borderRadius: `${flowVizTheme.borderRadius.md}px`,
-  border: '1px solid transparent',
-  transition: flowVizTheme.motion.normal,
-  
-  '&:hover': {
-    backgroundColor: flowVizTheme.colors.surface.hover,
-    color: flowVizTheme.colors.text.primary,
-    border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
-  },
-  
-  '&:active': {
-    backgroundColor: flowVizTheme.colors.surface.active,
-  },
-});
-
-export const DialogButtonSecondary = styled(Button)<ButtonProps>({
-  color: flowVizTheme.colors.text.secondary,
-  textTransform: 'none',
-  fontSize: '0.9rem',
-  fontWeight: 500,
-  letterSpacing: '0.01em',
-  padding: `${flowVizTheme.spacing.sm - 1}px ${flowVizTheme.spacing.lg}px`,
-  borderRadius: `${flowVizTheme.borderRadius.md}px`,
-  border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
-  transition: flowVizTheme.motion.normal,
-  
-  '&:hover': {
-    backgroundColor: flowVizTheme.colors.surface.hover,
-    color: flowVizTheme.colors.text.primary,
-    border: `1px solid ${flowVizTheme.colors.surface.border.emphasis}`,
-  },
-  
-  '&:active': {
-    backgroundColor: flowVizTheme.colors.surface.active,
-  },
-});
-
-export const DialogButtonPrimary = styled(Button)<ButtonProps>({
-  background: flowVizTheme.colors.surface.active,
-  color: flowVizTheme.colors.text.primary,
-  textTransform: 'none',
-  fontSize: '0.9rem',
-  fontWeight: 500,
-  letterSpacing: '0.01em',
-  padding: `${flowVizTheme.spacing.sm - 1}px ${flowVizTheme.spacing.lg}px`,
-  borderRadius: `${flowVizTheme.borderRadius.md}px`,
-  border: `1px solid ${flowVizTheme.colors.surface.border.emphasis}`,
-  // As with GlassMorphButton: the fill is already at the top of the scale, so
-  // only the border moves.
-  transition: `border-color ${flowVizTheme.motion.fast}`,
-
-  '&:hover': {
-    background: flowVizTheme.colors.surface.active,
-    border: `1px solid ${flowVizTheme.colors.surface.border.focus}`,
-  },
-
-  '&:disabled': {
-    background: flowVizTheme.colors.surface.rest,
-    color: flowVizTheme.colors.text.disabled,
-    border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,
-  },
-});
-
 // ============= Hero Submit Button (Special Animated Button) =============
 
 const moveLight = keyframes`
@@ -197,8 +77,8 @@ export const HeroSubmitButton: React.FC<HeroSubmitButtonProps> = ({
         height: '48px',
         px: '28px',
         minWidth: 'auto',
-        background: flowVizTheme.colors.background.glassLight,
-        borderRadius: '100px',
+        background: flowVizTheme.colors.background.raised,
+        borderRadius: flowVizTheme.borderRadius.full,
         textTransform: 'none',
         fontSize: '15px',
         fontWeight: 500,
@@ -274,7 +154,7 @@ export const HeroSubmitButton: React.FC<HeroSubmitButtonProps> = ({
         },
         
         '&:disabled': {
-          background: flowVizTheme.colors.background.glassLight,
+          background: flowVizTheme.colors.background.raised,
           color: flowVizTheme.colors.text.disabled,
           border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
           cursor: 'default',
@@ -305,173 +185,11 @@ export const HeroSubmitButton: React.FC<HeroSubmitButtonProps> = ({
 };
 
 // ============= Animated Submit Button (Simpler Version) =============
-
-interface AnimatedSubmitButtonProps extends ButtonProps {
-  isLoading?: boolean;
-  children: React.ReactNode;
-}
-
-export const AnimatedSubmitButton: React.FC<AnimatedSubmitButtonProps> = ({
-  isLoading = false,
-  children,
-  disabled,
-  ...props
-}) => {
-  return (
-    <Button
-      {...props}
-      disabled={disabled || isLoading}
-      sx={{
-        height: '48px',
-        px: '28px',
-        minWidth: 'auto',
-        background: flowVizTheme.colors.background.glassLight,
-        borderRadius: '100px',
-        textTransform: 'none',
-        fontSize: '15px',
-        fontWeight: 500,
-        letterSpacing: '0.01em',
-        color: flowVizTheme.colors.text.primary,
-        transition: flowVizTheme.motion.normal,
-        cursor: 'pointer',
-        position: 'relative',
-        isolation: 'isolate',
-        overflow: 'hidden',
-        boxShadow: 'none',
-        border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.5,
-        
-        '& .content-wrapper': {
-          position: 'relative',
-          zIndex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1.5,
-        },
-        
-        // Dot pattern overlay for loading state
-        '&::before': {
-          content: '""',
-          position: 'absolute',
-          inset: 0,
-          background: `radial-gradient(circle at 2px 2px, ${flowVizTheme.colors.text.tertiary} 0.5px, transparent 0.7px)`,
-          backgroundSize: '4px 4px',
-          backgroundRepeat: 'repeat',
-          opacity: isLoading ? 0.3 : 0,
-          transition: 'opacity 150ms ease',
-          pointerEvents: 'none',
-          zIndex: 1,
-          ...(isLoading && {
-            animation: `${dotPattern} 1s linear infinite`,
-          }),
-        },
-        
-        // Shimmer effect for hover
-        '&::after': {
-          content: '""',
-          position: 'absolute',
-          inset: 0,
-          background: `linear-gradient(90deg, transparent, ${flowVizTheme.colors.surface.border.focus}, transparent)`,
-          opacity: 0,
-          transform: 'translateX(-100%)',
-          transition: 'opacity 0.3s ease',
-          pointerEvents: 'none',
-          zIndex: 0,
-        },
-        
-        '&:hover': {
-          background: flowVizTheme.colors.background.glassLight,
-          border: `1px solid ${flowVizTheme.colors.surface.border.emphasis}`,
-
-          '&::after': {
-            opacity: 0.1,
-            animation: `${shimmer} 0.8s ease-in-out`,
-          },
-        },
-
-        '&:disabled': {
-          background: flowVizTheme.colors.surface.rest,
-          color: flowVizTheme.colors.text.disabled,
-          border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
-          cursor: 'default',
-
-          '&:hover': {
-            '&::after': {
-              opacity: 0,
-              animation: 'none',
-            },
-          },
-        },
-        
-        ...props.sx,
-      }}
-    >
-      <Box className="content-wrapper">
-        {children}
-      </Box>
-    </Button>
-  );
-};
-
 // ============= Danger Button Variant =============
-
-export const DangerButton = styled(Button)<ButtonProps>({
-  background: flowVizTheme.colors.status.error.bg,
-  color: flowVizTheme.colors.status.error.text,
-  textTransform: 'none',
-  fontSize: '0.9rem',
-  fontWeight: 500,
-  letterSpacing: '0.01em',
-  padding: `${flowVizTheme.spacing.sm - 1}px ${flowVizTheme.spacing.lg}px`,
-  borderRadius: `${flowVizTheme.borderRadius.md}px`,
-  border: `1px solid ${flowVizTheme.colors.status.error.border}`,
-  transition: `background-color ${flowVizTheme.motion.fast}, color ${flowVizTheme.motion.fast}`,
-  boxShadow: 'none',
-
-  '&:hover': {
-    background: flowVizTheme.colors.status.error.bg,
-    color: flowVizTheme.colors.status.error.accent,
-    border: `1px solid ${flowVizTheme.colors.status.error.border}`,
-    boxShadow: 'none',
-  },
-
-  '&:disabled': {
-    background: flowVizTheme.colors.surface.rest,
-    color: flowVizTheme.colors.text.disabled,
-    border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,
-  },
-});
-
 // ============= Compact Button Variants =============
-
-export const CompactIconButton = styled(GlassIconButton)({
-  padding: `${flowVizTheme.spacing.xs}px`,
-  borderRadius: `${flowVizTheme.borderRadius.sm}px`,
-  
-  '& .MuiSvgIcon-root': {
-    fontSize: '18px',
-  },
-});
-
-export const CompactButton = styled(GlassMorphButton)({
-  fontSize: '0.8rem',
-  padding: `${flowVizTheme.spacing.xs}px ${flowVizTheme.spacing.md}px`,
-  minHeight: 'unset',
-});
-
 // ============= Export all components =============
 
 export default {
   GlassIconButton,
-  GlassMorphButton,
-  DialogButtonCancel,
-  DialogButtonSecondary,
-  DialogButtonPrimary,
-  HeroSubmitButton,
-  AnimatedSubmitButton,
-  DangerButton,
-  CompactIconButton,
-  CompactButton,
+  HeroSubmitButton
 };

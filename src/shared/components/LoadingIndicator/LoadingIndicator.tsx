@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
 import { keyframes } from '@mui/system';
-import { shadowInk } from '../../theme/flowviz-theme';
+import { flowVizTheme, shadowInk } from '../../theme/flowviz-theme';
 
 const pulseAnimation = keyframes`
   0%, 100% {
@@ -112,16 +112,17 @@ const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
 
   return (
     <Box
+      // A status indicator: keeps animating under reduce-motion.
+      data-fv-motion="progress"
       sx={{
         position: 'absolute',
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
-        zIndex: 1000,
+        zIndex: flowVizTheme.zIndex.overlay,
         p: 4,
-        background: 'rgba(var(--fv-glass-rgb), 0.95)',
-        backdropFilter: 'blur(20px)',
-        borderRadius: '16px',
+        background: 'rgba(var(--fv-panel-rgb), 0.95)',
+        borderRadius: flowVizTheme.borderRadius.xl,
         border: '1px solid rgba(var(--fv-overlay-rgb), 0.1)',
         overflow: 'hidden',
         width: '100%',
@@ -148,7 +149,7 @@ const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
             sx={{
               width: '12px',
               height: '12px',
-              borderRadius: '50%',
+              borderRadius: flowVizTheme.borderRadius.circle,
               backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.8)',
               position: 'relative',
               animation: `${pulseAnimation} 1.5s ease-in-out infinite`,
@@ -156,7 +157,7 @@ const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
                 content: '""',
                 position: 'absolute',
                 inset: '-8px',
-                borderRadius: '50%',
+                borderRadius: flowVizTheme.borderRadius.circle,
                 border: '2px solid rgba(var(--fv-overlay-rgb), 0.2)',
                 animation: `${breatheEffect} 2s ease-in-out infinite`,
               },
@@ -164,7 +165,7 @@ const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
                 content: '""',
                 position: 'absolute',
                 inset: '-16px',
-                borderRadius: '50%',
+                borderRadius: flowVizTheme.borderRadius.circle,
                 border: '2px solid rgba(var(--fv-overlay-rgb), 0.1)',
                 animation: `${breatheEffect} 2s ease-in-out infinite 0.5s`,
               },
@@ -208,7 +209,7 @@ const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
               mt: 2.5,
               height: '3px',
               background: 'rgba(var(--fv-overlay-rgb), 0.08)',
-              borderRadius: '3px',
+              borderRadius: flowVizTheme.borderRadius.xs,
               overflow: 'hidden',
             }}
           >

@@ -6,14 +6,14 @@
  * imports these components directly from their own paths.
  */
 
-export { FlowAlert, FlowToast, StatusChip, ConfidenceChip, LoadingAlert } from '../src/shared/components/Alert/index';
-export { GlassIconButton, GlassMorphButton, DialogButtonCancel, DialogButtonSecondary, DialogButtonPrimary, HeroSubmitButton, AnimatedSubmitButton, DangerButton, CompactIconButton, CompactButton } from '../src/shared/components/Button/index';
-export { DropdownMenuItem, DropdownMenuItemDanger, DropdownMenu, DropdownSelect, DropdownMenuItemWithIcon, DropdownFormControl, DropdownSelectCompact, ActionMenu } from '../src/shared/components/Dropdown/index';
+export { FlowAlert, StatusChip } from '../src/shared/components/Alert/index';
+export { GlassIconButton, HeroSubmitButton } from '../src/shared/components/Button/index';
+export { DropdownMenuItem, DropdownMenuItemDanger, DropdownMenu, DropdownSelect, DropdownMenuItemWithIcon, DropdownFormControl, ActionMenu } from '../src/shared/components/Dropdown/index';
 export { PrimaryButton, SecondaryButton, EnhancedDialog, EnhancedDialogContent, EnhancedDialogActions } from '../src/shared/components/EnhancedDialog/index';
-export { EnhancedTextField, EnhancedSelect, EnhancedMenuItem, EnhancedFormControl, FormSection, FormSectionTitle, EnhancedSlider } from '../src/shared/components/EnhancedForm/index';
-export { SearchInput, SearchInputWithClear, SearchInputCompact, SearchInputURL, SearchInputMultiline, SearchInputWithStatus } from '../src/shared/components/SearchInput/index';
+export { EnhancedTextField, FormSection, FormSectionTitle } from '../src/shared/components/EnhancedForm/index';
+export { SearchInput, SearchInputWithClear, SearchInputURL, SearchInputMultiline } from '../src/shared/components/SearchInput/index';
 export { SegmentedControl } from '../src/shared/components/SegmentedControl/index';
-export { FlowDialogTitle, FlowDialogContent, CaptionText, CaptionTextSecondary, CaptionTextMuted, CaptionTextUppercase, SmallText, SmallTextMuted, TinyText, StatusText, SectionHeader, SubsectionHeader, LinkText, GradientText, IconText, FlowIcon } from '../src/shared/components/Typography/index';
+export { FlowDialogTitle, FlowDialogContent, FlowIcon } from '../src/shared/components/Typography/index';
 export { default as LoadingIndicator } from '../src/shared/components/LoadingIndicator/LoadingIndicator';
 export { default as ErrorBoundary } from '../src/shared/components/ErrorBoundary/ErrorBoundary';
 export { ServiceErrorFallback } from '../src/shared/components/ErrorBoundary/ServiceErrorBoundary';

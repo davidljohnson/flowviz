@@ -76,9 +76,8 @@ export default function AppBar({
         // on a light bar. Anything inheriting from the toolbar wants the
         // theme's own ink instead.
         color: flowVizTheme.colors.text.primary,
-        backdropFilter: 'blur(20px)',
         background: `
-          linear-gradient(180deg, ${flowVizTheme.colors.background.primary} 0%, rgba(var(--fv-glass-rgb), 0.8) 100%),
+          linear-gradient(180deg, ${flowVizTheme.colors.background.primary} 0%, rgba(var(--fv-panel-rgb), 0.8) 100%),
           linear-gradient(90deg, rgba(var(--fv-overlay-rgb), 0.02) 0%, rgba(var(--fv-overlay-rgb), 0.01) 100%)
         `,
         borderBottom: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,

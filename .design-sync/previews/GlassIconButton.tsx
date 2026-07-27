@@ -1,4 +1,4 @@
-import { GlassIconButton, CompactIconButton } from 'flowviz';
+import { GlassIconButton } from 'flowviz';
 import { Surface, BothModes } from '../preview-lib/theme';
 
 const Icon = ({ d }: { d: string }) => (
@@ -47,16 +47,13 @@ export const Disabled = () => (
   </Surface>
 );
 
-/** `CompactIconButton` is the same disc at inspector-header size. */
-export const CompactVariant = () => (
+/** The disc in both palettes. */
+export const DarkAndLight = () => (
   <BothModes>
     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
       <GlassIconButton aria-label="Settings">
         <Icon d={SETTINGS} />
       </GlassIconButton>
-      <CompactIconButton aria-label="Settings">
-        <Icon d={SETTINGS} />
-      </CompactIconButton>
     </div>
   </BothModes>
 );

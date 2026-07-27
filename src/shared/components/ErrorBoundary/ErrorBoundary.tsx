@@ -83,10 +83,9 @@ class ErrorBoundary extends Component<Props, State> {
               elevation={0}
               sx={{
                 p: 4,
-                backgroundColor: 'rgba(var(--fv-glass-elevated-rgb), 0.4)',
-                backdropFilter: 'blur(20px)',
+                backgroundColor: 'rgba(var(--fv-raised-rgb), 0.4)',
                 border: '1px solid rgba(var(--fv-overlay-rgb), 0.1)',
-                borderRadius: 3,
+                borderRadius: flowVizTheme.borderRadius.lg,
                 textAlign: 'center'
               }}
             >
@@ -156,7 +155,7 @@ class ErrorBoundary extends Component<Props, State> {
                           overflow: 'auto',
                           backgroundColor: flowVizTheme.colors.surface.active,
                           p: 1,
-                          borderRadius: 1
+                          borderRadius: flowVizTheme.borderRadius.xs
                         }}
                       >
                         {this.state.errorInfo.componentStack}

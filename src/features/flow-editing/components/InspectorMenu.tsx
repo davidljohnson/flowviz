@@ -27,7 +27,7 @@ const itemSx = {
   mx: 0.5,
   gap: 1,
   fontSize: '0.82rem',
-  borderRadius: `${flowVizTheme.borderRadius.sm}px`,
+  borderRadius: flowVizTheme.borderRadius.sm,
   transition: flowVizTheme.motion.fast,
 };
 
@@ -48,7 +48,7 @@ const InspectorMenu: React.FC<InspectorMenuProps> = ({ items = [], deleteLabel, 
           size="small"
           sx={{
             color: ink ?? flowVizTheme.colors.text.tertiary,
-            borderRadius: `${flowVizTheme.borderRadius.sm}px`,
+            borderRadius: flowVizTheme.borderRadius.sm,
             transition: flowVizTheme.motion.fast,
             '&:hover': {
               color: ink ?? flowVizTheme.colors.text.primary,
@@ -72,9 +72,8 @@ const InspectorMenu: React.FC<InspectorMenuProps> = ({ items = [], deleteLabel, 
               mt: 0.5,
               minWidth: 190,
               backgroundColor: flowVizTheme.colors.menu.dialog,
-              backdropFilter: flowVizTheme.effects.blur.heavy,
               border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
-              borderRadius: `${flowVizTheme.borderRadius.md}px`,
+              borderRadius: flowVizTheme.borderRadius.md,
               boxShadow: flowVizTheme.effects.shadows.md,
             },
           },

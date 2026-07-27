@@ -65,10 +65,9 @@ const EdgeLabelEditor: React.FC<EdgeLabelEditorProps> = ({ state, onCommit, onCl
       slotProps={{
         paper: {
           sx: {
-            backgroundColor: flowVizTheme.colors.background.glassLight,
-            backdropFilter: flowVizTheme.effects.blur.heavy,
+            backgroundColor: flowVizTheme.colors.background.raised,
             border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
-            borderRadius: `${flowVizTheme.borderRadius.md}px`,
+            borderRadius: flowVizTheme.borderRadius.md,
             boxShadow: flowVizTheme.effects.shadows.lg,
             p: 1,
             width: 260,
@@ -120,7 +119,6 @@ const EdgeLabelEditor: React.FC<EdgeLabelEditorProps> = ({ state, onCommit, onCl
             paper: {
               sx: {
                 backgroundColor: flowVizTheme.colors.menu.dialog,
-                backdropFilter: flowVizTheme.effects.blur.heavy,
                 border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
                 '& .MuiAutocomplete-option': {
                   fontSize: '0.85rem',

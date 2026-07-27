@@ -132,8 +132,8 @@ const NodeTypeList: React.FC<NodeTypeListProps> = ({ onChoose, onDismiss, placeh
               gap: 1,
               mx: 0.5,
               px: 1,
-              py: 0.6,
-              borderRadius: `${flowVizTheme.borderRadius.sm}px`,
+              py: 0.5,
+              borderRadius: flowVizTheme.borderRadius.sm,
               cursor: 'pointer',
               color: i === active ? flowVizTheme.colors.text.primary : flowVizTheme.colors.text.secondary,
               backgroundColor: i === active ? flowVizTheme.colors.surface.hover : 'transparent',
@@ -143,7 +143,7 @@ const NodeTypeList: React.FC<NodeTypeListProps> = ({ onChoose, onDismiss, placeh
               sx={{
                 width: 8,
                 height: 8,
-                borderRadius: '50%',
+                borderRadius: flowVizTheme.borderRadius.circle,
                 flexShrink: 0,
                 // Drawn ink, not the raw hue, so the dot matches the glyph on
                 // the card you get after picking it — and so amber is still

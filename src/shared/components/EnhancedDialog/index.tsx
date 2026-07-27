@@ -12,13 +12,13 @@ import {
   Typography,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { flowVizTheme, createGlassStyle, createScrollbarStyle, shadowInk } from '../../theme/flowviz-theme';
+import { flowVizTheme, createPanelStyle, createScrollbarStyle, shadowInk } from '../../theme/flowviz-theme';
 
-// Glass dialog variants
+// Dialog sizing variants
 // No default minHeight: forcing every dialog to 40vh left a block of empty
 // space under short content (the clear-canvas prompt, the analyse form). Height
 // follows content; maxHeight is what keeps a long one scrollable.
-const createGlassDialogStyles = ({
+const createDialogSizeStyles = ({
   minHeight,
   maxHeight = '80vh',
   minWidth,
@@ -30,7 +30,7 @@ const createGlassDialogStyles = ({
   dialogMaxWidth?: string;
 } = {}) => ({
   '& .MuiPaper-root': {
-    ...createGlassStyle(0.95),
+    ...createPanelStyle(),
     minHeight,
     maxHeight,
     ...(minWidth && { minWidth }),
@@ -38,7 +38,8 @@ const createGlassDialogStyles = ({
     margin: '16px',
     boxShadow: `0 20px 25px -5px ${shadowInk(0.3)}, 0 10px 10px -5px ${shadowInk(0.04)}`,
   },
-  // Darker than MUI's default dim: the paper is translucent glass, and at 50%
+  // Darker than MUI's default dim: the paper sits close to the canvas in
+  // lightness, and at 50%
   // a bright element behind it (the empty-canvas card's buttons) ghosts
   // through the remaining transparency as a phantom shape inside the dialog.
   // Light mode needs less of it — the paper is opaque enough there.
@@ -60,7 +61,7 @@ const StyledDialog = styled(Dialog, {
   $minWidth?: string;
   $dialogMaxWidth?: string;
 }) => 
-  createGlassDialogStyles({ 
+  createDialogSizeStyles({ 
     minHeight: $minHeight,
     maxHeight: $maxHeight,
     minWidth: $minWidth,
@@ -119,7 +120,7 @@ const CloseButton = styled(IconButton)({
   marginLeft: 'auto',
   color: flowVizTheme.colors.text.tertiary,
   padding: flowVizTheme.spacing.sm,
-  borderRadius: `${flowVizTheme.borderRadius.sm}px`,
+  borderRadius: flowVizTheme.borderRadius.sm,
   transition: `color ${flowVizTheme.motion.fast}, background-color ${flowVizTheme.motion.fast}`,
   '&:hover': {
     color: flowVizTheme.colors.text.primary,
@@ -139,7 +140,7 @@ export const PrimaryButton = styled(Button)({
   fontWeight: 500,
   letterSpacing: '0.01em',
   padding: '6px 20px',
-  borderRadius: `${flowVizTheme.borderRadius.md}px`,
+  borderRadius: flowVizTheme.borderRadius.md,
   border: `1px solid ${flowVizTheme.colors.surface.border.emphasis}`,
   boxShadow: 'none',
   // Surface lightens, nothing moves — same rule as the app bar and the graph
@@ -164,7 +165,7 @@ export const SecondaryButton = styled(Button)({
   fontWeight: 500,
   letterSpacing: '0.01em',
   padding: '6px 20px',
-  borderRadius: `${flowVizTheme.borderRadius.md}px`,
+  borderRadius: flowVizTheme.borderRadius.md,
   border: '1px solid transparent',
   transition: `background-color ${flowVizTheme.motion.fast}, color ${flowVizTheme.motion.fast}`,
   '&:hover': {
@@ -183,7 +184,7 @@ interface EnhancedDialogProps extends Omit<DialogProps, 'PaperProps'> {
   onClose?: () => void;
   showCloseButton?: boolean;
   children?: React.ReactNode;
-  // Glass dialog sizing variants (separate from MUI's maxWidth)
+  // Dialog sizing variants (separate from MUI's maxWidth)
   minHeight?: string;
   maxHeight?: string;
   minWidth?: string;

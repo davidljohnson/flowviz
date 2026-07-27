@@ -1,4 +1,4 @@
-import { EnhancedDialog, EnhancedTextField, FormSection, FormSectionTitle, DialogButtonCancel, DialogButtonPrimary } from 'flowviz';
+import { EnhancedDialog, EnhancedTextField, FormSection, FormSectionTitle, SecondaryButton, PrimaryButton } from 'flowviz';
 import { Surface } from '../preview-lib/theme';
 
 /**
@@ -24,8 +24,8 @@ export const SettingsDialog = () => (
         <EnhancedTextField fullWidth defaultValue="3 seconds per step" />
       </FormSection>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-        <DialogButtonCancel>Cancel</DialogButtonCancel>
-        <DialogButtonPrimary>Save</DialogButtonPrimary>
+        <SecondaryButton>Cancel</SecondaryButton>
+        <PrimaryButton>Save</PrimaryButton>
       </div>
     </EnhancedDialog>
   </Surface>

@@ -48,9 +48,8 @@ export default function SourcePanel({ open, title, text, highlightExcerpt, onClo
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: flowVizTheme.colors.background.glass,
+        backgroundColor: flowVizTheme.colors.background.panel,
         borderRight: `1px solid ${flowVizTheme.colors.surface.border.default}`,
-        backdropFilter: flowVizTheme.effects.blur.heavy,
         overflow: 'hidden',
       }}
     >
@@ -101,7 +100,7 @@ export default function SourcePanel({ open, title, text, highlightExcerpt, onClo
               sx={{
                 backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.16)',
                 outline: '1px solid rgba(var(--fv-overlay-rgb), 0.35)',
-                borderRadius: '3px',
+                borderRadius: flowVizTheme.borderRadius.xs,
                 color: 'rgba(var(--fv-overlay-rgb), 0.98)',
               }}
             >

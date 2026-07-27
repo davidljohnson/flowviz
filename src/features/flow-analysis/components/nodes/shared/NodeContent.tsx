@@ -75,7 +75,7 @@ export function NodeContent({
             mb: 1,
             backgroundColor: flowVizTheme.colors.surface.recessedStrong,
             padding: '5px 8px',
-            borderRadius: '6px',
+            borderRadius: flowVizTheme.borderRadius.sm,
             wordBreak: 'break-all',
             border: '1px solid rgba(var(--fv-overlay-rgb), 0.08)',
             display: '-webkit-box',

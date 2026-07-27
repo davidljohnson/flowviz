@@ -148,7 +148,7 @@
   animation: fvEdgeIn 0.5s ease-out both;
 }
 
-/* --- Glassy zoom controls, tinted to match whichever canvas is under them --- */
+/* --- Zoom controls, tinted to match whichever canvas is under them --- */
 .react-flow__controls {
   border-radius: 10px !important;
   overflow: hidden;
@@ -156,7 +156,7 @@
 }
 
 .react-flow__controls-button {
-  background: rgba(var(--fv-glass-elevated-rgb), 0.95) !important;
+  background: rgba(var(--fv-raised-rgb), 0.95) !important;
   border-bottom: 1px solid rgba(var(--fv-overlay-rgb), 0.08) !important;
   width: 28px;
   height: 28px;

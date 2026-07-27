@@ -16,8 +16,8 @@ const codeSx = {
   fontFamily: '"JetBrains Mono", Monaco, Consolas, monospace',
   fontSize: '0.76rem',
   px: 0.5,
-  py: 0.1,
-  borderRadius: '4px',
+  py: 0.25,
+  borderRadius: flowVizTheme.borderRadius.xs,
   backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.08)',
 };
 
@@ -68,7 +68,7 @@ function CodeBlock({ lang, text }: { lang: string; text: string }) {
   return (
     <Box
       sx={{
-        borderRadius: '8px',
+        borderRadius: flowVizTheme.borderRadius.md,
         border: '1px solid rgba(var(--fv-overlay-rgb), 0.08)',
         backgroundColor: flowVizTheme.colors.surface.recessedStrong,
         overflow: 'hidden',
@@ -99,7 +99,7 @@ function CodeBlock({ lang, text }: { lang: string; text: string }) {
               });
             }}
             sx={{
-              p: 0.4,
+              p: 0.5,
               color: 'rgba(var(--fv-overlay-rgb), 0.45)',
               transition: '0.15s',
               '&:hover': { color: 'rgba(var(--fv-overlay-rgb), 0.9)' },

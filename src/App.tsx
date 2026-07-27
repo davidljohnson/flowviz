@@ -368,7 +368,7 @@ export default function App() {
             color: flowVizTheme.colors.status.warning.text,
             border: `1px solid ${flowVizTheme.colors.status.warning.border}`,
             borderRadius: flowVizTheme.borderRadius.sm,
-            backdropFilter: flowVizTheme.effects.blur.light,
+            
             '& .MuiAlert-icon': {
               color: flowVizTheme.colors.status.warning.accent,
             },
@@ -398,7 +398,7 @@ export default function App() {
             color: flowVizTheme.colors.status[toastSeverity as 'success' | 'error' | 'warning' | 'info'].text,
             border: `1px solid ${flowVizTheme.colors.status[toastSeverity as 'success' | 'error' | 'warning' | 'info'].border}`,
             borderRadius: flowVizTheme.borderRadius.sm,
-            backdropFilter: flowVizTheme.effects.blur.light,
+            
             boxShadow: flowVizTheme.effects.shadows.md,
             '& .MuiAlert-icon': {
               color: flowVizTheme.colors.status[toastSeverity as 'success' | 'error' | 'warning' | 'info'].accent,

@@ -87,6 +87,57 @@ export default function ThemeModeProvider({ children }: { children: ReactNode })
           styles={{
             ':root, :root[data-theme="dark"]': themeCssVars('dark'),
             ':root[data-theme="light"]': themeCssVars('light'),
+
+            /**
+             * Keyboard focus, defined once.
+             *
+             * There was previously no focus indication anywhere: no
+             * `:focus-visible` rule in the codebase, and `border.focus` only
+             * ever reached MUI's `.Mui-focused` input border. So text fields
+             * showed focus and nothing else did — not icon buttons, menu items,
+             * segmented-control segments or dialog buttons, which is most of
+             * the interactive surface of a canvas tool.
+             *
+             * `:focus-visible` rather than `:focus` so the ring appears for
+             * keyboard and programmatic focus but not on mouse press. The
+             * offset keeps it clear of the control's own border, and modern
+             * browsers follow the element's border-radius automatically.
+             */
+            ':focus-visible': {
+              outline: '2px solid var(--fv-focus-ring)',
+              outlineOffset: '2px',
+            },
+            // MUI's ButtonBase sets `outline: 0` on its root, which is more
+            // specific than the bare pseudo-class above and would swallow the
+            // ring on every button in the app.
+            '.MuiButtonBase-root:focus-visible': {
+              outline: '2px solid var(--fv-focus-ring)',
+              outlineOffset: '2px',
+            },
+
+            /**
+             * Honour the OS "reduce motion" setting globally, rather than
+             * relying on each component to remember — only the assistant mark
+             * ever did.
+             *
+             * Progress indicators are the deliberate exception. A spinner that
+             * doesn't spin has stopped saying "working", so anything marked
+             * `data-fv-motion="progress"` keeps looping, just calmly. Everything
+             * else — hovers, the card and edge entrances, the button shine —
+             * resolves instantly.
+             */
+            '@media (prefers-reduced-motion: reduce)': {
+              '*, *::before, *::after': {
+                transitionDuration: '0.01ms !important',
+                animationDuration: '0.01ms !important',
+                animationIterationCount: '1 !important',
+                scrollBehavior: 'auto !important',
+              },
+              '[data-fv-motion="progress"], [data-fv-motion="progress"] *': {
+                animationDuration: '1.6s !important',
+                animationIterationCount: 'infinite !important',
+              },
+            },
           }}
         />
         {children}

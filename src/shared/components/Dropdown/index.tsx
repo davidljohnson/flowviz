@@ -1,16 +1,16 @@
-import React from 'react';
 import {
-  Menu,
-  MenuItem,
-  Select,
-  SelectProps,
-  MenuProps,
-  MenuItemProps,
-  ListItemIcon,
-  ListItemText,
-  styled,
-  FormControl,
+    FormControl,
+    ListItemIcon,
+    ListItemText,
+    Menu,
+    MenuItem,
+    MenuItemProps,
+    MenuProps,
+    Select,
+    SelectProps,
+    styled,
 } from '@mui/material';
+import React from 'react';
 import { flowVizTheme } from '../../theme/flowviz-theme';
 
 // ============= Base Styling Configuration =============
@@ -21,8 +21,7 @@ export const dropdownMenuStyles: Partial<MenuProps> = {
     sx: {
       background: flowVizTheme.colors.menu.dialog,
       border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
-      borderRadius: `${flowVizTheme.borderRadius.md}px`,
-      backdropFilter: flowVizTheme.effects.blur.heavy,
+      borderRadius: flowVizTheme.borderRadius.md,
       boxShadow: flowVizTheme.effects.shadows.md,
       minWidth: '180px',
     }
@@ -40,8 +39,7 @@ export const dropdownMenuStylesDark: Partial<MenuProps> = {
     sx: {
       background: flowVizTheme.colors.menu.appBar,
       border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
-      borderRadius: `${flowVizTheme.borderRadius.md}px`,
-      backdropFilter: flowVizTheme.effects.blur.heavy,
+      borderRadius: flowVizTheme.borderRadius.md,
       boxShadow: flowVizTheme.effects.shadows.md,
       minWidth: '180px',
     }
@@ -56,7 +54,7 @@ export const dropdownMenuStylesDark: Partial<MenuProps> = {
 // ============= Dropdown Menu Item Component =============
 
 export const DropdownMenuItem = styled(MenuItem)({
-  borderRadius: `${flowVizTheme.borderRadius.sm}px`,
+  borderRadius: flowVizTheme.borderRadius.sm,
   marginBottom: `${flowVizTheme.spacing.xs / 2}px`,
   padding: `${flowVizTheme.spacing.sm + 2}px ${flowVizTheme.spacing.sm + 6}px`,
   color: flowVizTheme.colors.text.primary,
@@ -132,8 +130,8 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
 
 export const DropdownSelect = styled(Select)<SelectProps>({
   color: flowVizTheme.colors.text.primary,
-  backgroundColor: flowVizTheme.colors.background.glass,
-  borderRadius: `${flowVizTheme.borderRadius.md}px`,
+  backgroundColor: flowVizTheme.colors.background.panel,
+  borderRadius: flowVizTheme.borderRadius.md,
   fontSize: '14px',
   fontWeight: 500,
   
@@ -143,7 +141,7 @@ export const DropdownSelect = styled(Select)<SelectProps>({
   },
   
   '&:hover': {
-    backgroundColor: flowVizTheme.colors.background.glassLight,
+    backgroundColor: flowVizTheme.colors.background.raised,
     
     '& .MuiOutlinedInput-notchedOutline': {
       borderColor: flowVizTheme.colors.surface.border.emphasis,
@@ -151,7 +149,7 @@ export const DropdownSelect = styled(Select)<SelectProps>({
   },
   
   '&.Mui-focused': {
-    backgroundColor: flowVizTheme.colors.background.glassLight,
+    backgroundColor: flowVizTheme.colors.background.raised,
     
     '& .MuiOutlinedInput-notchedOutline': {
       borderColor: flowVizTheme.colors.surface.border.focus,
@@ -230,15 +228,6 @@ export const DropdownFormControl = styled(FormControl)({
 });
 
 // ============= Compact Dropdown Select =============
-
-export const DropdownSelectCompact = styled(DropdownSelect)({
-  fontSize: '13px',
-  
-  '& .MuiSelect-select': {
-    padding: `${flowVizTheme.spacing.sm}px ${flowVizTheme.spacing.md}px`,
-  },
-});
-
 // ============= Action Menu Component =============
 
 interface ActionMenuItem {
@@ -299,7 +288,6 @@ export default {
   DropdownMenuItemDanger,
   DropdownMenuItemWithIcon,
   DropdownSelect,
-  DropdownSelectCompact,
   DropdownFormControl,
   ActionMenu,
   dropdownMenuStyles,
