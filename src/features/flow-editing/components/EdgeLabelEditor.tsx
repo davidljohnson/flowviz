@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Autocomplete, Box, Popover, TextField } from '@mui/material';
+import React, { useEffect, useRef, useState } from 'react';
+import { Autocomplete, Box, Popover, TextField, createFilterOptions } from '@mui/material';
+import type { Instance as PopperInstance } from '@popperjs/core';
 import { flowVizTheme, createScrollbarStyle } from '../../../shared/theme/flowviz-theme';
 
 // Verbs the STIX exporter maps to real relationship types
@@ -22,6 +23,8 @@ const RELATIONSHIP_SUGGESTIONS = [
   'affects',
 ];
 
+const matchSuggestions = createFilterOptions<string>();
+
 export interface EdgeLabelEditorState {
   edgeId: string;
   label: string;
@@ -43,6 +46,7 @@ interface EdgeLabelEditorProps {
  */
 const EdgeLabelEditor: React.FC<EdgeLabelEditorProps> = ({ state, onCommit, onClose }) => {
   const [value, setValue] = useState('');
+  const popperRef = useRef<PopperInstance>(null);
 
   useEffect(() => {
     setValue(state?.label ?? '');
@@ -62,6 +66,14 @@ const EdgeLabelEditor: React.FC<EdgeLabelEditorProps> = ({ state, onCommit, onCl
       anchorPosition={{ top: state.y, left: state.x }}
       onClose={commit}
       transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+      // The suggestion list is positioned against the input, and the input is
+      // still growing when it opens: the field autofocuses on mount, which
+      // opens the list, while Popover's Grow transition is part-way through
+      // scaling this paper up. Popper measures a smaller, higher anchor and
+      // never recomputes, so the list settles 15px too high and covers the very
+      // field you are typing in — which is what made an edge label look like it
+      // had been picked twice. Re-measure once the growing has finished.
+      TransitionProps={{ onEntered: () => popperRef.current?.update() }}
       slotProps={{
         paper: {
           sx: {
@@ -80,6 +92,16 @@ const EdgeLabelEditor: React.FC<EdgeLabelEditorProps> = ({ state, onCommit, onCl
           freeSolo
           openOnFocus
           options={RELATIONSHIP_SUGGESTIONS}
+          // A lone suggestion identical to what's already typed tells you
+          // nothing — it just prints the word a second time under the field,
+          // which is how re-opening the editor on a labelled edge looked like
+          // the label had been picked twice. freeSolo means an empty result
+          // closes the list rather than replacing it with "No options".
+          filterOptions={(options, state) => {
+            const matches = matchSuggestions(options, state);
+            const typed = state.inputValue.trim().toLowerCase();
+            return matches.length === 1 && matches[0].toLowerCase() === typed ? [] : matches;
+          }}
           inputValue={value}
           onInputChange={(_e, newValue) => setValue(newValue)}
           onChange={(_e, newValue, reason) => {
@@ -116,10 +138,17 @@ const EdgeLabelEditor: React.FC<EdgeLabelEditorProps> = ({ state, onCommit, onCl
             />
           )}
           slotProps={{
+            popper: { popperRef },
             paper: {
               sx: {
                 backgroundColor: flowVizTheme.colors.menu.dialog,
                 border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
+                // With nothing to list, MUI still renders this paper — empty,
+                // but still carrying the border above, which paints as a stray
+                // hairline under the field. freeSolo means that happens
+                // whenever the text matches no suggestion, and now also
+                // whenever it matches one exactly.
+                '&:empty': { display: 'none' },
                 '& .MuiAutocomplete-option': {
                   fontSize: '0.85rem',
                   color: flowVizTheme.colors.text.secondary,

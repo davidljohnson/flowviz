@@ -9,7 +9,6 @@ import { fileTypeFromBuffer } from 'file-type';
 import { Readability } from '@mozilla/readability';
 import { JSDOM } from 'jsdom';
 import { validateUrl, secureFetch, rateLimits, handleFetchError } from './security-utils.js';
-import Anthropic from '@anthropic-ai/sdk';
 import { logger } from './src/shared/utils/logger.js';
 import dotenv from 'dotenv';
 import { ProviderFactory } from './providers/provider-factory.js';
@@ -356,53 +355,30 @@ app.post('/api/vision-analysis', rateLimits.streaming, async (req, res) => {
     
     logger.info(`Vision analysis request: ${images.length} images, ${articleText.length} chars of text`);
     
-    // Initialize Anthropic client with server API key and base URL
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    const baseURL = process.env.ANTHROPIC_BASE_URL;
-    
-    if (!apiKey) {
+    // Anthropic-only on purpose: the one caller (the PDF diagram pass in
+    // AnalysisInput) sends no provider and treats a failure here as "no vision",
+    // so this does not follow the user's selected provider. It goes through the
+    // provider class rather than the SDK directly so it inherits whatever the
+    // Claude request shape learns next — the `temperature` removal being the
+    // most recent example of a change this path would otherwise have missed.
+    const aiProvider = ProviderFactory.create('anthropic', ProviderFactory.getProviderConfig('anthropic'));
+
+    if (!aiProvider.isConfigured()) {
       return res.status(500).json({ error: 'Server configuration error: Anthropic API key not configured' });
     }
-    
-    const anthropicConfig = { apiKey };
-    if (baseURL) {
-      anthropicConfig.baseURL = baseURL;
-    }
-    
-    const anthropic = new Anthropic(anthropicConfig);
-    
-    // Build the vision analysis prompt
-    const prompt = buildVisionPrompt(articleText, images.length);
-    
-    // Build message content with images
-    const messageContent = buildMessageContent(images, prompt);
-    
-    // Make the API call
-    const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20250929';
-    const response = await anthropic.messages.create({
-      model: model,
-      max_tokens: 4000,
-      temperature: 0.1,
-      messages: [
-        {
-          role: 'user',
-          content: messageContent,
-        }
-      ],
-    });
-    
-    const analysisText = response.content[0]?.type === 'text' ? response.content[0].text : '';
+
+    const { analysisText, tokensUsed } = await aiProvider.analyzeVision(images, articleText);
     const confidence = assessConfidence(analysisText, images.length);
-    
+
     logger.info(`Vision analysis completed: ${analysisText.length} chars, ${confidence} confidence`);
-    
+
     res.json({
       analysisText,
       confidence,
       relevantImages: images,
-      tokensUsed: response.usage?.input_tokens + response.usage?.output_tokens || 0
+      tokensUsed
     });
-    
+
   } catch (error) {
     logger.error('Vision analysis error:', error);
     res.status(500).json({ 
@@ -411,41 +387,6 @@ app.post('/api/vision-analysis', rateLimits.streaming, async (req, res) => {
     });
   }
 });
-
-// Vision analysis utilities
-function buildVisionPrompt(articleText, imageCount) {
-  return `You are analyzing ${imageCount} images from a cybersecurity article to enhance threat intelligence analysis.
-
-Article context (first 1000 chars):
-${articleText.substring(0, 1000)}...
-
-Please analyze the images and provide:
-1. Technical details visible in screenshots (commands, file paths, network indicators)
-2. Attack techniques or tools shown
-3. Any MITRE ATT&CK relevant information
-4. System configurations or vulnerabilities displayed
-
-Focus on actionable technical intelligence that supplements the article text.`;
-}
-
-function buildMessageContent(images, prompt) {
-  const content = [{ type: 'text', text: prompt }];
-  
-  for (const image of images) {
-    if (image.base64Data && image.mediaType) {
-      content.push({
-        type: 'image',
-        source: {
-          type: 'base64',
-          media_type: image.mediaType,
-          data: image.base64Data
-        }
-      });
-    }
-  }
-  
-  return content;
-}
 
 function assessConfidence(analysisText, imageCount) {
   if (!analysisText || analysisText.length < 100) return 'low';
@@ -713,385 +654,6 @@ app.post('/api/assistant-stream', rateLimits.assistant, async (req, res) => {
     res.end();
   } catch (err) {
     logger.error('Assistant streaming error:', { message: err.message, stack: err.stack });
-    res.write(`data: ${JSON.stringify({ type: 'error', error: err.message })}\n\n`);
-    res.write(`data: [DONE]\n\n`);
-    res.end();
-  }
-});
-
-// Legacy Claude streaming endpoint for backward compatibility
-app.post('/api/claude-stream', rateLimits.streaming, async (req, res) => {
-  logger.info('Starting full-pipeline streaming request...');
-  logger.debug('Request body received', { hasUrl: !!req.body.url, hasText: !!req.body.text });
-  
-  // Set up SSE headers
-  res.writeHead(200, {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive',
-  });
-
-  try {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    const baseURL = process.env.ANTHROPIC_BASE_URL;
-    logger.debug('API Key availability check', { available: !!apiKey, baseURLSet: !!baseURL });
-    
-    if (!apiKey) {
-      logger.error('Missing Anthropic API key configuration');
-      res.write(`data: ${JSON.stringify({ error: 'Server configuration error: Anthropic API key not configured' })}\n\n`);
-      res.end();
-      return;
-    }
-
-    const { url, text, system } = req.body;
-    logger.debug('Processing request', { hasUrl: !!url, hasText: !!text, urlPreview: url?.substring(0, 50) });
-    
-    if (!url && !text) {
-      logger.warn('Request missing both URL and text');
-      res.write(`data: ${JSON.stringify({ error: 'Either URL or text is required' })}\n\n`);
-      res.end();
-      return;
-    }
-
-    let finalText;
-
-    if (url) {
-      // Step 1: Stream content preparation progress for URL
-      res.write(`data: ${JSON.stringify({ type: 'progress', stage: 'fetching_article', message: 'Fetching article content...' })}\n\n`);
-      
-      // Validate and fetch article using existing logic
-      const validatedUrl = validateUrl(url);
-      const response = await secureFetch(validatedUrl, { timeout: 30000 });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch article: ${response.statusText}`);
-      }
-
-      const html = await response.text();
-      
-      // Parse with Readability
-      const dom = new JSDOM(html, { url: validatedUrl.href });
-      const readabilityReader = new Readability(dom.window.document);
-      const article = readabilityReader.parse();
-      
-      if (!article) {
-        throw new Error('Could not extract content from article');
-      }
-
-      res.write(`data: ${JSON.stringify({ type: 'progress', stage: 'processing_content', message: 'Processing article content...' })}\n\n`);
-
-      // Build enhanced HTML
-      const enhancedHtml = `
-        <html>
-          <head><title>${article.title || 'Article'}</title></head>
-          <body>
-            <h1>${article.title || 'Article'}</h1>
-            ${article.byline ? `<p class="byline">${article.byline}</p>` : ''}
-            <div class="content">${article.content}</div>
-          </body>
-        </html>
-      `;
-
-      // Extract text content
-      const doc = new JSDOM(enhancedHtml).window.document;
-      finalText = doc.body.textContent || doc.body.innerText || '';
-
-      // Step 2: Process images with vision analysis if any
-      res.write(`data: ${JSON.stringify({ type: 'progress', stage: 'analyzing_images', message: 'Analyzing images...' })}\n\n`);
-      
-      const imgElements = Array.from(dom.window.document.querySelectorAll('img'));
-      
-      if (imgElements.length > 0) {
-        try {
-          logger.info(`Found ${imgElements.length} images, starting vision analysis...`);
-          
-          // Download and process images
-          const processedImages = [];
-          for (const img of imgElements.slice(0, 5)) { // Limit to 5 images for performance
-            const imgUrl = img.src;
-            if (!imgUrl || !imgUrl.startsWith('http')) continue;
-            
-            try {
-              // Use our secure image fetch endpoint internally
-              const imageResponse = await secureFetch(validateUrl(imgUrl), {
-                timeout: 15000,
-                maxSize: parseInt(process.env.MAX_IMAGE_SIZE) || 3 * 1024 * 1024, // Configurable limit
-                headers: { 'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8' }
-              });
-              
-              if (imageResponse.ok) {
-                const buffer = await imageResponse.arrayBuffer();
-                const nodeBuffer = Buffer.from(buffer);
-                const fileType = await fileTypeFromBuffer(nodeBuffer);
-                const mediaType = fileType?.mime || imageResponse.headers.get('content-type') || 'image/jpeg';
-                
-                // Only process common image formats
-                const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-                if (allowedTypes.includes(mediaType)) {
-                  processedImages.push({
-                    base64Data: nodeBuffer.toString('base64'),
-                    mediaType: mediaType,
-                    url: imgUrl
-                  });
-                }
-              }
-            } catch (imgError) {
-              logger.warn(`Failed to process image ${imgUrl}:`, imgError.message);
-            }
-          }
-          
-          // If we have images, analyze them with Claude
-          if (processedImages.length > 0) {
-            logger.info(`Processing ${processedImages.length} images with vision analysis`);
-            
-            const visionPrompt = `You are analyzing ${processedImages.length} images from a cybersecurity article to enhance threat intelligence analysis.
-
-Article context (first 1000 chars):
-${finalText.substring(0, 1000)}...
-
-Please analyze the images and provide:
-1. Technical details visible in screenshots (commands, file paths, network indicators)  
-2. Attack techniques or tools shown
-3. Any MITRE ATT&CK relevant information
-4. System configurations or vulnerabilities displayed
-
-Focus on actionable technical intelligence that supplements the article text.`;
-
-            const messageContent = [{ type: 'text', text: visionPrompt }];
-            for (const image of processedImages) {
-              messageContent.push({
-                type: 'image',
-                source: {
-                  type: 'base64',
-                  media_type: image.mediaType,
-                  data: image.base64Data
-                }
-              });
-            }
-            
-            const anthropicConfig = { apiKey };
-            if (baseURL) {
-              anthropicConfig.baseURL = baseURL;
-            }
-            const anthropic = new Anthropic(anthropicConfig);
-            const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20250929';
-            const visionResponse = await anthropic.messages.create({
-              model: model,
-              max_tokens: 4000,
-              temperature: 0.1,
-              messages: [{ role: 'user', content: messageContent }]
-            });
-            
-            const visionAnalysis = visionResponse.content[0]?.type === 'text' ? visionResponse.content[0].text : '';
-            if (visionAnalysis.trim()) {
-              finalText = `${finalText}\n\n=== VISION ANALYSIS ===\n${visionAnalysis}`;
-              logger.info(`✅ Vision analysis completed: ${visionAnalysis.length} characters added`);
-            }
-          }
-        } catch (visionError) {
-          logger.warn('Vision analysis failed:', visionError.message);
-          // Continue without vision analysis
-        }
-      }
-    } else {
-      // Use provided text directly
-      res.write(`data: ${JSON.stringify({ type: 'progress', stage: 'processing_content', message: 'Processing text content...' })}\n\n`);
-      finalText = text;
-    }
-
-    // Step 3: Start AI streaming analysis
-    res.write(`data: ${JSON.stringify({ type: 'progress', stage: 'ai_analysis', message: 'Starting AI analysis...' })}\n\n`);
-
-    const prompt = `You are an expert in cyber threat intelligence and MITRE ATT&CK. Analyze this article and create React Flow nodes and edges directly.
-
-IMPORTANT: Return only a valid JSON object with "nodes" and "edges" arrays. No text before or after.
-
-CRITICAL ORDERING FOR STREAMING VISUALIZATION:
-1. Order ALL nodes strictly chronologically based on the attack timeline
-2. In the "edges" array, place each edge IMMEDIATELY after its corresponding source node appears in the "nodes" array
-3. Group by attack stages in order: Initial Access → Execution → Persistence → Privilege Escalation → Defense Evasion → Credential Access → Discovery → Lateral Movement → Collection → Exfiltration → Command & Control → Impact
-4. This creates a narrative flow where connections appear as the story unfolds
-5. IMPORTANT: The order of items in BOTH arrays matters for real-time streaming
-
-Extract from the ENTIRE article including main text, IOC sections, detection/prevention recommendations, and technical appendices. Be thorough - extract ALL techniques mentioned or implied.
-
-OUTPUT FORMAT: Create React Flow nodes and edges using ONLY these official AFB node types:
-- **action**: MITRE ATT&CK techniques (T1078, T1190, etc.)
-- **tool**: Legitimate software used in attacks (net.exe, powershell.exe, etc.)
-- **malware**: Malicious software (webshells, backdoors, trojans, etc.)  
-- **asset**: Target systems and resources (servers, workstations, databases, etc.)
-- **infrastructure**: Adversary-controlled resources (C2 servers, domains, IP addresses)
-- **url**: Web resources and links (malicious URLs, download links)
-- **vulnerability**: Only CVE-identified vulnerabilities (CVE-YYYY-NNNN format)
-- **AND_operator**: Logic gates requiring ALL conditions
-- **OR_operator**: Logic gates where ANY condition can be met
-
-OPERATOR RULES (AND_operator / OR_operator):
-- Only create operators when the source explicitly describes conditional logic (e.g. "only if all of the following", "either X or Y")
-- The "name" must be a short noun phrase describing WHAT is being gated (e.g. "Environment Checks", "Initial Access Path")
-- NEVER include the words "AND" or "OR" in the operator's name - the node type already conveys the gate logic
-- Connect each incoming condition/technique to the operator, and the operator to the action that follows
-- NEVER add a direct edge that bypasses an operator: if A connects to an operator and the operator connects to B, do NOT also create A -> B
-
-STRICT EXTRACTION RULES - NO SPECULATION OR INFERENCE:
-- ONLY extract information explicitly stated in the source text
-- Command-line executions → tool nodes ONLY if exact commands are quoted in the article
-- Malicious files/scripts → malware nodes ONLY if specific file names/hashes are mentioned
-- IP addresses and domains → infrastructure nodes ONLY if explicitly listed
-- Target computers/networks → asset nodes ONLY if specifically named in the text
-- Web links → url nodes ONLY if actual URLs are provided
-- Only CVEs → vulnerability nodes ONLY if CVE numbers are explicitly mentioned
-- DO NOT infer, assume, or generate plausible technical details not in the source
-- DO NOT create example commands or typical attack patterns
-- If technical details are vague, keep descriptions general
-- CRITICAL: For command_line fields, ONLY include commands explicitly quoted in the article
-- CRITICAL: Each source_excerpt must be 2-3 complete sentences directly copied from the source text
-- Source excerpts are used to validate extraction accuracy - they must prove the node exists in the source
-
-EDGE TYPES (Create connections that show attack progression):
-- action → tool/malware: "Uses"
-- action → asset: "Targets"  
-- action → infrastructure: "Communicates with"
-- action → url: "Connects to"
-- vulnerability → asset: "Affects"
-- action → action: "Leads to" (IMPORTANT: Connect actions in chronological sequence)
-
-NARRATIVE FLOW INSTRUCTIONS:
-1. Start with Initial Access techniques (TA0001)
-2. Progress through Execution → Persistence → Privilege Escalation → etc.
-3. Connect each action to the next logical step in the attack timeline
-4. Use "Leads to" edges to show attack progression between techniques
-5. Order nodes so the attack story unfolds from top to bottom
-
-CRITICAL JSON FORMAT - Follow this EXACT structure:
-{
-  "nodes": [
-    {
-      "id": "action-1",
-      "type": "action",
-      "data": {
-        "type": "action",
-        "name": "Valid Accounts",
-        "description": "How this technique was used in this specific attack",
-        "technique_id": "T1078",
-        "tactic_id": "TA0001",
-        "tactic_name": "Initial Access",
-        "source_excerpt": "2-3 complete sentences directly quoted from the source article that support this technique. Include surrounding context to validate the extraction.",
-        "confidence": "high"
-      }
-    },
-    {
-      "id": "tool-1", 
-      "type": "tool",
-      "data": {
-        "type": "tool",
-        "name": "Net.exe",
-        "description": "Used to enumerate domain users", 
-        "command_line": "net user /domain",
-        "source_excerpt": "2-3 complete sentences from the source that mention this specific command or tool usage",
-        "confidence": "high"
-      }
-    },
-    {
-      "id": "asset-1",
-      "type": "asset",
-      "data": {
-        "type": "asset",
-        "name": "Domain Controller",
-        "description": "Target system compromised",
-        "role": "Server",
-        "source_excerpt": "2-3 complete sentences from the source describing this asset or target system",
-        "confidence": "high"
-      }
-    },
-    {
-      "id": "and-1",
-      "type": "AND_operator",
-      "data": {
-        "type": "AND_operator",
-        "operator": "AND",
-        "name": "Environment Checks",
-        "description": "All conditions must be satisfied before the payload executes",
-        "source_excerpt": "2-3 complete sentences from the source describing the conditional logic",
-        "confidence": "high"
-      }
-    }
-  ],
-  "edges": [
-    {
-      "id": "edge-1",
-      "source": "action-1", 
-      "target": "tool-1",
-      "type": "floating",
-      "label": "Uses"
-    },
-    {
-      "id": "edge-2",
-      "source": "action-1",
-      "target": "asset-1", 
-      "type": "floating",
-      "label": "Targets"
-    }
-  ]
-}
-
-Article: "${finalText.substring(0, 50000)}"
-
-Article text:
-`;
-
-    const anthropicApiUrl = baseURL ? `${baseURL}/v1/messages` : 'https://api.anthropic.com/v1/messages';
-    const aiResponse = await fetch(anthropicApiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20250929',
-        max_tokens: 16000,
-        temperature: 0.1,
-        stream: true,
-        messages: [{ role: 'user', content: prompt }],
-        system: system || "You are an expert in cyber threat intelligence analysis."
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      const error = await aiResponse.text();
-      res.write(`data: ${JSON.stringify({ error })}\n\n`);
-      res.end();
-      return;
-    }
-
-    // Stream AI response - node-fetch uses different API than browser fetch
-    if (!aiResponse.body) {
-      throw new Error('No response body available');
-    }
-
-    // Handle streaming with node-fetch - it uses Node.js streams, not ReadableStream
-    aiResponse.body.on('data', (chunk) => {
-      const data = chunk.toString();
-      logger.debug('Streaming chunk to client', { preview: data.slice(0, 100) });
-      res.write(data);
-    });
-
-    aiResponse.body.on('end', () => {
-      logger.info('AI streaming completed successfully');
-      res.write(`data: [DONE]\n\n`);
-      res.end();
-    });
-
-    aiResponse.body.on('error', (error) => {
-      logger.error('AI streaming error:', error);
-      res.write(`data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`);
-      res.write(`data: [DONE]\n\n`);
-      res.end();
-    });
-
-  } catch (err) {
-    logger.error('Full-pipeline streaming error:', { message: err.message, stack: err.stack });
     res.write(`data: ${JSON.stringify({ type: 'error', error: err.message })}\n\n`);
     res.write(`data: [DONE]\n\n`);
     res.end();

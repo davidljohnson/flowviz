@@ -4,10 +4,17 @@ import CloseIcon from '@mui/icons-material/Close';
 import SwapHorizRoundedIcon from '@mui/icons-material/SwapHorizRounded';
 import EastRoundedIcon from '@mui/icons-material/EastRounded';
 import { Edge, MarkerType } from 'reactflow';
-import { flowVizTheme, createScrollbarStyle, themePalettes, type ThemeMode } from '../../../shared/theme/flowviz-theme';
+import { flowVizTheme, createScrollbarStyle } from '../../../shared/theme/flowviz-theme';
 import { useThemeMode } from '../../../shared/theme/ThemeModeProvider';
 import InspectorMenu from './InspectorMenu';
 import SegmentedControl from '../../../shared/components/SegmentedControl';
+import {
+  EDGE_DASH_ARRAY,
+  EDGE_SHAPE_OPTIONS,
+  EDGE_STYLE_OPTIONS,
+  edgeColorNameFromStroke,
+} from '../../../shared/components/edgeAppearance';
+import EdgeColorSwatches from '../../../shared/components/EdgeColorSwatches';
 import { labelSx, inputSx } from './inspectorFieldStyles';
 
 // STIX-mappable verbs (kept in sync with EdgeLabelEditor).
@@ -16,31 +23,6 @@ const RELATIONSHIP_SUGGESTIONS = [
   'communicates with', 'controls', 'indicates', 'impersonates', 'leads to',
   'enables', 'requires', 'affects',
 ];
-
-const CURVES = [
-  { value: 'smooth', label: 'Curved' },
-  { value: 'straight', label: 'Straight' },
-  { value: 'step', label: 'Stepped' },
-] as const;
-
-// line = stroke color, arrow = opaque marker color so the line doesn't show
-// through the arrowhead.
-//
-// The first two are neutrals drawn in whichever ink contrasts with the canvas,
-// so they're built from the live palette rather than fixed: on a light canvas
-// "mono" is graphite, not white. The named hues are the same in both themes.
-const edgeColorOptions = (mode: ThemeMode) => {
-  const { canvas } = themePalettes[mode].colors;
-  return [
-    { name: 'default', line: 'rgba(var(--fv-overlay-rgb), 0.55)', arrow: canvas.edgeArrow, swatch: 'rgba(var(--fv-overlay-rgb), 0.55)' },
-    { name: 'mono', line: 'rgba(var(--fv-overlay-rgb), 0.9)', arrow: canvas.edgeArrowStrong, swatch: canvas.edgeArrowStrong },
-    { name: 'blue', line: '#3b82f6', arrow: '#3b82f6', swatch: '#3b82f6' },
-    { name: 'green', line: '#10b981', arrow: '#10b981', swatch: '#10b981' },
-    { name: 'amber', line: '#f59e0b', arrow: '#f59e0b', swatch: '#f59e0b' },
-    { name: 'red', line: '#ef4444', arrow: '#ef4444', swatch: '#ef4444' },
-    { name: 'purple', line: '#8b5cf6', arrow: '#8b5cf6', swatch: '#8b5cf6' },
-  ];
-};
 
 interface EdgeInspectorProps {
   edge: Edge;
@@ -111,8 +93,8 @@ const EdgeInspector: React.FC<EdgeInspectorProps> = ({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
           <InspectorMenu deleteLabel="Delete edge" onDelete={() => onDelete(edge.id)} />
           <Tooltip title="Close (Esc)">
-            <IconButton onClick={onClose} size="small" sx={{ color: flowVizTheme.colors.text.tertiary, '&:hover': { color: flowVizTheme.colors.text.primary, backgroundColor: flowVizTheme.colors.surface.hover } }}>
-              <CloseIcon fontSize="small" />
+            <IconButton onClick={onClose} size="small" sx={{ width: flowVizTheme.controlSize, height: flowVizTheme.controlSize, p: 0, color: flowVizTheme.colors.text.tertiary, '&:hover': { color: flowVizTheme.colors.text.primary, backgroundColor: flowVizTheme.colors.surface.hover } }}>
+              <CloseIcon sx={{ fontSize: 16 }} />
             </IconButton>
           </Tooltip>
         </Box>
@@ -169,49 +151,38 @@ const EdgeInspector: React.FC<EdgeInspectorProps> = ({
           </Box>
         </Field>
 
-        <Field label="Line shape">
+        <Field label="Shape">
           <SegmentedControl
             fullWidth
-            aria-label="Line shape"
-            options={CURVES.map(c => ({ value: c.value, label: c.label }))}
+            aria-label="Shape"
+            options={EDGE_SHAPE_OPTIONS}
             value={curve}
             onChange={(value) => onUpdateEdge(edge.id, { data: { curve: value } })}
           />
         </Field>
 
-        <Field label="Line style">
+        <Field label="Style">
           <SegmentedControl
             fullWidth
-            aria-label="Line style"
-            options={[{ value: 'solid', label: 'Solid' }, { value: 'dashed', label: 'Dashed' }]}
+            aria-label="Style"
+            options={EDGE_STYLE_OPTIONS}
             value={dashed ? 'dashed' : 'solid'}
             onChange={(value) =>
-              onUpdateEdge(edge.id, { style: { strokeDasharray: value === 'dashed' ? '5 5' : undefined } })
+              onUpdateEdge(edge.id, { style: { strokeDasharray: value === 'dashed' ? EDGE_DASH_ARRAY : undefined } })
             }
           />
         </Field>
 
-        <Field label="Color">
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-            {edgeColorOptions(mode).map(c => {
-              const active = stroke === c.line;
-              return (
-                <Box
-                  key={c.name}
-                  component="button"
-                  title={c.name}
-                  onClick={() => onUpdateEdge(edge.id, { style: { stroke: c.line }, markerEnd: { type: MarkerType.ArrowClosed, width: 15, height: 15, color: c.arrow } })}
-                  sx={{
-                    width: 26, height: 26, p: 0, cursor: 'pointer', borderRadius: flowVizTheme.borderRadius.circle,
-                    backgroundColor: c.swatch,
-                    border: `2px solid ${active ? 'rgba(var(--fv-overlay-rgb), 0.95)' : 'rgba(var(--fv-overlay-rgb), 0.15)'}`,
-                    boxShadow: active ? '0 0 0 2px rgba(var(--fv-overlay-rgb), 0.2)' : 'none',
-                    transition: flowVizTheme.motion.fast,
-                  }}
-                />
-              );
+        <Field label="Colour">
+          <EdgeColorSwatches
+            aria-label="Colour"
+            mode={mode}
+            value={edgeColorNameFromStroke(mode, stroke)}
+            onChange={(color) => onUpdateEdge(edge.id, {
+              style: { stroke: color.line },
+              markerEnd: { type: MarkerType.ArrowClosed, width: 15, height: 15, color: color.arrow },
             })}
-          </Box>
+          />
         </Field>
       </Box>
     </Box>

@@ -299,13 +299,19 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
                   size="small"
                   className="node-details-close-button"
                   sx={{
+                    // controlSize with a 16px glyph, like the app bar, the canvas
+                    // controls and the assistant beneath it. This header was the
+                    // one place still on MUI's `small` (20px in a 30px box).
+                    width: flowVizTheme.controlSize,
+                    height: flowVizTheme.controlSize,
+                    p: 0,
                     color: bannerInk,
                     borderRadius: flowVizTheme.borderRadius.sm,
                     transition: flowVizTheme.motion.fast,
                     '&:hover': { backgroundColor: bannerHover },
                   }}
                 >
-                  <CloseIcon fontSize="small" />
+                  <CloseIcon sx={{ fontSize: 16 }} />
                 </IconButton>
               </Tooltip>
             </Box>

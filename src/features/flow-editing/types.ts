@@ -11,6 +11,18 @@ export interface HistoryEntry extends FlowSnapshot {
 }
 
 /**
+ * The endpoints of a connection the user just drew or re-dragged. The handle
+ * ids name a side ('top' | 'right' | 'bottom' | 'left') and are what makes the
+ * chosen dot stick — see FloatingEdge.
+ */
+export interface EdgeConnection {
+  source: string | null;
+  target: string | null;
+  sourceHandle?: string | null;
+  targetHandle?: string | null;
+}
+
+/**
  * Semantic edit operations exposed by useFlowEditor. Every graph mutation in
  * the app goes through one of these so it lands in undo history exactly once.
  * Phase 2 AI-assisted editing will call the same surface.
@@ -37,7 +49,9 @@ export interface FlowEditorApi {
   duplicateNode: (nodeId: string) => string | null;
   relayout: () => void;
   /** Create an edge from a completed handle drag; duplicates are ignored. */
-  connect: (connection: { source: string | null; target: string | null }) => void;
+  connect: (connection: EdgeConnection) => void;
+  /** Re-point one end of an existing edge; duplicates and no-ops are ignored. */
+  reconnect: (edgeId: string, connection: EdgeConnection) => void;
   updateEdgeLabel: (edgeId: string, label: string) => void;
   /** Merge per-edge overrides: data (curve), style (color/dash), markerEnd. */
   updateEdge: (edgeId: string, patch: { data?: Record<string, unknown>; style?: Record<string, unknown>; markerEnd?: unknown }) => void;
@@ -53,7 +67,7 @@ export interface FlowEditorApi {
   addConnectedNode: (
     type: import('./utils/nodeFactoryDefaults').EditorNodeType,
     position: { x: number; y: number },
-    connectFrom: { nodeId: string; handleType: 'source' | 'target' }
+    connectFrom: { nodeId: string; handleType: 'source' | 'target'; handleId?: string | null }
   ) => string | null;
   /** Call from onNodeDragStart / onSelectionDragStart. */
   beginMove: () => void;

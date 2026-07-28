@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { type ComponentType, type ReactNode } from 'react';
 import {
   Typography,
   Box,
@@ -15,77 +15,58 @@ import {
   dropdownMenuStylesDark
 } from '../../../shared/components/Dropdown';
 import SegmentedControl from '../../../shared/components/SegmentedControl';
+import {
+  EDGE_SHAPE_OPTIONS,
+  EDGE_STYLE_OPTIONS,
+  toEdgeColorName,
+} from '../../../shared/components/edgeAppearance';
+import EdgeColorSwatches from '../../../shared/components/EdgeColorSwatches';
 import { useProviderConfig, isModelAvailable } from '../hooks/useProviderConfig';
-import { createScrollbarStyle, flowVizTheme, type ThemeMode } from '../../../shared/theme/flowviz-theme';
+import { createScrollbarStyle, flowVizTheme, themePalettes, type ThemeMode } from '../../../shared/theme/flowviz-theme';
 import { useThemeMode } from '../../../shared/theme/ThemeModeProvider';
 
-const THEME_OPTIONS = [
-  { value: 'dark', label: 'Dark' },
-  { value: 'light', label: 'Light' },
-] as const satisfies readonly { value: ThemeMode; label: string }[];
-
 /**
- * A bit of edge drawn as a glyph, so the choice shows the thing rather than
- * naming it.
+ * The canvas a theme paints, as a swatch — the same argument the edge glyphs
+ * make, that a control should show its choice rather than name it.
  *
- * Each family varies exactly one property and holds the rest fixed, which is
- * what keeps them readable at 14px and keeps the two rows from being confused
- * for one another:
- *   shape — three different routings, same stroke, all corner to corner.
- *   style — same neutral horizontal, different stroke. Deliberately NOT the
- *           diagonal: reusing shape's straight run would draw the same glyph in
- *           two rows to mean two different things.
+ * Each fill is read from the palette it belongs to rather than the active one,
+ * so Dark shows the dark canvas even while you are looking at the light theme.
+ * The border is `currentColor`, which is what keeps a light swatch visible on
+ * the light dialog and a dark one visible on the dark dialog without either
+ * needing to know which theme is up; it also brightens with the active segment.
  *
- * Sized in `em` so it inherits the segment's `fontSize` like an icon font would;
- * SegmentedControl passes the icon slot nothing but a font size.
+ * Sized in `em` like the edge glyphs, since SegmentedControl passes its icon
+ * slot nothing but a font size.
  */
-const edgeGlyph = (path: string, dash?: string) => {
+const themeGlyph = (fill: string) => {
   const Glyph = ({ sx }: { sx?: object }) => (
     <Box
       component="svg"
-      viewBox="0 0 16 10"
-      fill="none"
+      viewBox="0 0 12 12"
       aria-hidden
-      sx={{ width: '1.6em', height: '1em', flexShrink: 0, ...sx }}
+      sx={{ width: '1em', height: '1em', flexShrink: 0, ...sx }}
     >
       <Box
-        component="path"
-        d={path}
-        sx={{
-          stroke: 'currentColor',
-          strokeWidth: 1.5,
-          // Round caps soften the shape glyphs' ends and corners, but they'd
-          // ruin a dashed one: a cap adds strokeWidth/2 to each end of every
-          // dash, so `3 3` would paint as 4.5 on / 1.5 off and read very nearly
-          // solid at this size. Butt caps keep the 1:1 rhythm the real edges
-          // draw with (`5 5`, in StreamingFlowVisualization).
-          strokeLinecap: dash ? 'butt' : 'round',
-          strokeLinejoin: 'round',
-          ...(dash && { strokeDasharray: dash }),
-        }}
+        component="rect"
+        x={1}
+        y={1}
+        width={10}
+        height={10}
+        rx={3}
+        sx={{ fill, stroke: 'currentColor', strokeOpacity: 0.45, strokeWidth: 1.5 }}
       />
     </Box>
   );
   return Glyph;
 };
 
-const CurvedGlyph = edgeGlyph('M1 8 C 6 8, 10 2, 15 2');
-const StraightGlyph = edgeGlyph('M1 8 L15 2');
-const SteppedGlyph = edgeGlyph('M1 8 H8 V2 H15');
+const DarkGlyph = themeGlyph(themePalettes.dark.colors.background.primary);
+const LightGlyph = themeGlyph(themePalettes.light.colors.background.primary);
 
-const SolidGlyph = edgeGlyph('M1 5 H15');
-const DashedGlyph = edgeGlyph('M1 5 H15', '3 3');
-
-const EDGE_STYLE_OPTIONS = [
-  { value: 'solid', label: 'Solid', icon: SolidGlyph },
-  { value: 'dashed', label: 'Dashed', icon: DashedGlyph },
-] as const;
-
-const EDGE_SHAPE_OPTIONS = [
-  { value: 'smooth', label: 'Curved', icon: CurvedGlyph },
-  { value: 'straight', label: 'Straight', icon: StraightGlyph },
-  { value: 'step', label: 'Stepped', icon: SteppedGlyph },
-] as const;
+const THEME_OPTIONS = [
+  { value: 'dark', label: 'Dark', icon: DarkGlyph },
+  { value: 'light', label: 'Light', icon: LightGlyph },
+] as const satisfies readonly { value: ThemeMode; label: string; icon: ComponentType<{ sx?: object }> }[];
 
 /**
  * A settings row: name on the left, control right-aligned.
@@ -368,22 +349,16 @@ export default function SettingsDialog({
 
           <Box sx={rowGroupDividerSx} />
 
-          {/* The edge inspector offers these same three choices per edge. The
-              options match it so the defaults here read as the thing they set —
-              but it lays them out as labelled fields, because it is a narrow
-              panel with room for nothing else. */}
-          <SettingRow label="Edge color">
+          {/* The edge inspector offers these same three choices per edge, and
+              draws them with the same glyphs and swatches. It lays them out as
+              labelled fields rather than rows, because it is a narrow panel
+              with room for nothing else. */}
+          <SettingRow label="Edge shape">
             <SegmentedControl
-              aria-label="Edge color"
-              options={[
-                { value: 'default', label: 'Default' },
-                // Stored as 'white' since that's what it has always been
-                // written as; on a light canvas it renders as graphite.
-                { value: 'white', label: 'Mono' },
-                { value: 'blue', label: 'Blue' },
-              ]}
-              value={edgeColor}
-              onChange={onEdgeColorChange}
+              aria-label="Edge shape"
+              options={EDGE_SHAPE_OPTIONS}
+              value={edgeCurve}
+              onChange={onEdgeCurveChange}
             />
           </SettingRow>
 
@@ -396,12 +371,12 @@ export default function SettingsDialog({
             />
           </SettingRow>
 
-          <SettingRow label="Edge shape">
-            <SegmentedControl
-              aria-label="Edge shape"
-              options={EDGE_SHAPE_OPTIONS}
-              value={edgeCurve}
-              onChange={onEdgeCurveChange}
+          <SettingRow label="Edge colour">
+            <EdgeColorSwatches
+              aria-label="Edge colour"
+              mode={mode}
+              value={toEdgeColorName(edgeColor)}
+              onChange={(color) => onEdgeColorChange(color.name)}
             />
           </SettingRow>
 

@@ -39,10 +39,14 @@ export class ClaudeProvider extends BaseProvider {
         'x-api-key': this.apiKey,
         'anthropic-version': '2023-06-01',
       },
+      // No `temperature`: Anthropic removed the sampling parameters on Opus 5,
+      // Fable 5, Opus 4.8 and 4.7, and a request carrying one is rejected with
+      // "`temperature` is deprecated for this model". Omitting it is valid on
+      // every Claude model, old and new, so there is nothing to branch on —
+      // steer these calls through the prompt instead.
       body: JSON.stringify({
         model: this.model,
         max_tokens: 16000,
-        temperature: 0.1,
         stream: true,
         messages: [{ role: 'user', content: prompt }],
         system: system || "You are an expert in cyber threat intelligence analysis."
@@ -98,7 +102,6 @@ export class ClaudeProvider extends BaseProvider {
       body: JSON.stringify({
         model: this.model,
         max_tokens: maxTokens || 8192,
-        temperature: 0.2,
         stream: true,
         system,
         messages,
@@ -152,7 +155,6 @@ export class ClaudeProvider extends BaseProvider {
     const response = await this.client.messages.create({
       model: this.model,
       max_tokens: 4000,
-      temperature: 0.1,
       messages: [
         {
           role: 'user',
@@ -161,7 +163,18 @@ export class ClaudeProvider extends BaseProvider {
       ],
     });
 
-    const analysisText = response.content[0]?.type === 'text' ? response.content[0].text : '';
+    // A refusal is a 200 with an empty or partial content array, so it has to be
+    // read before the content is, or it looks like a successful empty analysis.
+    if (response.stop_reason === 'refusal') {
+      throw new Error(`Claude declined the vision request${response.stop_details?.category ? ` (${response.stop_details.category})` : ''}`);
+    }
+
+    // Find the text block rather than indexing content[0]. Adaptive thinking is
+    // on by default on the current models, so a thinking block usually comes
+    // first and the answer sits behind it — reading [0] returned '' on most
+    // calls while still billing for them, and an empty analysis is indistinguishable
+    // from "this article had no useful images" to everything downstream.
+    const analysisText = response.content.find(block => block.type === 'text')?.text ?? '';
 
     return {
       analysisText,

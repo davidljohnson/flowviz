@@ -10,12 +10,22 @@ import {
   Position,
 } from 'reactflow';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import { getEdgeParams } from './floatingEdgeHelpers';
+import { getEdgeParams, type EdgePin } from './floatingEdgeHelpers';
 import { useEdgeActions } from '../../../flow-editing/context/EdgeActionsContext';
 
 // Edge that picks its connection sides from node geometry: bottom -> top for
 // parent/child ranks, side-to-side for same-rank neighbors. Honors the
 // edge-curve setting via data.curve ('smooth' | 'straight' | 'step').
+//
+// `data.pin` overrides that per end, and in practice every edge ends up with
+// one: the user's dots if they drew or reconnected it, otherwise the sides it
+// settled on once the layout stopped moving (see the settle effect in
+// StreamingFlowVisualization). So an edge holds its connection points while
+// nodes are dragged around, and only Clean up layout re-faces it. The geometric
+// fallback below still matters for the moment before an edge settles.
+//
+// Note the pin lives in data, not in sourceHandle/targetHandle — those ids are
+// kept in sync with the sides actually drawn and so can't also carry intent.
 function FloatingEdge({
   id,
   source,
@@ -40,7 +50,8 @@ function FloatingEdge({
     return null;
   }
 
-  const { sx, sy, tx, ty, sourcePos, targetPos } = getEdgeParams(sourceNode, targetNode);
+  const { sx, sy, tx, ty, sourcePos, targetPos } =
+    getEdgeParams(sourceNode, targetNode, data?.pin as EdgePin | undefined);
   const isLateral = sourcePos === Position.Left || sourcePos === Position.Right;
   const active = hovered || Boolean(selected);
 

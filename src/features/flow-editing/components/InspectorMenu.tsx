@@ -47,6 +47,10 @@ const InspectorMenu: React.FC<InspectorMenuProps> = ({ items = [], deleteLabel, 
           onClick={(e) => setAnchor(e.currentTarget)}
           size="small"
           sx={{
+            // controlSize / 16px glyph — see the close button beside it.
+            width: flowVizTheme.controlSize,
+            height: flowVizTheme.controlSize,
+            p: 0,
             color: ink ?? flowVizTheme.colors.text.tertiary,
             borderRadius: flowVizTheme.borderRadius.sm,
             transition: flowVizTheme.motion.fast,
@@ -56,7 +60,7 @@ const InspectorMenu: React.FC<InspectorMenuProps> = ({ items = [], deleteLabel, 
             },
           }}
         >
-          <MoreHorizRoundedIcon fontSize="small" />
+          <MoreHorizRoundedIcon sx={{ fontSize: 16 }} />
         </IconButton>
       </Tooltip>
 

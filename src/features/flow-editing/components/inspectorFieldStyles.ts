@@ -6,14 +6,20 @@ import { flowVizTheme } from '../../../shared/theme/flowviz-theme';
 // used to carry its own darker fill and heavier border and stood out from the
 // rest.
 
-/** Uppercase micro-label sitting above each field. */
+/**
+ * The label sitting above each field.
+ *
+ * Sentence case at the settings dialog's row-label treatment. It used to be an
+ * uppercase, letter-spaced micro-label, which the dialog borrowed and then
+ * dropped — five shouted labels was more emphasis than five field names carry.
+ * The stacked layout stays: these panels are 340px, too narrow for the dialog's
+ * label-left-control-right rows.
+ */
 export const labelSx = {
   display: 'block',
-  color: flowVizTheme.colors.text.tertiary,
-  fontSize: '0.68rem',
-  fontWeight: 600,
-  letterSpacing: '0.06em',
-  textTransform: 'uppercase' as const,
+  ...flowVizTheme.type.md,
+  color: flowVizTheme.colors.text.secondary,
+  fontWeight: 500,
   mb: 0.75,
 };
 

@@ -12,6 +12,7 @@ import {
   useReactFlow,
   ConnectionMode
 } from 'reactflow';
+import type { Connection, Edge } from 'reactflow';
 import { toPng } from 'html-to-image';
 import { STIXBundleExporter } from '../../flow-export/services/stixBundleExporter';
 import { AttackFlowV3Exporter } from '../../flow-export/services/attackFlowV3Exporter';
@@ -28,6 +29,8 @@ import { getLayoutedElements, boundsOf, type Bounds } from './utils/layoutUtils'
 
 import FloatingConnectionLine from './edges/FloatingConnectionLine';
 import FloatingEdge from './edges/FloatingEdge';
+import { resolveEdgeSides } from './edges/floatingEdgeHelpers';
+import { EDGE_DASH_ARRAY, edgeColorByName } from '../../../shared/components/edgeAppearance';
 import LoadingIndicator from '../../../shared/components/LoadingIndicator';
 import { useFlowEditor, useEditorKeyboard, EdgeLabelEditor, CommandPalette } from '../../flow-editing';
 import type { Command } from '../../flow-editing';
@@ -193,19 +196,19 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   const getEdgeConfig = useCallback(() => {
     // Line is translucent; the arrow is its opaque twin so the line doesn't show
     // through the arrowhead. Both must move together — colouring the line without
-    // the marker leaves the previous arrow colour stranded. (arrow colours match
-    // EdgeInspector's per-edge swatches.)
-    // The line is CSS, so it can ride the overlay token and flip with the
-    // theme on its own. The arrow can't (SVG marker attribute), so it's read
-    // as a raw value for the active mode — which is why `mode` is a dependency
-    // below: the effect that follows recolours edges already on the canvas.
-    const canvas = themePalettes[mode].colors.canvas;
-    const { stroke, arrow } = edgeColor === 'blue'
-      ? { stroke: 'rgba(59, 130, 246, 0.8)', arrow: themePalettes[mode].colors.accent.blue }
-      : edgeColor === 'white'
-        ? { stroke: 'rgba(var(--fv-overlay-rgb), 0.8)', arrow: canvas.edgeArrowStrong }
-        : { stroke: 'rgba(var(--fv-overlay-rgb), 0.55)', arrow: canvas.edgeArrow };
-    const strokeDasharray = edgeStyle === 'dashed' ? '5 5' : undefined;
+    // the marker leaves the previous arrow colour stranded.
+    //
+    // Both come from the same table the edge inspector paints its swatches from,
+    // so the flow-wide default and a per-edge override of the same colour are
+    // the same colour. They used not to be: blue was rgba(59,130,246,0.8) here
+    // against #3b82f6 there, which also meant an edge left on the default blue
+    // matched no swatch and the inspector showed nothing selected.
+    //
+    // `mode` is a dependency because the neutrals are read as raw values for the
+    // active theme — the arrow is an SVG marker attribute and can't ride the
+    // overlay token the way the line's CSS can.
+    const { line: stroke, arrow } = edgeColorByName(mode, edgeColor);
+    const strokeDasharray = edgeStyle === 'dashed' ? EDGE_DASH_ARRAY : undefined;
 
     return {
       type: 'floating',
@@ -246,6 +249,58 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   useEffect(() => {
     isStreamingRef.current = isStreaming;
   }, [isStreaming]);
+
+  // Settle every edge onto a pair of dots and record them, so an edge holds its
+  // connection points instead of re-facing whenever a node moves.
+  //
+  // Two things get written. `data.pin` is what FloatingEdge draws from, and it
+  // is only ever filled in ONCE per end — after that the edge is anchored and
+  // this effect leaves it alone. `sourceHandle`/`targetHandle` mirror the sides
+  // actually drawn: nothing renders from them, but ReactFlow places an edge's
+  // (invisible) reconnect grab targets at the handles the edge names, and left
+  // unset it falls back to the first handle of each type.
+  //
+  // Streamed and freshly loaded edges arrive with no pin, and this is where
+  // they get one — from the geometry dagre gave them. Clean up layout clears
+  // the pins so the new arrangement can choose afresh, and they settle again
+  // here. Both nodes have to be measured first, or the sides would be resolved
+  // against a fallback size and the wrong face would be the one that sticks.
+  //
+  // Writing straight to setEdges (not through the editor) keeps this out of
+  // undo history and off the unsaved-changes flag. It is safe to skip: the pin
+  // is set to the sides the edge is already drawn through, so it changes
+  // nothing visually at the moment it lands.
+  useEffect(() => {
+    if (isStreaming) return;
+    setEdges(currentEdges => {
+      const byId = new Map(nodes.map(n => [n.id, n]));
+      let changed = false;
+      const next = currentEdges.map(edge => {
+        const sourceNode = byId.get(edge.source);
+        const targetNode = byId.get(edge.target);
+        if (!sourceNode || !targetNode) return edge;
+        if (!sourceNode.width || !targetNode.width) return edge;
+
+        const pin = edge.data?.pin as { source?: string | null; target?: string | null } | undefined;
+        const sides = resolveEdgeSides(sourceNode, targetNode, pin);
+        const needsPin = !pin?.source || !pin?.target;
+        const idsMatch = edge.sourceHandle === sides.source && edge.targetHandle === sides.target;
+        if (idsMatch && !needsPin) return edge;
+
+        changed = true;
+        return {
+          ...edge,
+          sourceHandle: sides.source,
+          targetHandle: sides.target,
+          ...(needsPin ? { data: { ...edge.data, pin: { source: sides.source, target: sides.target } } } : {}),
+        };
+      });
+      return changed ? next : currentEdges;
+    });
+    // Runs on edges too, so a freshly drawn one settles straight away rather
+    // than waiting for the next node change. Returning the same array when
+    // nothing moved is what stops that from looping.
+  }, [nodes, edges, isStreaming, setEdges]);
 
   // Live view of nodes for streaming callbacks (avoids stale closures)
   const nodesRef = useRef<typeof nodes>([]);
@@ -449,11 +504,20 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
 
   // Add-node flows: drag-from-handle onto the pane, or toolbar Add button
   const [nodePicker, setNodePicker] = useState<NodePickerState | null>(null);
-  const connectStartRef = useRef<{ nodeId: string; handleType: 'source' | 'target' } | null>(null);
+  const connectStartRef = useRef<
+    { nodeId: string; handleType: 'source' | 'target'; handleId?: string | null } | null
+  >(null);
 
-  const handleConnectStart = useCallback((_event: any, params: { nodeId: string | null; handleType: string | null }) => {
+  const handleConnectStart = useCallback((
+    _event: any,
+    params: { nodeId: string | null; handleType: string | null; handleId?: string | null }
+  ) => {
     connectStartRef.current = params.nodeId
-      ? { nodeId: params.nodeId, handleType: (params.handleType as 'source' | 'target') ?? 'source' }
+      ? {
+          nodeId: params.nodeId,
+          handleType: (params.handleType as 'source' | 'target') ?? 'source',
+          handleId: params.handleId ?? null,
+        }
       : null;
   }, []);
 
@@ -461,19 +525,42 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   // source, so the arrow points at the node you dropped on — regardless of
   // which side's handle you grabbed. (In loose connection mode ReactFlow would
   // otherwise pick source/target by handle type, flipping top/left drags.)
-  const handleConnect = useCallback((connection: { source: string | null; target: string | null }) => {
+  // The handles swap alongside the nodes, or the pinned sides would end up on
+  // the wrong ends of a flipped edge.
+  const handleConnect = useCallback((connection: Connection) => {
     const startId = connectStartRef.current?.nodeId;
-    let { source, target } = connection;
+    let { source, target, sourceHandle, targetHandle } = connection;
     if (startId && target === startId && source) {
       [source, target] = [target, source];
+      [sourceHandle, targetHandle] = [targetHandle, sourceHandle];
     }
-    editor.connect({ source, target });
+    editor.connect({ source, target, sourceHandle, targetHandle });
   }, [editor.connect]);
+
+  // Dragging an existing endpoint onto another node (or another dot on the same
+  // node) re-points that end and pins it there.
+  const reconnectingRef = useRef(false);
+
+  const handleReconnectStart = useCallback(() => {
+    reconnectingRef.current = true;
+  }, []);
+
+  const handleReconnect = useCallback((oldEdge: Edge, connection: Connection) => {
+    if (isStreamingRef.current) return;
+    editor.reconnect(oldEdge.id, connection);
+  }, [editor.reconnect]);
+
+  const handleReconnectEnd = useCallback(() => {
+    reconnectingRef.current = false;
+  }, []);
 
   const handleConnectEnd = useCallback((event: MouseEvent | TouchEvent) => {
     const connectFrom = connectStartRef.current;
     connectStartRef.current = null;
     if (!connectFrom || isStreamingRef.current) return;
+    // Reconnect drags raise onConnectStart/End too. Dropping one on the canvas
+    // means "I missed" — leave the edge alone rather than also spawning a node.
+    if (reconnectingRef.current) return;
 
     // Only open the picker when the connection was dropped on empty canvas
     const target = event.target as HTMLElement | null;
@@ -1442,6 +1529,14 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
           onConnect={handleConnect}
           onConnectStart={handleConnectStart}
           onConnectEnd={handleConnectEnd}
+          onEdgeUpdate={handleReconnect}
+          onEdgeUpdateStart={handleReconnectStart}
+          onEdgeUpdateEnd={handleReconnectEnd}
+          edgesUpdatable={!isStreaming}
+          // Grab radius around an edge's endpoints. Wider than the 10px default
+          // because these endpoints sit a few pixels off the node's dot, and a
+          // near-miss should still pick up the edge rather than the canvas.
+          edgeUpdaterRadius={16}
           onEdgeClick={handleEdgeClick}
           onEdgeDoubleClick={handleEdgeDoubleClick}
           onNodeDoubleClick={handleNodeDoubleClick}

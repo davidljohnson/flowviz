@@ -11,7 +11,7 @@ export interface NodePickerState {
   /** Flow coordinates where the new node lands (node center). */
   flowPosition: { x: number; y: number };
   /** Set when opened from a handle drag: the new node connects to this node. */
-  connectFrom?: { nodeId: string; handleType: 'source' | 'target' };
+  connectFrom?: { nodeId: string; handleType: 'source' | 'target'; handleId?: string | null };
 }
 
 interface NodeTypePickerMenuProps {

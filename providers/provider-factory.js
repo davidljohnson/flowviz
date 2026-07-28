@@ -14,6 +14,26 @@ const MODEL_FETCH_TIMEOUT_MS = 5000;
 const modelCache = new Map();
 
 /**
+ * The model each provider falls back to when its `*_MODEL` env var is unset.
+ *
+ * One object because the value used to be a literal repeated at five call
+ * sites across two files, and they had drifted: the factory answered
+ * `claude-sonnet-5` while the three requests server.js builds by hand answered
+ * `claude-sonnet-4-5-20250929`. So with ANTHROPIC_MODEL unset, which model you
+ * got depended on which code path served the request — and `/api/providers`
+ * advertised the factory's answer either way, so the UI was reporting a model
+ * that analysis and vision were not using.
+ *
+ * `claude-sonnet-5` wins because it is the one that was already advertised;
+ * converging on it makes the claim true rather than moving the goalposts.
+ */
+export const DEFAULT_MODELS = {
+  anthropic: 'claude-sonnet-5',
+  openai: 'gpt-4o',
+  ollama: 'huggingface.co/TeichAI/Qwen3-14B-Claude-Sonnet-4.5-Reasoning-Distill-GGUF:latest',
+};
+
+/**
  * Factory for creating AI provider instances
  */
 export class ProviderFactory {
@@ -57,7 +77,7 @@ export class ProviderFactory {
         name: 'Anthropic',
         displayName: 'Anthropic',
         models: ClaudeProvider.getSupportedModels(),
-        defaultModel: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5',
+        defaultModel: process.env.ANTHROPIC_MODEL || DEFAULT_MODELS.anthropic,
         configured: true
       });
     }
@@ -69,7 +89,7 @@ export class ProviderFactory {
         name: 'OpenAI',
         displayName: 'OpenAI',
         models: OpenAIProvider.getSupportedModels(),
-        defaultModel: process.env.OPENAI_MODEL || 'gpt-4o',
+        defaultModel: process.env.OPENAI_MODEL || DEFAULT_MODELS.openai,
         configured: true
       });
     }
@@ -81,7 +101,7 @@ export class ProviderFactory {
         name: 'Ollama',
         displayName: 'Ollama',
         models: OllamaProvider.getSupportedModels(),
-        defaultModel: process.env.OLLAMA_TEXT_MODEL || 'huggingface.co/TeichAI/Qwen3-14B-Claude-Sonnet-4.5-Reasoning-Distill-GGUF:latest',
+        defaultModel: process.env.OLLAMA_TEXT_MODEL || DEFAULT_MODELS.ollama,
         configured: true
       });
     }
@@ -216,7 +236,7 @@ export class ProviderFactory {
     if (normalized === 'anthropic' || normalized === 'claude') {
       return {
         apiKey: process.env.ANTHROPIC_API_KEY,
-        model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5',
+        model: process.env.ANTHROPIC_MODEL || DEFAULT_MODELS.anthropic,
         baseUrl: process.env.ANTHROPIC_BASE_URL
       };
     }
@@ -224,7 +244,7 @@ export class ProviderFactory {
     if (normalized === 'openai' || normalized === 'gpt') {
       return {
         apiKey: process.env.OPENAI_API_KEY,
-        model: process.env.OPENAI_MODEL || 'gpt-4o',
+        model: process.env.OPENAI_MODEL || DEFAULT_MODELS.openai,
         baseUrl: process.env.OPENAI_BASE_URL
       };
     }

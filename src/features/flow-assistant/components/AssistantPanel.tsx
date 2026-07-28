@@ -36,11 +36,61 @@ interface AssistantPanelProps {
 const bubbleSx = {
   px: 1.5,
   py: 1,
-  borderRadius: flowVizTheme.borderRadius.lg,
-  fontSize: '0.82rem',
-  lineHeight: 1.5,
+  // md, not lg: these nest inside a 12px panel, and nested radii step down.
+  borderRadius: flowVizTheme.borderRadius.md,
+  ...flowVizTheme.type.md,
   whiteSpace: 'pre-wrap' as const,
   wordBreak: 'break-word' as const,
+};
+
+/**
+ * The assistant's own replies get no bubble. A 0.05 fill against the user's 0.10
+ * is a distinction nobody can actually see, so both speakers just read as boxed;
+ * dropping the box entirely is what makes "you asked, the app answered" legible,
+ * and it takes a border off every reply.
+ */
+const assistantSx = {
+  px: 0.5,
+  py: 0.25,
+  color: flowVizTheme.colors.text.primary,
+  maxWidth: '96%',
+};
+
+/**
+ * Panel-header controls, at the size the rest of the chrome uses.
+ *
+ * A fixed box rather than padding around the glyph, for the reason
+ * ToolbarIconButton gives: derive the size from padding and it drifts the
+ * moment an icon renders at a different step. That drift is exactly what
+ * happened here — MUI's `small` padding around a 16px glyph produced 26, while
+ * the inspector's 20px glyph produced 30, and `controlSize` claimed to be "the
+ * height of every control in the chrome" while describing neither.
+ */
+const headerButtonSx = {
+  width: flowVizTheme.controlSize,
+  height: flowVizTheme.controlSize,
+  p: 0,
+  flexShrink: 0,
+  color: flowVizTheme.colors.text.tertiary,
+  '&.Mui-disabled': { color: flowVizTheme.colors.text.disabled },
+};
+
+/**
+ * The neutral sibling of the node inspector's TypeToken: identical geometry
+ * (28 box, radius at 0.29 of it, 16px glyph), without the type colour, which
+ * on a node encodes something the assistant does not have.
+ */
+const assistantTokenSx = {
+  width: flowVizTheme.controlSize,
+  height: flowVizTheme.controlSize,
+  flexShrink: 0,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: `${Math.round(flowVizTheme.controlSize * 0.29)}px`,
+  backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.06)',
+  border: '1px solid rgba(var(--fv-overlay-rgb), 0.1)',
+  color: flowVizTheme.colors.text.primary,
 };
 
 /** Hover copy control for assistant replies; flashes a check on success. */
@@ -83,8 +133,12 @@ const GRAPH_SUGGESTIONS = [
   'Draft Sigma rules for this attack',
   'Find coverage gaps in this flow',
 ];
+// Three, like the graph set: a single chip reads as an orphan rather than as a
+// choice.
 const EMPTY_CANVAS_SUGGESTIONS = [
   'Build an example phishing attack flow',
+  'Build a ransomware flow',
+  'What can you do?',
 ];
 
 function OpChips({ results }: { results: OpResult[] }) {
@@ -98,7 +152,7 @@ function OpChips({ results }: { results: OpResult[] }) {
             label={result.status === 'skipped' ? `Skipped: ${result.summary}` : result.summary}
             sx={{
               height: 20,
-              fontSize: '0.66rem',
+              ...flowVizTheme.type.xs,
               backgroundColor: result.status === 'skipped'
                 ? flowVizTheme.colors.status.warning.bg
                 : 'rgba(var(--fv-overlay-rgb), 0.08)',
@@ -194,32 +248,49 @@ export default function AssistantPanel({
       <Box
         sx={{
           px: 2,
-          py: 1.25,
+          // Matches NodeInspector's header. The two stack into one column when
+          // an inspector is open, and were meeting at different heights.
+          pt: 1.75,
+          pb: 1.5,
           display: 'flex',
           alignItems: 'center',
           gap: 1,
           borderBottom: '1px solid rgba(var(--fv-overlay-rgb), 0.06)',
         }}
       >
-        <AssistantMark size={19} />
-        <Typography sx={{ flex: 1, fontSize: '0.82rem', fontWeight: 600, color: flowVizTheme.colors.text.primary }}>
-          AI Assistant
+        {/* The mark gets the node inspector's token treatment — same 28 tile,
+            same 0.29 radius ratio, same 16px glyph inside it. The two panels
+            stack into one column, so their headers should share an anatomy:
+            [anchor] [label] [actions]. Neutral rather than tinted, because the
+            token's colour carries a node's type and the assistant has none. */}
+        <Box sx={assistantTokenSx}>
+          <AssistantMark size={16} thinking={pending} />
+        </Box>
+        <Typography sx={{ flex: 1, ...flowVizTheme.type.md, fontWeight: 600, color: flowVizTheme.colors.text.primary }}>
+          Assistant
         </Typography>
-        <Tooltip title={expanded ? 'Shrink panel' : 'Expand panel'}>
-          <IconButton size="small" onClick={toggleExpanded} sx={{ color: flowVizTheme.colors.text.tertiary }}>
-            {expanded ? <CloseFullscreenIcon sx={{ fontSize: 16 }} /> : <OpenInFullIcon sx={{ fontSize: 16 }} />}
-          </IconButton>
+        {/* Disabled rather than hidden when stacked: expanding only has an axis
+            to move on when this panel owns the rail alone, and a control that
+            vanishes as you select a node is its own kind of jitter. Disabled
+            says "not here" where the old always-live button said "done" and
+            then moved nothing. */}
+        <Tooltip title={stacked ? 'Close the inspector to expand' : expanded ? 'Shrink panel' : 'Expand panel'}>
+          <span>
+            <IconButton size="small" onClick={toggleExpanded} disabled={stacked} sx={headerButtonSx}>
+              {expanded ? <CloseFullscreenIcon sx={{ fontSize: 16 }} /> : <OpenInFullIcon sx={{ fontSize: 16 }} />}
+            </IconButton>
+          </span>
         </Tooltip>
         <Tooltip title="Clear conversation">
           <span>
-            <IconButton size="small" onClick={onClear} disabled={messages.length === 0 || pending} sx={{ color: flowVizTheme.colors.text.tertiary }}>
-              <RestartAltIcon fontSize="small" />
+            <IconButton size="small" onClick={onClear} disabled={messages.length === 0 || pending} sx={headerButtonSx}>
+              <RestartAltIcon sx={{ fontSize: 16 }} />
             </IconButton>
           </span>
         </Tooltip>
         <Tooltip title="Close">
-          <IconButton size="small" onClick={onClose} sx={{ color: flowVizTheme.colors.text.tertiary }}>
-            <CloseIcon fontSize="small" />
+          <IconButton size="small" onClick={onClose} sx={headerButtonSx}>
+            <CloseIcon sx={{ fontSize: 16 }} />
           </IconButton>
         </Tooltip>
       </Box>
@@ -228,10 +299,10 @@ export default function AssistantPanel({
       <Box ref={listRef} sx={{ flex: 1, overflowY: 'auto', px: 1.5, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1, ...createScrollbarStyle() }}>
         {messages.length === 0 && !pending && (
           <>
-            {/* Body copy at 0.45 of the ink measured 2.94:1 on light. This is
-                the first thing anyone reads in the panel. */}
-            <Typography sx={{ color: flowVizTheme.colors.text.tertiary, fontSize: '0.78rem', px: 0.5, py: 1 }}>
-              Ask about the graph or tell me to edit it — "add a C2 server connected to the loader", "delete the phishing node".
+            {/* The two quoted examples this used to carry are chips now, which
+                is where an example you can click belongs. */}
+            <Typography sx={{ color: flowVizTheme.colors.text.tertiary, ...flowVizTheme.type.sm, px: 0.5, py: 1 }}>
+              Ask about the graph, or tell me to change it.
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, px: 0.5 }}>
               {(hasGraph ? GRAPH_SUGGESTIONS : EMPTY_CANVAS_SUGGESTIONS).map((suggestion) => (
@@ -243,7 +314,7 @@ export default function AssistantPanel({
                   onClick={() => onSend(suggestion)}
                   sx={{
                     height: 24,
-                    fontSize: '0.72rem',
+                    ...flowVizTheme.type.xs,
                     color: flowVizTheme.colors.text.secondary,
                     backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.05)',
                     border: '1px solid rgba(var(--fv-overlay-rgb), 0.12)',
@@ -267,9 +338,7 @@ export default function AssistantPanel({
                 color: flowVizTheme.colors.text.primary,
               }),
               ...(message.role === 'assistant' && {
-                backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.05)',
-                border: '1px solid rgba(var(--fv-overlay-rgb), 0.08)',
-                color: flowVizTheme.colors.text.primary,
+                ...assistantSx,
                 position: 'relative' as const,
                 '&:hover .fv-copy': { opacity: 1 },
               }),
@@ -289,15 +358,15 @@ export default function AssistantPanel({
         ))}
         {pending && (
           streamingText ? (
-            <Box sx={{ alignSelf: 'flex-start', maxWidth: '90%', ...bubbleSx, backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.05)', border: '1px solid rgba(var(--fv-overlay-rgb), 0.08)', color: flowVizTheme.colors.text.primary }}>
+            <Box sx={{ alignSelf: 'flex-start', ...bubbleSx, ...assistantSx }}>
               <AssistantMarkdown text={trimStreamingTail(streamingText)} onFocusNode={onFocusNode} />
             </Box>
           ) : (
-            <Box sx={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 1, ...bubbleSx, backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.05)', border: '1px solid rgba(var(--fv-overlay-rgb), 0.08)' }}>
+            <Box sx={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 1, ...bubbleSx, ...assistantSx }}>
               {/* Matches the "Thinking…" label beside it — the two are one
                   message and were drifting apart by 0.05. */}
               <CircularProgress size={14} sx={{ color: flowVizTheme.colors.text.tertiary }} />
-              <Typography sx={{ fontSize: '0.78rem', color: flowVizTheme.colors.text.tertiary }}>Thinking…</Typography>
+              <Typography sx={{ ...flowVizTheme.type.sm, color: flowVizTheme.colors.text.tertiary }}>Thinking…</Typography>
             </Box>
           )
         )}
@@ -332,7 +401,7 @@ export default function AssistantPanel({
             disabled={disabled || pending}
             sx={{
               flex: 1,
-              fontSize: '0.82rem',
+              ...flowVizTheme.type.md,
               color: flowVizTheme.colors.text.primary,
               px: 1.25,
               py: 0.75,
@@ -351,8 +420,8 @@ export default function AssistantPanel({
             onClick={submit}
             disabled={!canSend}
             sx={{
-              width: 30,
-              height: 30,
+              width: flowVizTheme.controlSize,
+              height: flowVizTheme.controlSize,
               mb: 0.25,
               flexShrink: 0,
               backgroundColor: flowVizTheme.colors.inverse.surface,

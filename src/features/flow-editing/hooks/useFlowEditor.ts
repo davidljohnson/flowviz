@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { Edge, Node } from 'reactflow';
 import { getLayoutedElements } from '../../flow-analysis/components/utils/layoutUtils';
+import { resolveEdgeSides } from '../../flow-analysis/components/edges/floatingEdgeHelpers';
 import { createFlowNode, EditorNodeType } from '../utils/nodeFactoryDefaults';
-import { FlowEditorApi, FlowSnapshot } from '../types';
+import { EdgeConnection, FlowEditorApi, FlowSnapshot } from '../types';
 import { useEditHistory } from './useEditHistory';
 
 interface UseFlowEditorParams {
@@ -176,11 +177,24 @@ export function useFlowEditor({
     const before = currentSnapshot();
     const layouted = getLayoutedElements(nodesRef.current, edgesRef.current, { chainOrphans: true });
     setNodes(layouted.nodes);
+    // Auto-arrange is the user handing the arrangement back to the app, so the
+    // dots they pinned earlier go with it. Held, they'd point at sides the new
+    // layout no longer puts opposite each other and the edges would swing out
+    // around the cards. Clearing is not the same as unpinning for good — the
+    // settle effect in StreamingFlowVisualization gives each edge a fresh pin
+    // from the new geometry — so this is "re-face once", not "float from now
+    // on". Same history entry as the move, so one undo restores both the
+    // positions and the pins.
+    setEdges(prev => prev.map(e => {
+      if (!e.data?.pin) return e;
+      const { pin: _pin, ...data } = e.data;
+      return { ...e, data };
+    }));
     commit('Auto-arrange', before);
     // Defer fitView until ReactFlow has committed the new node positions,
     // otherwise it frames the pre-layout bounds and lands off-screen
     setTimeout(() => fitViewRef.current?.(), 50);
-  }, [setNodes, currentSnapshot, commit]);
+  }, [setNodes, setEdges, currentSnapshot, commit]);
 
   const addNode = useCallback((type: EditorNodeType, position: { x: number; y: number }): string | null => {
     if (isStreamingRef.current) return null;
@@ -194,7 +208,7 @@ export function useFlowEditor({
   const addConnectedNode = useCallback((
     type: EditorNodeType,
     position: { x: number; y: number },
-    connectFrom: { nodeId: string; handleType: 'source' | 'target' }
+    connectFrom: { nodeId: string; handleType: 'source' | 'target'; handleId?: string | null }
   ): string | null => {
     if (isStreamingRef.current) return null;
     const origin = nodesRef.current.find(n => n.id === connectFrom.nodeId);
@@ -211,7 +225,10 @@ export function useFlowEditor({
       source: sourceNode.id,
       target: targetNode.id,
       type: edgeConfig.type,
-      data: { ...edgeConfig.data },
+      // The origin end holds the dot the drag started from; the new node's end
+      // is left to float, since the picker chose where the node lands, not how
+      // the edge should meet it.
+      data: { ...edgeConfig.data, pin: { source: connectFrom.handleId ?? null } },
       style: edgeConfig.style,
     };
 
@@ -241,7 +258,31 @@ export function useFlowEditor({
     commit('Edit node', before);
   }, [setNodes, currentSnapshot, commit]);
 
-  const connect = useCallback((connection: { source: string | null; target: string | null }) => {
+  /**
+   * The dots an edge should hold, for a connection the user just made.
+   *
+   * A drag only names a handle when it started or landed on one — ReactFlow
+   * resolves a drop to a dot within connectionRadius, and a drop in the middle
+   * of a card is well outside that, so it arrives with a null handle. Rather
+   * than leave that end floating (it would then re-face every time either node
+   * moved), resolve the side the edge actually connects through and pin that:
+   * the edge stays where it was dropped.
+   */
+  const pinFor = useCallback((connection: EdgeConnection) => {
+    const sourceNode = nodesRef.current.find(n => n.id === connection.source);
+    const targetNode = nodesRef.current.find(n => n.id === connection.target);
+    if (!sourceNode || !targetNode) {
+      return { source: connection.sourceHandle ?? null, target: connection.targetHandle ?? null };
+    }
+    return resolveEdgeSides(sourceNode, targetNode, {
+      source: connection.sourceHandle,
+      target: connection.targetHandle,
+    });
+  }, []);
+
+  // Edges the user drew record the dots they used in data.pin, so FloatingEdge
+  // holds those sides instead of re-deriving them from geometry.
+  const connect = useCallback((connection: EdgeConnection) => {
     if (isStreamingRef.current) return;
     const { source, target } = connection;
     if (!source || !target) return;
@@ -255,12 +296,42 @@ export function useFlowEditor({
       source,
       target,
       type: edgeConfig.type,
-      data: { ...edgeConfig.data },
+      data: { ...edgeConfig.data, pin: pinFor(connection) },
       style: edgeConfig.style,
     };
     setEdges(prev => [...prev, newEdge]);
     commit('Connect', before);
-  }, [setEdges, currentSnapshot, commit]);
+  }, [setEdges, currentSnapshot, commit, pinFor]);
+
+  // Drag an existing endpoint onto another node or dot. Like connect(), the
+  // result is pinned — the user just said where this end belongs.
+  const reconnect = useCallback((edgeId: string, connection: EdgeConnection) => {
+    if (isStreamingRef.current) return;
+    const { source, target } = connection;
+    if (!source || !target) return;
+    const edge = edgesRef.current.find(e => e.id === edgeId);
+    if (!edge) return;
+    const pin = pinFor(connection);
+    const oldPin = (edge.data?.pin ?? {}) as { source?: string | null; target?: string | null };
+    // Landing back where it already was, or duplicating an edge that exists
+    // elsewhere, is a no-op rather than a silent overwrite
+    if (
+      edge.source === source &&
+      edge.target === target &&
+      (oldPin.source ?? null) === pin.source &&
+      (oldPin.target ?? null) === pin.target
+    ) return;
+    if (edgesRef.current.some(e => e.id !== edgeId && e.source === source && e.target === target)) return;
+
+    const before = currentSnapshot();
+    setEdges(prev => prev.map(e => e.id === edgeId ? {
+      ...e,
+      source,
+      target,
+      data: { ...e.data, pin },
+    } : e));
+    commit('Reconnect edge', before);
+  }, [setEdges, currentSnapshot, commit, pinFor]);
 
   const updateEdgeLabel = useCallback((edgeId: string, label: string) => {
     if (isStreamingRef.current) return;
@@ -300,14 +371,22 @@ export function useFlowEditor({
     commit('Delete', before);
   }, [setEdges, currentSnapshot, commit]);
 
-  // Swap source/target so the arrow points the other way.
+  // Swap source/target so the arrow points the other way. Any pinned dots ride
+  // along, or the edge would keep its old ends while the nodes swapped.
   const reverseEdge = useCallback((edgeId: string) => {
     if (isStreamingRef.current) return;
     if (!edgesRef.current.some(e => e.id === edgeId)) return;
     const before = currentSnapshot();
-    setEdges(prev => prev.map(e =>
-      e.id === edgeId ? { ...e, source: e.target, target: e.source } : e
-    ));
+    setEdges(prev => prev.map(e => {
+      if (e.id !== edgeId) return e;
+      const pin = e.data?.pin as { source?: string | null; target?: string | null } | undefined;
+      return {
+        ...e,
+        source: e.target,
+        target: e.source,
+        ...(pin ? { data: { ...e.data, pin: { source: pin.target ?? null, target: pin.source ?? null } } } : {}),
+      };
+    }));
     commit('Reverse edge', before);
   }, [setEdges, currentSnapshot, commit]);
 
@@ -345,6 +424,7 @@ export function useFlowEditor({
     duplicateNode,
     relayout,
     connect,
+    reconnect,
     updateEdgeLabel,
     updateEdge,
     reverseEdge,
