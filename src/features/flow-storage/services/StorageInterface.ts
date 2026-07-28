@@ -1,4 +1,4 @@
-import { SavedFlow, StorageStats, ImportResult } from '../types/SavedFlow';
+import { SavedFlow, ImportResult } from '../types/SavedFlow';
 
 export interface IFlowStorage {
   // Core operations
@@ -22,7 +22,6 @@ export interface IFlowStorage {
   importFlows(files: FileList): Promise<ImportResult>;
   
   // Metadata and management
-  getStorageStats(): Promise<StorageStats>;
   clearAllFlows(): Promise<void>;
   updateFlowMetadata(id: string, updates: Partial<SavedFlow['metadata']>): Promise<void>;
   

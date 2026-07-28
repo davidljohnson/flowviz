@@ -13,9 +13,9 @@ import {
 
 interface SearchAndFiltersProps {
   searchTerm: string;
-  sortBy: 'date' | 'title' | 'nodes';
+  sortBy: 'date' | 'title';
   onSearchChange: (value: string) => void;
-  onSortChange: (sortBy: 'date' | 'title' | 'nodes') => void;
+  onSortChange: (sortBy: 'date' | 'title') => void;
 }
 
 const SearchAndFilters: React.FC<SearchAndFiltersProps> = ({
@@ -29,7 +29,7 @@ const SearchAndFilters: React.FC<SearchAndFiltersProps> = ({
       {/* Search and Sort */}
       <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
         <SearchInputWithClear
-          placeholder="Search flows..."
+          placeholder="Search analyses…"
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
           onClear={() => onSearchChange('')}
@@ -44,7 +44,7 @@ const SearchAndFilters: React.FC<SearchAndFiltersProps> = ({
           <InputLabel>Sort by</InputLabel>
           <DropdownSelect
             value={sortBy}
-            onChange={(e) => onSortChange(e.target.value as 'date' | 'title' | 'nodes')}
+            onChange={(e) => onSortChange(e.target.value as 'date' | 'title')}
             label="Sort by"
             MenuProps={dropdownMenuStyles}
           >
@@ -53,9 +53,6 @@ const SearchAndFilters: React.FC<SearchAndFiltersProps> = ({
             </DropdownMenuItem>
             <DropdownMenuItem value="title">
               Title
-            </DropdownMenuItem>
-            <DropdownMenuItem value="nodes">
-              Size
             </DropdownMenuItem>
           </DropdownSelect>
         </DropdownFormControl>

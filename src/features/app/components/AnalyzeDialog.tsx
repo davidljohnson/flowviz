@@ -65,7 +65,6 @@ export default function AnalyzeDialog({
       <EnhancedDialogContent>
         <AnalysisInput
           {...inputProps}
-          compact
           // With a flow already on the canvas, the button names what happens to
           // it and mirrors the toggle above. Empty canvas has no toggle, so it
           // falls through to the plain "Analyze report".

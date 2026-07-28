@@ -1,9 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Typography,
-  LinearProgress
-} from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { FlowAlert } from '../../../shared/components/Alert';
 import { 
   EnhancedDialog,
@@ -17,7 +13,7 @@ import {
 } from '../../../shared/components/EnhancedForm';
 import { Node, Edge, Viewport } from 'reactflow';
 import { SavedFlow, SavedAssistantMessage } from '../types/SavedFlow';
-import { LocalStorageService, StorageError } from '../services';
+import { flowStorage, StorageError } from '../services';
 import { flowVizTheme } from '../../../shared/theme/flowviz-theme';
 
 interface SaveFlowDialogProps {
@@ -35,6 +31,27 @@ interface SaveFlowDialogProps {
   existingFlowId?: string | null;
   onSave: (flow: SavedFlow) => void;
 }
+
+/**
+ * The host of a source URL, or null if it can't be parsed.
+ *
+ * `new URL()` throws on anything malformed, and nothing guarantees sourceUrl is
+ * well formed: validateFlow copies it through unchecked, so an imported file can
+ * carry any string, and loading such a flow puts it straight into App's
+ * submittedUrl. This component is mounted whenever there is save data — not only
+ * while open — so an unguarded parse in its body took the whole app down to the
+ * error boundary the moment that flow was loaded, before the dialog was ever
+ * shown. generateTitle already caught this for its own parse; the summary line
+ * did not.
+ */
+const hostnameOf = (url: string | undefined): string | null => {
+  if (!url) return null;
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return null;
+  }
+};
 
 const SaveFlowDialog: React.FC<SaveFlowDialogProps> = ({
   open,
@@ -55,7 +72,15 @@ const SaveFlowDialog: React.FC<SaveFlowDialogProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [existingFlow, setExistingFlow] = useState<SavedFlow | null>(null);
 
-  const storageService = new LocalStorageService();
+  const sourceHost = hostnameOf(sourceUrl);
+
+  /**
+   * An empty canvas can be saved today: the dialog opens with an auto-generated
+   * title, so the only condition on the button — a non-blank title — is already
+   * met, and you get a stored analysis with no nodes in it. The count line used
+   * to be the only thing standing in the way, which is to say nothing was.
+   */
+  const isEmpty = nodes.length === 0;
 
   // Load the flow being updated (prefills title/description) or
   // auto-generate a title for a fresh save
@@ -64,7 +89,7 @@ const SaveFlowDialog: React.FC<SaveFlowDialogProps> = ({
     let cancelled = false;
 
     if (existingFlowId) {
-      new LocalStorageService().loadFlow(existingFlowId)
+      flowStorage.loadFlow(existingFlowId)
         .then(flow => {
           if (cancelled) return;
           setExistingFlow(flow);
@@ -101,16 +126,12 @@ const SaveFlowDialog: React.FC<SaveFlowDialogProps> = ({
   const generateTitle = () => {
     const date = new Date().toLocaleDateString();
     
-    if (inputMode === 'url' && sourceUrl) {
-      try {
-        const url = new URL(sourceUrl);
-        const domain = url.hostname.replace('www.', '');
-        setTitle(`Analysis from ${domain} - ${date}`);
-      } catch {
-        setTitle(`URL Analysis - ${date}`);
-      }
+    if (inputMode === 'url' && sourceHost) {
+      setTitle(`Analysis from ${sourceHost.replace('www.', '')} - ${date}`);
+    } else if (inputMode === 'url') {
+      setTitle(`URL analysis - ${date}`);
     } else {
-      setTitle(`Text Analysis - ${date}`);
+      setTitle(`Text analysis - ${date}`);
     }
   };
 
@@ -134,8 +155,7 @@ const SaveFlowDialog: React.FC<SaveFlowDialogProps> = ({
   };
 
   const handleSave = async (mode: 'new' | 'update' = 'new') => {
-    if (!title.trim()) {
-      setError('Title is required');
+    if (!title.trim() || isEmpty) {
       return;
     }
 
@@ -175,14 +195,14 @@ const SaveFlowDialog: React.FC<SaveFlowDialogProps> = ({
         }
       };
 
-      await storageService.saveFlow(flow);
+      await flowStorage.saveFlow(flow);
       onSave(flow);
       onClose();
     } catch (err) {
       if (err instanceof StorageError) {
         setError(err.message);
       } else {
-        setError('Failed to save flow. Please try again.');
+        setError('Could not save. Please try again.');
       }
     } finally {
       setSaving(false);
@@ -193,7 +213,7 @@ const SaveFlowDialog: React.FC<SaveFlowDialogProps> = ({
     <EnhancedDialog 
       open={open} 
       onClose={onClose}
-      title="Save Analysis"
+      title="Save analysis"
       maxWidth="sm"
       fullWidth
       dialogMaxWidth="600px"
@@ -238,48 +258,39 @@ const SaveFlowDialog: React.FC<SaveFlowDialogProps> = ({
             fullWidth
             multiline
             rows={3}
-            placeholder="Brief description of this analysis..."
+            placeholder="Brief description of this analysis…"
           />
           
-          <Box sx={{ 
-            p: 2, 
-            bgcolor: 'rgba(var(--fv-overlay-rgb), 0.02)', 
-            borderRadius: flowVizTheme.borderRadius.md,
-            border: '1px solid rgba(var(--fv-overlay-rgb), 0.05)'
-          }}>
-            <Typography variant="caption" sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.6)' }}>
-              Analysis Summary
-            </Typography>
-            <Typography 
-              variant="body2" 
-              sx={{ 
-                color: 'rgba(var(--fv-overlay-rgb), 0.8)', 
-                mt: 0.5,
+          {/* The node and edge counts are gone. The one job they did was letting
+              you notice you were about to save nothing — which is a rule, not a
+              fact to print and hope is read, so it is enforced below instead.
+              What's left is where the report came from, which the canvas behind
+              this doesn't say. */}
+          {(isEmpty || sourceHost) && (
+            <Typography
+              sx={{
+                fontSize: '0.78rem',
+                lineHeight: 1.5,
+                color: isEmpty
+                  ? flowVizTheme.colors.text.secondary
+                  : flowVizTheme.colors.text.tertiary,
                 wordBreak: 'break-word',
-                overflowWrap: 'break-word',
-                maxWidth: '100%',
               }}
             >
-              {nodes.length} nodes • {edges.length} edges
-              {sourceUrl && ` • Source: ${new URL(sourceUrl).hostname}`}
+              {isEmpty
+                ? 'There is nothing on the canvas to save yet.'
+                : `From ${sourceHost}`}
             </Typography>
-          </Box>
+          )}
         </Box>
-        
-        {saving && (
-          <Box sx={{ mt: 2 }}>
-            <LinearProgress 
-              sx={{
-                backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.1)',
-                '& .MuiLinearProgress-bar': {
-                  backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.7)',
-                }
-              }}
-            />
-          </Box>
-        )}
+
+        {/* No progress bar. It was indeterminate, so it carried no information,
+            and it measured a synchronous localStorage write — it appeared and
+            vanished within a frame while adding height and shifting the dialog
+            as it went. The disabled buttons and the "Saving…" label say the same
+            thing without moving anything. */}
       </EnhancedDialogContent>
-      
+
       <EnhancedDialogActions>
         <SecondaryButton
           onClick={onClose}
@@ -290,16 +301,27 @@ const SaveFlowDialog: React.FC<SaveFlowDialogProps> = ({
         {existingFlow && (
           <SecondaryButton
             onClick={() => handleSave('new')}
-            disabled={saving || !title.trim()}
+            disabled={saving || !title.trim() || isEmpty}
+            // Three buttons, two of which write: this one needs to read as an
+            // action rather than as a second Cancel, which is what it looked
+            // like when both were the same bare ghost. An outline puts it
+            // between the two — plainly a thing that does something, plainly
+            // not the thing the button beside it does.
+            sx={{
+              border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
+              '&:hover': {
+                border: `1px solid ${flowVizTheme.colors.surface.border.emphasis}`,
+              },
+            }}
           >
-            Save as Copy
+            Save as copy
           </SecondaryButton>
         )}
         <PrimaryButton
           onClick={() => handleSave(existingFlow ? 'update' : 'new')}
-          disabled={saving || !title.trim()}
+          disabled={saving || !title.trim() || isEmpty}
         >
-          {saving ? 'Saving...' : existingFlow ? 'Update' : 'Save Flow'}
+          {saving ? 'Saving…' : existingFlow ? 'Update' : 'Save'}
         </PrimaryButton>
       </EnhancedDialogActions>
     </EnhancedDialog>

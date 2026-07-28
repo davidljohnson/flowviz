@@ -85,6 +85,15 @@ export interface StreamingFlowVisualizationProps {
   /** `mode` lets the host keep the canvas mounted when a merge fails. */
   onError?: (error: Error, mode?: 'merge' | 'replace') => void;
   onContentChanged?: () => void;
+  /**
+   * How many nodes are on the canvas, reported whenever that changes.
+   *
+   * The host can already read the graph through onSaveAvailable's getter, but
+   * only by asking — and nothing tells it when to ask, because it does not
+   * re-render when nodes do. Anything that has to stay in step with whether the
+   * canvas is empty needs to be told, not to poll.
+   */
+  onNodeCountChange?: (count: number) => void;
   edgeColor?: string;
   edgeStyle?: string;
   edgeCurve?: string;
@@ -118,6 +127,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   onProgress,
   onError,
   onContentChanged,
+  onNodeCountChange,
   edgeColor = 'default',
   edgeStyle = 'solid',
   edgeCurve = 'smooth',
@@ -1333,6 +1343,12 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       onClearAvailable(handleClear);
     }
   }, [onClearAvailable, handleClear]);
+
+  // Depends on the length rather than the array, so this fires when the canvas
+  // becomes empty or stops being empty and not on every drag of a node.
+  useEffect(() => {
+    onNodeCountChange?.(nodes.length);
+  }, [nodes.length, onNodeCountChange]);
 
   return (
     <EdgeActionsProvider value={edgeActions}>

@@ -181,6 +181,10 @@ interface EnhancedDialogProps extends Omit<DialogProps, 'PaperProps'> {
   /** One line under the title saying what the dialog produces. Optional — most
    *  dialogs are self-evident from their title and form and should skip it. */
   subtitle?: string;
+  /** Controls that sit in the header beside the close button — for utilities
+   *  that belong to the dialog as a whole rather than to the flow through it,
+   *  which would otherwise crowd the footer next to the primary action. */
+  headerActions?: React.ReactNode;
   onClose?: () => void;
   showCloseButton?: boolean;
   children?: React.ReactNode;
@@ -196,6 +200,7 @@ interface EnhancedDialogProps extends Omit<DialogProps, 'PaperProps'> {
 export const EnhancedDialog: React.FC<EnhancedDialogProps> = ({
   title,
   subtitle,
+  headerActions,
   onClose,
   showCloseButton = true,
   children,
@@ -241,8 +246,22 @@ export const EnhancedDialog: React.FC<EnhancedDialogProps> = ({
         <StyledDialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {title}
+            {/* Exactly one `marginLeft: auto` may be in play. CloseButton
+                carries one so it right-aligns on its own in every other dialog;
+                when header actions are present the wrapper takes over that job
+                and the close button's is zeroed. Two autos would split the free
+                space between them and leave the actions mid-header. */}
+            {headerActions && (
+              <Box sx={{ display: 'flex', alignItems: 'center', ml: 'auto' }}>
+                {headerActions}
+              </Box>
+            )}
             {showCloseButton && onClose && (
-              <CloseButton onClick={onClose} size="small">
+              <CloseButton
+                onClick={onClose}
+                size="small"
+                sx={headerActions ? { ml: 0 } : undefined}
+              >
                 <CloseIcon fontSize="small" />
               </CloseButton>
             )}

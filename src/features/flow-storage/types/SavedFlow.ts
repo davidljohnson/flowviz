@@ -51,27 +51,6 @@ export interface SavedFlow {
   };
 }
 
-export interface StorageStats {
-  totalFlows: number;
-  storageUsed: number; // bytes
-  oldestFlow?: string;
-  newestFlow?: string;
-  averageNodes?: number;
-  averageEdges?: number;
-}
-
-export interface FlowSearchFilters {
-  searchTerm: string;
-  tags: string[];
-  confidence?: 'low' | 'medium' | 'high';
-  dateRange?: {
-    start: string;
-    end: string;
-  };
-  sortBy: 'date' | 'title' | 'nodes' | 'confidence';
-  sortOrder: 'asc' | 'desc';
-}
-
 export interface ImportResult {
   success: SavedFlow[];
   failed: Array<{
@@ -83,25 +62,3 @@ export interface ImportResult {
     imported: SavedFlow;
   }>;
 }
-
-// Common flow tags for UI suggestions
-export const COMMON_TAGS = [
-  'apt',
-  'ransomware',
-  'phishing',
-  'malware',
-  'vulnerability',
-  'persistence',
-  'lateral-movement',
-  'data-exfiltration',
-  'command-control',
-  'initial-access',
-  'privilege-escalation',
-  'defense-evasion',
-  'credential-access',
-  'discovery',
-  'collection',
-  'impact'
-] as const;
-
-export type CommonTag = typeof COMMON_TAGS[number];

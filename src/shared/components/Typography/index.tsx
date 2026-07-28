@@ -1,23 +1,9 @@
 import {
     DialogContentText,
-    DialogTitle,
-    DialogTitleProps,
     styled
 } from '@mui/material';
 import React from 'react';
 import { flowVizTheme } from '../../theme/flowviz-theme';
-
-// ============= Dialog Title Component =============
-
-export const FlowDialogTitle = styled(DialogTitle)<DialogTitleProps>({
-  ...flowVizTheme.type['2xl'],
-  color: flowVizTheme.colors.text.primary,
-  fontWeight: 600,
-  paddingBottom: `${flowVizTheme.spacing.md}px`,
-  paddingTop: `${flowVizTheme.spacing.lg}px`,
-  paddingLeft: `${flowVizTheme.spacing.lg}px`,
-  paddingRight: `${flowVizTheme.spacing.lg}px`,
-});
 
 // ============= Dialog Content Text Component =============
 
@@ -92,7 +78,6 @@ export const FlowIcon: React.FC<FlowIconProps> = ({
 // ============= Export all components =============
 
 export default {
-  FlowDialogTitle,
   FlowDialogContent,
   FlowIcon,
 };

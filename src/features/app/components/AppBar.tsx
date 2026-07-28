@@ -33,7 +33,8 @@ const streamingGradient = keyframes`
 interface AppBarProps {
   isStreaming: boolean;
   exportFunction: ((format: 'png' | 'json' | 'afb' | 'flowviz') => void) | null;
-  showGraphActions: boolean;
+  /** False when the canvas is empty — there would be nothing to put in a file. */
+  canSave: boolean;
   onNewSearch: () => void;
   onDownloadClick: (format: 'png' | 'json' | 'afb' | 'flowviz') => void;
   onSaveClick: () => void;
@@ -44,7 +45,7 @@ interface AppBarProps {
 export default function AppBar({
   isStreaming,
   exportFunction,
-  showGraphActions,
+  canSave,
   onNewSearch,
   onDownloadClick,
   onSaveClick,
@@ -122,18 +123,16 @@ export default function AppBar({
           flex: '1 1 0',
           justifyContent: 'flex-end'
         }}>
-          {showGraphActions && (
-            <Tooltip title="Analyze a report" placement="bottom">
-              <GlassIconButton
-                onClick={onNewSearch}
-                size="small"
-              >
-                <FlowIcon size="small">
-                  <SearchIcon />
-                </FlowIcon>
-              </GlassIconButton>
-            </Tooltip>
-          )}
+          <Tooltip title="Analyze a report" placement="bottom">
+            <GlassIconButton
+              onClick={onNewSearch}
+              size="small"
+            >
+              <FlowIcon size="small">
+                <SearchIcon />
+              </FlowIcon>
+            </GlassIconButton>
+          </Tooltip>
 
           {exportFunction && (
             <Tooltip title="Export options" placement="bottom">
@@ -148,18 +147,29 @@ export default function AppBar({
             </Tooltip>
           )}
 
-          {showGraphActions && (
-            <Tooltip title="Save analysis" placement="bottom">
-              <GlassIconButton 
+          {/* Off with an empty canvas: saving one produced a stored analysis
+              containing nothing, and the dialog's own guard only catches it
+              after you have opened a dialog whose primary action is already
+              dead. The span is load-bearing — a disabled button emits no
+              pointer events, so a Tooltip wrapped straight around it never
+              fires, which is exactly the state whose reason needs explaining. */}
+          <Tooltip
+            title={canSave ? 'Save analysis' : 'Nothing on the canvas to save yet'}
+            placement="bottom"
+          >
+            <span>
+              <GlassIconButton
                 onClick={onSaveClick}
                 size="small"
+                disabled={!canSave}
+                aria-label="Save analysis"
               >
                 <FlowIcon size="small">
                   <SaveIcon />
                 </FlowIcon>
               </GlassIconButton>
-            </Tooltip>
-          )}
+            </span>
+          </Tooltip>
 
           <Tooltip title="Load analysis" placement="bottom">
             <GlassIconButton 

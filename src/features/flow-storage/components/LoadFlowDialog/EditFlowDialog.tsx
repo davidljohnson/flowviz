@@ -1,26 +1,19 @@
 import React from 'react';
+import { Box } from '@mui/material';
 import {
-  Dialog,
-  DialogContent,
-  DialogActions,
-  Box,
-} from '@mui/material';
-import {
-  Check as CheckIcon,
-  Close as CloseIcon,
-} from '@mui/icons-material';
-import { FlowDialogTitle } from '../../../../shared/components/Typography';
-import { flowVizTheme } from '../../../../shared/theme/flowviz-theme';
-import { 
+  EnhancedDialog,
+  EnhancedDialogContent,
+  EnhancedDialogActions,
   PrimaryButton,
-  SecondaryButton 
+  SecondaryButton
 } from '../../../../shared/components/EnhancedDialog';
-import { 
+import {
   EnhancedTextField
 } from '../../../../shared/components/EnhancedForm';
 
 interface EditFlowDialogProps {
   open: boolean;
+  /** The analysis's title, being edited — not this dialog's own heading. */
   title: string;
   description: string;
   onClose: () => void;
@@ -30,6 +23,20 @@ interface EditFlowDialogProps {
   onKeyPress: (e: React.KeyboardEvent) => void;
 }
 
+/**
+ * Renames a saved analysis and edits its description.
+ *
+ * It was the last dialog in the app built on a raw MUI Dialog, with its own
+ * PaperProps restating what createPanelStyle already says — a translucent panel
+ * fill, a hand-set border and radius — and its own FlowDialogTitle duplicating
+ * the title EnhancedDialog styles internally, down to the same type step and
+ * weight. On the house component now, so the panel, the scrim, the close button
+ * and the focus behaviour all come from one place, and it matches SaveFlowDialog
+ * beside it: the same width, the same content overrides, the same two fields.
+ *
+ * Heading is "Edit details", matching the menu item that opens it. It used to
+ * say "Edit Analysis" while the menu said "Edit details".
+ */
 const EditFlowDialog: React.FC<EditFlowDialogProps> = ({
   open,
   title,
@@ -41,39 +48,23 @@ const EditFlowDialog: React.FC<EditFlowDialogProps> = ({
   onKeyPress,
 }) => {
   return (
-    <Dialog 
-      open={open} 
+    <EnhancedDialog
+      open={open}
       onClose={onClose}
+      title="Edit details"
       maxWidth="sm"
       fullWidth
-      disableRestoreFocus
-      disableEnforceFocus
-      PaperProps={{
-        sx: {
-          background: 'rgba(var(--fv-panel-rgb), 0.95)',
-          border: '1px solid rgba(var(--fv-overlay-rgb), 0.1)',
-          borderRadius: flowVizTheme.borderRadius.xl,
-          maxWidth: '600px',
-          width: '100%',
-          overflow: 'hidden',
-        }
-      }}
+      dialogMaxWidth="600px"
     >
-      <FlowDialogTitle>
-        Edit Analysis
-      </FlowDialogTitle>
-      
-      <DialogContent sx={{ 
-        px: 3, 
-        pt: 2,
+      <EnhancedDialogContent sx={{
         overflow: 'visible',
         '&::-webkit-scrollbar': { display: 'none' },
         scrollbarWidth: 'none',
       }}>
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          gap: 2.5, 
+        <Box sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2.5,
           mt: 1,
           width: '100%',
           maxWidth: '100%',
@@ -89,7 +80,7 @@ const EditFlowDialog: React.FC<EditFlowDialogProps> = ({
             placeholder="e.g., APT29 SolarWinds Analysis"
             sx={{ mt: 2 }}
           />
-          
+
           <EnhancedTextField
             label="Description"
             value={description}
@@ -98,32 +89,23 @@ const EditFlowDialog: React.FC<EditFlowDialogProps> = ({
             fullWidth
             multiline
             rows={3}
-            placeholder="Brief description of this analysis..."
+            placeholder="Brief description of this analysis…"
           />
         </Box>
-      </DialogContent>
-      
-      <DialogActions sx={{ 
-        px: 3, 
-        pb: 3, 
-        pt: 2,
-        gap: 1
-      }}>
-        <SecondaryButton 
-          onClick={onClose}
-          startIcon={<CloseIcon />}
-        >
+      </EnhancedDialogContent>
+
+      <EnhancedDialogActions>
+        <SecondaryButton onClick={onClose}>
           Cancel
         </SecondaryButton>
-        <PrimaryButton 
+        <PrimaryButton
           onClick={onSave}
-          startIcon={<CheckIcon />}
           disabled={!title.trim()}
         >
-          Save Changes
+          Save
         </PrimaryButton>
-      </DialogActions>
-    </Dialog>
+      </EnhancedDialogActions>
+    </EnhancedDialog>
   );
 };
 

@@ -1,4 +1,4 @@
-import { SavedFlow, StorageStats, ImportResult } from '../types/SavedFlow';
+import { SavedFlow, ImportResult } from '../types/SavedFlow';
 import { IFlowStorage, StorageError } from './StorageInterface';
 
 /**
@@ -243,33 +243,6 @@ export class LocalStorageService implements IFlowStorage {
     }
     
     return result;
-  }
-
-  async getStorageStats(): Promise<StorageStats> {
-    const flows = await this.listFlows();
-    const storageData = localStorage.getItem(this.STORAGE_KEY) || '[]';
-    
-    const stats: StorageStats = {
-      totalFlows: flows.length,
-      storageUsed: new Blob([storageData]).size,
-    };
-    
-    if (flows.length > 0) {
-      const sortedByDate = [...flows].sort((a, b) => 
-        new Date(a.metadata.createdAt).getTime() - new Date(b.metadata.createdAt).getTime()
-      );
-      
-      stats.oldestFlow = sortedByDate[0].metadata.createdAt;
-      stats.newestFlow = sortedByDate[sortedByDate.length - 1].metadata.createdAt;
-      stats.averageNodes = Math.round(
-        flows.reduce((sum, flow) => sum + flow.metadata.nodeCount, 0) / flows.length
-      );
-      stats.averageEdges = Math.round(
-        flows.reduce((sum, flow) => sum + flow.metadata.edgeCount, 0) / flows.length
-      );
-    }
-    
-    return stats;
   }
 
   async clearAllFlows(): Promise<void> {

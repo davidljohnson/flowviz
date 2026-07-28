@@ -29,7 +29,7 @@ const FlowActionMenu: React.FC<FlowActionMenuProps> = ({
   const menuItems = [
     {
       id: 'edit',
-      text: 'Edit Details',
+      text: 'Edit details',
       icon: <EditIcon sx={{ fontSize: '18px' }} />,
       onClick: onEdit,
     },

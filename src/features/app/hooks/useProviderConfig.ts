@@ -17,6 +17,17 @@ export interface ProvidersResponse {
 }
 
 /**
+ * Whether any configured provider still offers this model.
+ *
+ * A stored model can stop being on offer between sessions — an API key was
+ * removed, or a provider retired the model — so both the settings dialog (which
+ * has to decide what to display) and App.tsx (which repairs the stored value)
+ * need to ask this question. Shared so they can't disagree about the answer.
+ */
+export const isModelAvailable = (providers: Provider[], model: string): boolean =>
+  Boolean(model) && providers.some(p => p.models.includes(model));
+
+/**
  * Hook to manage AI provider configuration
  * Fetches available providers from backend and manages selection state
  */

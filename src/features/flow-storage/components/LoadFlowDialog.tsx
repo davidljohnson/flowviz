@@ -4,74 +4,79 @@ import {
   Typography,
   List,
   Tooltip,
+  IconButton,
 } from '@mui/material';
 import { FlowAlert } from '../../../shared/components/Alert';
-import { 
+import {
   EnhancedDialog,
   EnhancedDialogContent,
-  EnhancedDialogActions,
-  PrimaryButton,
-  SecondaryButton 
+  SecondaryButton
 } from '../../../shared/components/EnhancedDialog';
-import { createScrollbarStyle } from '../../../shared/theme/flowviz-theme';
+import { ActionMenu } from '../../../shared/components/Dropdown';
+import { createScrollbarStyle, flowVizTheme } from '../../../shared/theme/flowviz-theme';
 import {
   Upload as UploadIcon,
   GetApp as ExportIcon,
+  MoreVert as MoreVertIcon,
+  WarningAmber as WarningAmberIcon,
 } from '@mui/icons-material';
-import { SavedFlow, StorageStats } from '../types/SavedFlow';
-import { LocalStorageService } from '../services';
+import { SavedFlow } from '../types/SavedFlow';
+import { flowStorage } from '../services';
 import {
   FlowListItem,
   SearchAndFilters,
-  StorageStatsComponent,
   FlowActionMenu,
   EditFlowDialog,
+  DeleteFlowDialog,
 } from './LoadFlowDialog/index';
 
 interface LoadFlowDialogProps {
   open: boolean;
+  /** Drives the warning above the list: loading replaces the canvas outright,
+   *  and a row click now does that in one step, so the stakes have to be
+   *  visible before the click rather than implied by a second one. */
+  hasUnsavedChanges: boolean;
   onClose: () => void;
   onLoad: (flow: SavedFlow) => void;
 }
 
 const LoadFlowDialog: React.FC<LoadFlowDialogProps> = ({
   open,
+  hasUnsavedChanges,
   onClose,
   onLoad
 }) => {
   const [flows, setFlows] = useState<SavedFlow[]>([]);
-  const [selectedFlow, setSelectedFlow] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  // Only ever reset to [], never populated — the tag-filter UI was never built,
-  // so the tag clause in filteredFlows below always passes.
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<'date' | 'title' | 'nodes'>('date');
+  const [sortBy, setSortBy] = useState<'date' | 'title'>('date');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [menuFlowId, setMenuFlowId] = useState<string | null>(null);
-  const [stats, setStats] = useState<StorageStats | null>(null);
   const [importing, setImporting] = useState(false);
+  const [libraryMenuAnchor, setLibraryMenuAnchor] = useState<null | HTMLElement>(null);
   
+  const [deletingFlow, setDeletingFlow] = useState<SavedFlow | null>(null);
+
   // Edit dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingFlow, setEditingFlow] = useState<SavedFlow | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   
-  const storageService = new LocalStorageService();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  /** Whether anything is saved at all — distinct from whether the current
+   *  search matches anything, which is a different empty state. */
+  const hasFlows = flows.length > 0;
 
   // Load flows when dialog opens
   useEffect(() => {
     if (open) {
       loadFlows();
-      loadStats();
     } else {
       // Reset state when closing
-      setSelectedFlow(null);
       setSearchTerm('');
-      setSelectedTags([]);
       setError(null);
     }
   }, [open]);
@@ -79,47 +84,34 @@ const LoadFlowDialog: React.FC<LoadFlowDialogProps> = ({
   const loadFlows = async () => {
     setLoading(true);
     try {
-      const loadedFlows = await storageService.listFlows();
+      const loadedFlows = await flowStorage.listFlows();
       setFlows(loadedFlows);
     } catch (err) {
-      setError('Failed to load saved flows');
+      setError('Could not read your saved analyses');
       console.error('Error loading flows:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadStats = async () => {
-    try {
-      const storageStats = await storageService.getStorageStats();
-      setStats(storageStats);
-    } catch (err) {
-      console.error('Error loading storage stats:', err);
-    }
-  };
-
   // Filter and sort flows
   const filteredFlows = useMemo(() => {
     const filtered = flows.filter(flow => {
-      const matchesSearch = !searchTerm || 
-        flow.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        flow.metadata.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        flow.metadata.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        flow.sourceUrl?.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesTags = selectedTags.length === 0 || 
-        selectedTags.some(tag => flow.metadata.tags.includes(tag));
-      
-      return matchesSearch && matchesTags;
+      const q = searchTerm.toLowerCase();
+      return (
+        !searchTerm ||
+        flow.title.toLowerCase().includes(q) ||
+        flow.metadata.description?.toLowerCase().includes(q) ||
+        flow.metadata.tags.some(tag => tag.toLowerCase().includes(q)) ||
+        flow.sourceUrl?.toLowerCase().includes(q)
+      );
     });
-    
+
     // Sort
     filtered.sort((a, b) => {
       switch (sortBy) {
         case 'title':
           return a.title.localeCompare(b.title);
-        case 'nodes':
-          return b.metadata.nodeCount - a.metadata.nodeCount;
         case 'date':
         default:
           return new Date(b.metadata.updatedAt).getTime() - 
@@ -128,53 +120,50 @@ const LoadFlowDialog: React.FC<LoadFlowDialogProps> = ({
     });
     
     return filtered;
-  }, [flows, searchTerm, selectedTags, sortBy]);
+  }, [flows, searchTerm, sortBy]);
 
-  const handleLoad = async () => {
-    if (selectedFlow) {
-      try {
-        const flow = await storageService.loadFlow(selectedFlow);
-        if (flow) {
-          onLoad(flow);
-          onClose();
-        }
-      } catch (err) {
-        setError('Failed to load the selected flow');
-        console.error('Error loading flow:', err);
+  /** A row IS the action — there is no select-then-confirm step. */
+  const handleLoad = async (id: string) => {
+    try {
+      const flow = await flowStorage.loadFlow(id);
+      if (flow) {
+        onLoad(flow);
+        onClose();
       }
+    } catch (err) {
+      setError('Could not open that analysis');
+      console.error('Error loading flow:', err);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this flow? This action cannot be undone.')) {
-      try {
-        await storageService.deleteFlow(id);
-        await loadFlows();
-        await loadStats();
-        if (selectedFlow === id) {
-          setSelectedFlow(null);
-        }
-      } catch (err) {
-        setError('Failed to delete flow');
-        console.error('Error deleting flow:', err);
-      }
+  /** Held as the whole flow, not just an id, so the confirmation can name it
+   *  and still name it correctly after the list underneath has reloaded. */
+  const confirmDelete = async () => {
+    if (!deletingFlow) return;
+    const { id } = deletingFlow;
+    setDeletingFlow(null);
+    try {
+      await flowStorage.deleteFlow(id);
+      await loadFlows();
+    } catch (err) {
+      setError('Could not delete that analysis');
+      console.error('Error deleting flow:', err);
     }
   };
 
   const handleDuplicate = async (id: string) => {
     try {
-      await storageService.duplicateFlow(id);
+      await flowStorage.duplicateFlow(id);
       await loadFlows();
-      await loadStats();
     } catch (err) {
-      setError('Failed to duplicate flow');
+      setError('Could not duplicate that analysis');
       console.error('Error duplicating flow:', err);
     }
   };
 
   const handleExport = async (id: string) => {
     try {
-      const flow = await storageService.loadFlow(id);
+      const flow = await flowStorage.loadFlow(id);
       if (flow) {
         const blob = new Blob([JSON.stringify(flow, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -187,14 +176,14 @@ const LoadFlowDialog: React.FC<LoadFlowDialogProps> = ({
         URL.revokeObjectURL(url);
       }
     } catch (err) {
-      setError('Failed to export flow');
+      setError('Could not export that analysis');
       console.error('Error exporting flow:', err);
     }
   };
 
   const handleExportAll = async () => {
     try {
-      const allFlows = await Promise.all(flows.map(flow => storageService.loadFlow(flow.id)));
+      const allFlows = await Promise.all(flows.map(flow => flowStorage.loadFlow(flow.id)));
       const validFlows = allFlows.filter(Boolean);
       
       const exportData = {
@@ -213,7 +202,7 @@ const LoadFlowDialog: React.FC<LoadFlowDialogProps> = ({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err) {
-      setError('Failed to export flows');
+      setError('Could not export your analyses');
       console.error('Error exporting all flows:', err);
     }
   };
@@ -238,7 +227,7 @@ const LoadFlowDialog: React.FC<LoadFlowDialogProps> = ({
           // Batch import format
           for (const flowData of data.flows) {
             try {
-              await storageService.saveFlow(flowData);
+              await flowStorage.saveFlow(flowData);
               importedCount++;
             } catch (err) {
               console.error('Error importing flow:', err);
@@ -247,7 +236,7 @@ const LoadFlowDialog: React.FC<LoadFlowDialogProps> = ({
         } else if (data.id && data.title && data.nodes && data.edges) {
           // Single flow format
           try {
-            await storageService.saveFlow(data);
+            await flowStorage.saveFlow(data);
             importedCount++;
           } catch (err) {
             console.error('Error importing flow:', err);
@@ -257,13 +246,12 @@ const LoadFlowDialog: React.FC<LoadFlowDialogProps> = ({
       
       if (importedCount > 0) {
         await loadFlows();
-        await loadStats();
-        setError(null);
+          setError(null);
       } else {
-        setError('No valid flows found in the selected files');
+        setError('No analyses found in that file');
       }
     } catch (err) {
-      setError('Failed to import flows. Please check the file format.');
+      setError('Could not import that file — check the format');
       console.error('Error importing flows:', err);
     } finally {
       setImporting(false);
@@ -310,12 +298,12 @@ const LoadFlowDialog: React.FC<LoadFlowDialogProps> = ({
         }
       };
 
-      await storageService.saveFlow(updatedFlow);
+      await flowStorage.saveFlow(updatedFlow);
       await loadFlows();
       setEditDialogOpen(false);
       setEditingFlow(null);
     } catch (err) {
-      setError('Failed to update flow');
+      setError('Could not save those details');
       console.error('Error updating flow:', err);
     }
   };
@@ -333,14 +321,6 @@ const LoadFlowDialog: React.FC<LoadFlowDialogProps> = ({
     } else if (e.key === 'Escape') {
       handleCancelEdit();
     }
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
   const formatDate = (dateString: string): string => {
@@ -376,13 +356,37 @@ const LoadFlowDialog: React.FC<LoadFlowDialogProps> = ({
         style={{ display: 'none' }}
       />
       
-      <EnhancedDialog 
-        open={open} 
+      <EnhancedDialog
+        open={open}
         onClose={onClose}
-        title="Load Analysis"
+        title="Load analysis"
         maxWidth="md"
         fullWidth
         size="large"
+        // Import and Export all are utilities that act on the whole library,
+        // not steps in loading one thing, so they sit in the header instead of
+        // competing with the list. Nothing is offered here when there is
+        // nothing saved — the empty state carries Import itself.
+        headerActions={
+          hasFlows ? (
+            <Tooltip title="Import or export analyses">
+              <IconButton
+                size="small"
+                aria-label="Library actions"
+                onClick={(e) => setLibraryMenuAnchor(e.currentTarget)}
+                sx={{
+                  color: flowVizTheme.colors.text.tertiary,
+                  '&:hover': {
+                    color: flowVizTheme.colors.text.primary,
+                    backgroundColor: flowVizTheme.colors.surface.hover,
+                  },
+                }}
+              >
+                <MoreVertIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          ) : undefined
+        }
       >
         <EnhancedDialogContent>
           {error && (
@@ -395,29 +399,107 @@ const LoadFlowDialog: React.FC<LoadFlowDialogProps> = ({
             </FlowAlert>
           )}
           
-          <StorageStatsComponent
-            stats={stats}
-            formatFileSize={formatFileSize}
-          />
-          
-          <SearchAndFilters
-            searchTerm={searchTerm}
-            sortBy={sortBy}
-            onSearchChange={setSearchTerm}
-            onSortChange={setSortBy}
-          />
-          
-          {loading ? (
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <Typography sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.7)' }}>
-                Loading flows...
+          {/* Loading replaces the canvas, and a row click now does it in one
+              step. Said plainly, once, above the list — the same way the
+              analyse dialog states it — rather than gated behind a second
+              click that only ever looked like a formality. */}
+          {hasFlows && hasUnsavedChanges && (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 0.75,
+                mb: 2,
+                color: flowVizTheme.colors.status.warning.text,
+              }}
+            >
+              <WarningAmberIcon sx={{ fontSize: '0.95rem', mt: '2px', flexShrink: 0 }} />
+              <Typography sx={{ fontSize: '0.78rem', lineHeight: 1.5 }}>
+                Opening an analysis replaces the canvas. You have unsaved changes —
+                they will be lost.
               </Typography>
             </Box>
-          ) : filteredFlows.length === 0 ? (
+          )}
+
+          {/* Search only exists to act on a list, so it waits for one. */}
+          {hasFlows && (
+            <SearchAndFilters
+              searchTerm={searchTerm}
+              sortBy={sortBy}
+              onSearchChange={setSearchTerm}
+              onSortChange={setSortBy}
+            />
+          )}
+
+          {loading ? (
             <Box sx={{ textAlign: 'center', py: 4 }}>
-              <Typography sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.7)' }}>
-                {flows.length === 0 ? 'No saved flows found' : 'No flows match the current filters'}
+              <Typography sx={{ color: flowVizTheme.colors.text.secondary }}>
+                Loading…
               </Typography>
+            </Box>
+          ) : !hasFlows ? (
+            /* Nothing saved yet. Says what the list would hold and how one gets
+               there, and carries the only action that applies — which is why
+               Import drops out of the footer in this state. */
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+                gap: 1,
+                py: 4,
+                px: 3,
+              }}
+            >
+              <Typography
+                sx={{
+                  fontSize: '0.95rem',
+                  fontWeight: 500,
+                  color: flowVizTheme.colors.text.primary,
+                }}
+              >
+                No saved analyses
+              </Typography>
+              <Typography
+                sx={{
+                  fontSize: '0.85rem',
+                  lineHeight: 1.5,
+                  maxWidth: 400,
+                  color: flowVizTheme.colors.text.tertiary,
+                }}
+              >
+                Analyses are saved in this browser. Save the canvas from the app bar,
+                or import a file you exported earlier.
+              </Typography>
+              <SecondaryButton
+                onClick={handleImport}
+                disabled={importing}
+                startIcon={<UploadIcon />}
+                sx={{ mt: 1.5 }}
+              >
+                Import a file
+              </SecondaryButton>
+            </Box>
+          ) : filteredFlows.length === 0 ? (
+            /* Searched and found nothing — a different problem from having
+               nothing, and one with an obvious way out. */
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+                gap: 1,
+                py: 5,
+              }}
+            >
+              <Typography sx={{ fontSize: '0.9rem', color: flowVizTheme.colors.text.secondary }}>
+                Nothing matches “{searchTerm}”
+              </Typography>
+              <SecondaryButton onClick={() => setSearchTerm('')} sx={{ mt: 0.5 }}>
+                Clear search
+              </SecondaryButton>
             </Box>
           ) : (
             <List sx={{ 
@@ -429,54 +511,39 @@ const LoadFlowDialog: React.FC<LoadFlowDialogProps> = ({
                 <FlowListItem
                   key={flow.id}
                   flow={flow}
-                  isSelected={selectedFlow === flow.id}
-                  onClick={() => setSelectedFlow(flow.id)}
+                  onClick={() => handleLoad(flow.id)}
                   onMenuClick={(event) => handleMenuOpen(event, flow.id)}
-                  formatFileSize={formatFileSize}
                   formatDate={formatDate}
                 />
               ))}
             </List>
           )}
         </EnhancedDialogContent>
-        
-        <EnhancedDialogActions>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Tooltip title="Import flows from JSON files">
-              <SecondaryButton 
-                onClick={handleImport}
-                disabled={importing}
-                startIcon={<UploadIcon />}
-              >
-                Import
-              </SecondaryButton>
-            </Tooltip>
-            
-            {flows.length > 0 && (
-              <Tooltip title="Export all flows as JSON">
-                <SecondaryButton 
-                  onClick={handleExportAll}
-                  startIcon={<ExportIcon />}
-                >
-                  Export All
-                </SecondaryButton>
-              </Tooltip>
-            )}
-          </Box>
-          
-          <Box sx={{ flex: 1 }} />
-          
-          <SecondaryButton onClick={onClose}>
-            Cancel
-          </SecondaryButton>
-          <PrimaryButton 
-            onClick={handleLoad}
-            disabled={!selectedFlow}
-          >
-            Load Flow
-          </PrimaryButton>
-        </EnhancedDialogActions>
+
+        {/* No footer. Load was the only primary action and a row performs it
+            now; Import and Export all moved to the header; and a lone Cancel
+            beside the header's own close button is the same button twice. */}
       </EnhancedDialog>
+
+      <ActionMenu
+        anchorEl={libraryMenuAnchor}
+        open={Boolean(libraryMenuAnchor)}
+        onClose={() => setLibraryMenuAnchor(null)}
+        items={[
+          {
+            id: 'import',
+            text: 'Import from a file',
+            icon: <UploadIcon sx={{ fontSize: '18px' }} />,
+            onClick: handleImport,
+          },
+          {
+            id: 'export-all',
+            text: 'Export all analyses',
+            icon: <ExportIcon sx={{ fontSize: '18px' }} />,
+            onClick: handleExportAll,
+          },
+        ]}
+      />
       
       <FlowActionMenu
         anchorEl={menuAnchor}
@@ -492,9 +559,16 @@ const LoadFlowDialog: React.FC<LoadFlowDialogProps> = ({
           handleMenuClose();
         }}
         onDelete={() => {
-          if (menuFlowId) handleDelete(menuFlowId);
+          const flow = flows.find(f => f.id === menuFlowId);
+          if (flow) setDeletingFlow(flow);
           handleMenuClose();
         }}
+      />
+
+      <DeleteFlowDialog
+        title={deletingFlow?.title ?? null}
+        onClose={() => setDeletingFlow(null)}
+        onConfirm={confirmDelete}
       />
       
       <EditFlowDialog

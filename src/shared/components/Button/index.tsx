@@ -122,7 +122,8 @@ export const HeroSubmitButton: React.FC<HeroSubmitButtonProps> = ({
           }),
         },
         
-        // Shimmer light effect for hover - the special blue gradient effect
+        // Shimmer light that sweeps across on hover and while loading. Was a
+        // blue gradient; it is the overlay ink now, like everything else.
         '&::after': {
           content: '""',
           position: 'absolute',
@@ -136,6 +137,12 @@ export const HeroSubmitButton: React.FC<HeroSubmitButtonProps> = ({
         },
         
         '&:hover': {
+          // Stated explicitly, not left to the base declaration. MUI's
+          // containedPrimary supplies its own :hover fill from palette.primary
+          // — which is accent.blue — and a pseudo-class beats the unqualified
+          // background above it, so omitting this is how the button came to
+          // flash blue on hover in an otherwise monochrome UI.
+          backgroundColor: flowVizTheme.colors.surface.hover,
           border: `1px solid ${flowVizTheme.colors.surface.border.focus}`,
 
           // Animated dot pattern on hover

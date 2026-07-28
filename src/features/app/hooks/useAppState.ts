@@ -1,5 +1,32 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { AnalysisRequest } from '../../flow-analysis/types/analysisRequest';
+
+/**
+ * A string setting that lives in localStorage.
+ *
+ * Persistence belongs to the setter because the settings dialog has no Save
+ * button: every change applies the moment it's made, so there is no later point
+ * at which to write. Holding the key next to the state is what stops the read
+ * and the write drifting apart — they already had, with App.tsx setting the
+ * provider and writing `ai_provider` by hand while the dialog wrote it only
+ * when Save was pressed.
+ *
+ * The read is a lazy initialiser rather than a mount effect so the first render
+ * already holds the stored value instead of briefly showing a default. `||`
+ * rather than `??` so a stored empty string falls back, matching the truthiness
+ * check the mount effect used to do.
+ */
+const usePersistedSetting = (key: string, fallback: string) => {
+  const [value, setValue] = useState(() => localStorage.getItem(key) || fallback);
+  const set = useCallback(
+    (next: string) => {
+      setValue(next);
+      localStorage.setItem(key, next);
+    },
+    [key],
+  );
+  return [value, set] as const;
+};
 
 // URL validation helper
 const isValidUrl = (urlString: string): boolean => {
@@ -46,44 +73,14 @@ export const useAppState = () => {
   const [loadFlowDialogOpen, setLoadFlowDialogOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   
-  // Settings state with loading state to prevent flash of default values
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
-  const [edgeColor, setEdgeColor] = useState('default');
-  const [edgeStyle, setEdgeStyle] = useState('solid');
-  const [edgeCurve, setEdgeCurve] = useState('smooth');
-  const [selectedProvider, setSelectedProvider] = useState('');
-  const [selectedModel, setSelectedModel] = useState('');
-  
-  // Initialize settings from localStorage after mount
-  useEffect(() => {
-    const storedEdgeColor = localStorage.getItem('edge_color');
-    if (storedEdgeColor) {
-      setEdgeColor(storedEdgeColor);
-    }
+  // Settings. Each reads its stored value on the first render and writes on
+  // every change — see usePersistedSetting.
+  const [edgeColor, setEdgeColor] = usePersistedSetting('edge_color', 'default');
+  const [edgeStyle, setEdgeStyle] = usePersistedSetting('edge_style', 'solid');
+  const [edgeCurve, setEdgeCurve] = usePersistedSetting('edge_curve', 'smooth');
+  const [selectedProvider, setSelectedProvider] = usePersistedSetting('ai_provider', '');
+  const [selectedModel, setSelectedModel] = usePersistedSetting('ai_model', '');
 
-    const storedEdgeStyle = localStorage.getItem('edge_style');
-    if (storedEdgeStyle) {
-      setEdgeStyle(storedEdgeStyle);
-    }
-
-    const storedEdgeCurve = localStorage.getItem('edge_curve');
-    if (storedEdgeCurve) {
-      setEdgeCurve(storedEdgeCurve);
-    }
-
-    const storedProvider = localStorage.getItem('ai_provider');
-    if (storedProvider) {
-      setSelectedProvider(storedProvider);
-    }
-
-    const storedModel = localStorage.getItem('ai_model');
-    if (storedModel) {
-      setSelectedModel(storedModel);
-    }
-
-    setSettingsLoaded(true);
-  }, []);
-  
   // Flow management state
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isLoadedFlow, setIsLoadedFlow] = useState(false);
@@ -139,34 +136,6 @@ export const useAppState = () => {
     setToastOpen(true);
   };
 
-  // Settings save handler
-  const handleSaveSettings = (newSettings?: {
-    edgeColor: string;
-    edgeStyle: string;
-    edgeCurve: string;
-    selectedProvider: string;
-    selectedModel: string;
-  }) => {
-    // Use provided settings or current state values
-    const settingsToSave = newSettings || {
-      edgeColor,
-      edgeStyle,
-      edgeCurve,
-      selectedProvider,
-      selectedModel,
-    };
-
-    // Save to localStorage
-    localStorage.setItem('edge_color', settingsToSave.edgeColor);
-    localStorage.setItem('edge_style', settingsToSave.edgeStyle);
-    localStorage.setItem('edge_curve', settingsToSave.edgeCurve);
-    localStorage.setItem('ai_provider', settingsToSave.selectedProvider);
-    localStorage.setItem('ai_model', settingsToSave.selectedModel);
-
-    showToast('Settings saved successfully', 'success');
-    setSettingsDialogOpen(false);
-  };
-
   // Clear all form and content state
   const clearAllState = () => {
     setUrl('');
@@ -214,7 +183,6 @@ export const useAppState = () => {
     settingsDialogOpen,
     
     // Settings
-    settingsLoaded,
     edgeColor,
     edgeStyle,
     edgeCurve,
@@ -268,7 +236,6 @@ export const useAppState = () => {
     // Handlers
     handleUrlChange,
     showToast,
-    handleSaveSettings,
     clearAllState,
   };
 };

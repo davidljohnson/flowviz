@@ -8,7 +8,7 @@ import StreamingProgressBar from './shared/components/StreamingProgressBar';
 import { AppBar, NewSearchDialog, SettingsDialog, AnalyzeDialog } from './features/app/components';
 import type { AnalyzeMode } from './features/app/components/AnalyzeDialog';
 import { useAppState } from './features/app/hooks';
-import { useProviderConfig } from './features/app/hooks/useProviderConfig';
+import { useProviderConfig, isModelAvailable } from './features/app/hooks/useProviderConfig';
 // Input limits based on Claude's context window; shared with AnalysisInput so
 // the submit guard and the character counter can't drift apart.
 import { TEXT_LIMITS, getTextStats } from './shared/utils/textLimits';
@@ -40,7 +40,6 @@ export default function App() {
     settingsDialogOpen,
 
     // Settings
-    settingsLoaded,
     edgeColor,
     edgeStyle,
     edgeCurve,
@@ -86,14 +85,23 @@ export default function App() {
     // Handlers
     handleUrlChange,
     showToast,
-    handleSaveSettings,
     clearAllState,
   } = useAppState();
 
   // Analyse-dialog choices. Transient to one open/submit cycle, so they stay
   // local rather than joining the persisted app state.
   const [analyzeMode, setAnalyzeMode] = useState<AnalyzeMode>('merge');
-  const [canvasHasContent, setCanvasHasContent] = useState(false);
+
+  /**
+   * Nodes on the canvas, reported by the visualization whenever that changes.
+   *
+   * The alternative was calling the registered save-data getter, which App did
+   * in two places — but that only answers when asked, and App does not re-render
+   * when the graph does, so anything rendered from it went stale. The app bar's
+   * Save button has to track this continuously, so the count is pushed here.
+   */
+  const [canvasNodeCount, setCanvasNodeCount] = useState(0);
+  const canvasHasContent = canvasNodeCount > 0;
 
   // Article text extracted server-side during a URL analysis. Held here so
   // Save can persist it as the flow's sourceText (pasted text already flows
@@ -103,26 +111,34 @@ export default function App() {
   // Get provider defaults
   const providerConfig = useProviderConfig();
 
-  // Auto-set provider/model defaults on initial load if not set
+  // Point the stored provider/model at something usable.
+  //
+  // Two cases, not one: nothing is stored yet, or what is stored is a model no
+  // configured provider offers any more — a key was removed, or the model was
+  // retired. The second used to be repaired by opening settings and pressing
+  // Save; with settings applying as they change there is no such moment, so the
+  // repair belongs here. Both setters persist, so it sticks.
   useEffect(() => {
-    // Wait for both settings and provider config to load, then set defaults if empty
+    if (providerConfig.isLoading) return;
+
+    const needsRepair =
+      !selectedProvider || !isModelAvailable(providerConfig.providers, selectedModel);
+
+    // Only ever repair TO a model we've confirmed is on offer. Writing an
+    // unavailable one would leave needsRepair true and spin the effect.
     if (
-      settingsLoaded &&
-      !providerConfig.isLoading &&
-      (!selectedProvider || selectedProvider === '' || selectedProvider === null) &&
+      needsRepair &&
       providerConfig.selectedProvider &&
-      providerConfig.selectedModel
+      isModelAvailable(providerConfig.providers, providerConfig.selectedModel)
     ) {
       setSelectedProvider(providerConfig.selectedProvider);
       setSelectedModel(providerConfig.selectedModel);
-      // Save to localStorage immediately
-      localStorage.setItem('ai_provider', providerConfig.selectedProvider);
-      localStorage.setItem('ai_model', providerConfig.selectedModel);
     }
   }, [
-    settingsLoaded,
     providerConfig.isLoading,
+    providerConfig.providers,
     selectedProvider,
+    selectedModel,
     providerConfig.selectedProvider,
     providerConfig.selectedModel,
     setSelectedProvider,
@@ -172,17 +188,10 @@ export default function App() {
     });
   };
 
-  /**
-   * Opening the Analyse dialog. Whether there is anything to merge into is
-   * read from the canvas at open time via the registered save-data getter,
-   * which is the only handle App has on the live node list.
-   */
   const handleNewSearch = () => {
-    const nodeCount = getSaveData ? getSaveData().nodes.length : 0;
-    setCanvasHasContent(nodeCount > 0);
     // Merging is the point of the feature, so default to it whenever there is
     // something to merge into.
-    setAnalyzeMode(nodeCount > 0 ? 'merge' : 'replace');
+    setAnalyzeMode(canvasHasContent ? 'merge' : 'replace');
     setAnalyzeDialogOpen(true);
   };
 
@@ -300,7 +309,7 @@ export default function App() {
       <AppBar 
         isStreaming={isStreaming}
         exportFunction={exportFunction}
-        showGraphActions={settingsLoaded}
+        canSave={canvasHasContent}
         onNewSearch={handleNewSearch}
         onDownloadClick={handleDownloadClick}
         onSaveClick={() => setSaveFlowDialogOpen(true)}
@@ -310,50 +319,49 @@ export default function App() {
       
       <StreamingProgressBar isVisible={isStreaming} />
       {/* Show visualization for analyses, loaded flows, and blank-canvas editing */}
-      {settingsLoaded && (
-        <StreamingFlowVisualization
-          url={submittedUrl || submittedText || ''}
-          analysisRequest={analysisRequest}
-          onAnalyzeRequested={handleNewSearch}
-          onClearRequested={() => setNewSearchDialogOpen(true)}
-          loadedFlow={loadedFlow}
-          onArticleExtracted={(text) => setExtractedText(text)}
-          onExportAvailable={handleExportAvailable}
-          onClearAvailable={handleClearAvailable}
-          onError={(error, mode) => {
-            if (mode === 'merge') {
-              // The canvas belongs to the user, not to this analysis, so a
-              // failed merge must leave it standing.
-              showToast(
-                error.message || 'Analysis failed — the canvas is unchanged',
-                'error'
-              );
-              setAnalysisRequest(null);
-              return;
-            }
-            showToast(error.message || 'An error occurred during analysis', 'error');
-            // Clear the inputs so the dialog reopens empty.
-            setSubmittedUrl('');
-            setSubmittedText('');
+      <StreamingFlowVisualization
+        url={submittedUrl || submittedText || ''}
+        analysisRequest={analysisRequest}
+        onAnalyzeRequested={handleNewSearch}
+        onClearRequested={() => setNewSearchDialogOpen(true)}
+        loadedFlow={loadedFlow}
+        onArticleExtracted={(text) => setExtractedText(text)}
+        onExportAvailable={handleExportAvailable}
+        onClearAvailable={handleClearAvailable}
+        onError={(error, mode) => {
+          if (mode === 'merge') {
+            // The canvas belongs to the user, not to this analysis, so a
+            // failed merge must leave it standing.
+            showToast(
+              error.message || 'Analysis failed — the canvas is unchanged',
+              'error'
+            );
             setAnalysisRequest(null);
-            handleUrlChange(''); // Clear URL input
-            setTextContent(''); // Clear text input
-          }}
-          onSaveAvailable={handleSaveAvailable}
-          onContentChanged={handleContentChanged}
-          onStreamingStart={() => setIsStreaming(true)}
-          onStreamingEnd={() => {
-            setIsStreaming(false);
-            // A freshly generated analysis is unsaved content
-            setHasUnsavedChanges(true);
-          }}
-          edgeColor={edgeColor}
-          edgeStyle={edgeStyle}
-          edgeCurve={edgeCurve}
-          selectedProvider={selectedProvider}
-          selectedModel={selectedModel}
-        />
-      )}
+            return;
+          }
+          showToast(error.message || 'An error occurred during analysis', 'error');
+          // Clear the inputs so the dialog reopens empty.
+          setSubmittedUrl('');
+          setSubmittedText('');
+          setAnalysisRequest(null);
+          handleUrlChange(''); // Clear URL input
+          setTextContent(''); // Clear text input
+        }}
+        onSaveAvailable={handleSaveAvailable}
+        onContentChanged={handleContentChanged}
+        onNodeCountChange={setCanvasNodeCount}
+        onStreamingStart={() => setIsStreaming(true)}
+        onStreamingEnd={() => {
+          setIsStreaming(false);
+          // A freshly generated analysis is unsaved content
+          setHasUnsavedChanges(true);
+        }}
+        edgeColor={edgeColor}
+        edgeStyle={edgeStyle}
+        edgeCurve={edgeCurve}
+        selectedProvider={selectedProvider}
+        selectedModel={selectedModel}
+      />
       <Snackbar
         open={showError}
         autoHideDuration={4000}
@@ -458,17 +466,17 @@ export default function App() {
       {/* Load Flow Dialog */}
       <LoadFlowDialog
         open={loadFlowDialogOpen}
+        hasUnsavedChanges={hasUnsavedChanges}
         onClose={() => setLoadFlowDialogOpen(false)}
         onLoad={handleLoadFlow}
       />
 
       {/* Settings Dialog */}
       <SettingsDialog
-        open={settingsDialogOpen && settingsLoaded}
+        open={settingsDialogOpen}
         edgeColor={edgeColor}
         edgeStyle={edgeStyle}
         edgeCurve={edgeCurve}
-        selectedProvider={selectedProvider}
         selectedModel={selectedModel}
         onClose={() => setSettingsDialogOpen(false)}
         onEdgeColorChange={setEdgeColor}
@@ -476,7 +484,6 @@ export default function App() {
         onEdgeCurveChange={setEdgeCurve}
         onProviderChange={setSelectedProvider}
         onModelChange={setSelectedModel}
-        onSave={handleSaveSettings}
       />
     </Box>
   );
