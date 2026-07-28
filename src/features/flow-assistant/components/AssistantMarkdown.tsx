@@ -27,7 +27,7 @@ function Inline({ tokens, onFocusNode }: { tokens: InlineToken[]; onFocusNode?: 
       {tokens.map((token, i) => {
         switch (token.kind) {
           case 'bold':
-            return <Box key={i} component="strong" sx={{ fontWeight: 700, color: 'rgba(var(--fv-overlay-rgb), 0.95)' }}>{token.text}</Box>;
+            return <Box key={i} component="strong" sx={{ fontWeight: 700, color: flowVizTheme.colors.text.primary }}>{token.text}</Box>;
           case 'italic':
             return <Box key={i} component="em">{token.text}</Box>;
           case 'code':
@@ -40,7 +40,7 @@ function Inline({ tokens, onFocusNode }: { tokens: InlineToken[]; onFocusNode?: 
                 role={onFocusNode ? 'button' : undefined}
                 onClick={onFocusNode ? () => onFocusNode(token.id) : undefined}
                 sx={{
-                  color: 'rgba(var(--fv-overlay-rgb), 0.92)',
+                  color: flowVizTheme.colors.text.primary,
                   cursor: onFocusNode ? 'pointer' : 'inherit',
                   textDecorationLine: 'underline',
                   textDecorationColor: 'rgba(var(--fv-overlay-rgb), 0.35)',
@@ -85,7 +85,9 @@ function CodeBlock({ lang, text }: { lang: string; text: string }) {
           borderBottom: '1px solid rgba(var(--fv-overlay-rgb), 0.06)',
         }}
       >
-        <Box sx={{ flex: 1, fontSize: '0.6rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(var(--fv-overlay-rgb), 0.35)' }}>
+        {/* 0.35 of the ink measured 2.23:1 on light — and this is 9.6px caps,
+            the least forgiving text in the product. */}
+        <Box sx={{ flex: 1, fontSize: '0.6rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: flowVizTheme.colors.text.tertiary }}>
           {lang || 'code'}
         </Box>
         <Tooltip title={copied ? 'Copied' : 'Copy'}>
@@ -100,9 +102,10 @@ function CodeBlock({ lang, text }: { lang: string; text: string }) {
             }}
             sx={{
               p: 0.5,
-              color: 'rgba(var(--fv-overlay-rgb), 0.45)',
+              // An interactive control, so 3:1 applies; 0.45 gave 2.94:1 light.
+              color: flowVizTheme.colors.text.tertiary,
               transition: '0.15s',
-              '&:hover': { color: 'rgba(var(--fv-overlay-rgb), 0.9)' },
+              '&:hover': { color: flowVizTheme.colors.text.primary },
             }}
           >
             {copied ? <CheckIcon sx={{ fontSize: 13 }} /> : <ContentCopyIcon sx={{ fontSize: 13 }} />}
@@ -118,7 +121,7 @@ function CodeBlock({ lang, text }: { lang: string; text: string }) {
           fontFamily: '"JetBrains Mono", Monaco, Consolas, monospace',
           fontSize: '0.72rem',
           lineHeight: 1.55,
-          color: 'rgba(var(--fv-overlay-rgb), 0.82)',
+          color: flowVizTheme.colors.text.secondary,
           overflowX: 'auto',
           whiteSpace: 'pre',
         }}
@@ -137,7 +140,7 @@ export default function AssistantMarkdown({ text, onFocusNode }: AssistantMarkdo
       {blocks.map((block, i) => {
         if (block.kind === 'heading') {
           return (
-            <Typography key={i} sx={{ fontSize: '0.84rem', fontWeight: 700, color: 'rgba(var(--fv-overlay-rgb), 0.95)', mt: i === 0 ? 0 : 0.5 }}>
+            <Typography key={i} sx={{ fontSize: '0.84rem', fontWeight: 700, color: flowVizTheme.colors.text.primary, mt: i === 0 ? 0 : 0.5 }}>
               <Inline tokens={block.inline} onFocusNode={onFocusNode} />
             </Typography>
           );

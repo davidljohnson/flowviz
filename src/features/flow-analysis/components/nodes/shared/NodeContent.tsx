@@ -26,7 +26,7 @@ export function NodeContent({
         variant="h6"
         component="div"
         sx={{
-          color: 'rgba(var(--fv-overlay-rgb), 0.95)',
+          color: flowVizTheme.colors.text.primary,
           mb: 0.5,
           fontSize: '0.92rem',
           fontWeight: 600,
@@ -47,7 +47,11 @@ export function NodeContent({
         <Typography
           variant="body2"
           sx={{
-            color: 'rgba(var(--fv-overlay-rgb), 0.6)',
+            // `secondary`, not `tertiary`. The description is the card's body
+            // copy — the thing you actually read once the title has told you
+            // which node it is — so it belongs a rung above the quiet metadata,
+            // and 0.6 of the ink was only clearing 4.70:1 on a white card.
+            color: flowVizTheme.colors.text.secondary,
             fontSize: '0.78rem',
             lineHeight: 1.45,
             mb: 1,
@@ -68,7 +72,7 @@ export function NodeContent({
         <Typography
           variant="body2"
           sx={{
-            color: 'rgba(var(--fv-overlay-rgb), 0.75)',
+            color: flowVizTheme.colors.text.secondary,
             fontSize: '0.72rem',
             fontFamily: '"JetBrains Mono", Monaco, Consolas, "Courier New", monospace',
             lineHeight: 1.4,

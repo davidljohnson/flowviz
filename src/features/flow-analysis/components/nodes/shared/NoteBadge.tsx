@@ -1,5 +1,6 @@
 import { Box, Tooltip } from '@mui/material';
 import StickyNote2RoundedIcon from '@mui/icons-material/StickyNote2Rounded';
+import { flowVizTheme } from '../../../../../shared/theme/flowviz-theme';
 
 interface NoteBadgeProps {
   /** The note text; the badge renders nothing when this is empty. */
@@ -37,13 +38,18 @@ export function NoteBadge({ text, sx }: NoteBadgeProps) {
           bottom: 5,
           right: 6,
           display: 'inline-flex',
-          color: 'rgba(var(--fv-overlay-rgb), 0.32)',
+          // Tokens rather than flat overlay alphas. This is an interactive
+          // control, so 1.4.11 asks 3:1 of it, and 0.32 of the ink measured
+          // 2.06:1 on a white card — invisible enough that the affordance was
+          // only really there on dark. The three steps also now come from the
+          // tuned ladder instead of three numbers picked by eye.
+          color: flowVizTheme.colors.text.tertiary,
           cursor: 'pointer',
           transition: 'color 0.15s ease',
-          '&:hover': { color: 'rgba(var(--fv-overlay-rgb), 0.85)' },
+          '&:hover': { color: flowVizTheme.colors.text.primary },
           // Brighten a touch when the card itself is hovered, so it reads as
           // part of the node rather than a stray mark.
-          '.fv-card:hover &': { color: 'rgba(var(--fv-overlay-rgb), 0.55)' },
+          '.fv-card:hover &': { color: flowVizTheme.colors.text.secondary },
           ...sx,
         }}
       >

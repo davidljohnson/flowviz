@@ -193,7 +193,7 @@ const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
           <Typography
             variant="body2"
             sx={{
-              color: 'rgba(var(--fv-overlay-rgb), 0.7)',
+              color: flowVizTheme.colors.text.secondary,
               fontSize: '0.875rem',
               letterSpacing: '0.01em',
               transition: 'opacity 0.3s ease',

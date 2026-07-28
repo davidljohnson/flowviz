@@ -67,11 +67,17 @@ export const DropdownMenuItem = styled(MenuItem)({
     color: flowVizTheme.colors.text.primary,
   },
   
+  // A step below `active`, which is what a keyboard-focused row takes. Both
+  // were `active` before, so in any menu that marks a current value the focused
+  // row and the chosen row were the same colour and there was no telling where
+  // the cursor was. Nothing hit it yet — only MUI's Select applies
+  // `Mui-selected`, and the app's one Select overrides this fill — so it was a
+  // trap set for the second Select rather than a live bug.
   '&.Mui-selected': {
-    backgroundColor: flowVizTheme.colors.surface.active,
-    
+    backgroundColor: flowVizTheme.colors.surface.selected,
+
     '&:hover': {
-      backgroundColor: flowVizTheme.colors.surface.active,
+      backgroundColor: flowVizTheme.colors.surface.selected,
     }
   },
   

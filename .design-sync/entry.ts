@@ -7,19 +7,20 @@
  */
 
 export { FlowAlert, StatusChip } from '../src/shared/components/Alert/index';
-export { GlassIconButton, HeroSubmitButton } from '../src/shared/components/Button/index';
+export { ToolbarIconButton, ToolbarButton, HeroSubmitButton } from '../src/shared/components/Button/index';
 export { DropdownMenuItem, DropdownMenuItemDanger, DropdownMenu, DropdownSelect, DropdownMenuItemWithIcon, DropdownFormControl, ActionMenu } from '../src/shared/components/Dropdown/index';
 export { PrimaryButton, SecondaryButton, EnhancedDialog, EnhancedDialogContent, EnhancedDialogActions } from '../src/shared/components/EnhancedDialog/index';
 export { EnhancedTextField, FormSection, FormSectionTitle } from '../src/shared/components/EnhancedForm/index';
 export { SearchInput, SearchInputWithClear, SearchInputURL, SearchInputMultiline } from '../src/shared/components/SearchInput/index';
 export { SegmentedControl } from '../src/shared/components/SegmentedControl/index';
-export { FlowDialogTitle, FlowDialogContent, FlowIcon } from '../src/shared/components/Typography/index';
+export { FlowDialogContent, FlowIcon } from '../src/shared/components/Typography/index';
 export { default as LoadingIndicator } from '../src/shared/components/LoadingIndicator/LoadingIndicator';
 export { default as ErrorBoundary } from '../src/shared/components/ErrorBoundary/ErrorBoundary';
 export { ServiceErrorFallback } from '../src/shared/components/ErrorBoundary/ServiceErrorBoundary';
 export { default as ServiceErrorBoundary } from '../src/shared/components/ErrorBoundary/ServiceErrorBoundary';
 export { default as StreamingProgressBar } from '../src/shared/components/StreamingProgressBar';
 export { default as AssistantMark } from '../src/shared/components/icons/AssistantMark';
+export { default as FlowMark } from '../src/shared/components/icons/FlowMark';
 export { default as ActionNode } from '../src/features/flow-analysis/components/nodes/ActionNode';
 export { default as ToolNode } from '../src/features/flow-analysis/components/nodes/ToolNode';
 export { default as MalwareNode } from '../src/features/flow-analysis/components/nodes/MalwareNode';

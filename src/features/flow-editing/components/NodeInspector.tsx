@@ -111,11 +111,16 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
   const nameRef = useRef<HTMLInputElement>(null);
   const notesRef = useRef<HTMLInputElement>(null);
 
-  // The header is now a dark tint rather than a saturated slab, so its actions
-  // (change-type, menu, close) read as light neutral icons — the color lives in
-  // the type icon and the selected border, not here.
-  const bannerInk = 'rgba(var(--fv-overlay-rgb), 0.6)';
-  const bannerHover = 'rgba(var(--fv-overlay-rgb), 0.1)';
+  // The header sits on the panel itself rather than a slab of its own, so its
+  // actions (change-type, menu, close) read as neutral icons — the colour lives
+  // in the type icon and the selected border, not here.
+  //
+  // `secondary` rather than a flat 0.6 of the ink: 0.6 was not failing, since
+  // these are controls and 4.70:1 clears the 3:1 they need, but one alpha for
+  // both themes is one alpha that was tuned for neither. The token is brighter
+  // on dark and darker on light, so it improves both.
+  const bannerInk = flowVizTheme.colors.text.secondary;
+  const bannerHover = flowVizTheme.colors.surface.selected;
 
   // Anchor for the change-type switcher hung off the banner.
   const [typeAnchor, setTypeAnchor] = useState<HTMLElement | null>(null);

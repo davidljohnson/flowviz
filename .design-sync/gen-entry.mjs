@@ -25,6 +25,7 @@ const SOURCES = [
   'src/shared/components/ErrorBoundary/ServiceErrorBoundary.tsx',
   'src/shared/components/StreamingProgressBar.tsx',
   'src/shared/components/icons/AssistantMark.tsx',
+  'src/shared/components/icons/FlowMark.tsx',
   'src/features/flow-analysis/components/nodes/ActionNode.tsx',
   'src/features/flow-analysis/components/nodes/ToolNode.tsx',
   'src/features/flow-analysis/components/nodes/MalwareNode.tsx',

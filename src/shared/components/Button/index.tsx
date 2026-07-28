@@ -20,20 +20,37 @@ import { flowVizTheme } from '../../theme/flowviz-theme';
 // and re-rasterizes the blur every frame, which showed up as shading flickering
 // across the app bar as the cursor swept the button row.
 
-// ============= Glass Icon Button =============
+// ============= Toolbar Icon Button =============
 
-// Matches the graph's zoom controls (.react-flow__controls-button in
-// editing.css). The backdrop-filter this once carried bought nothing — the app
-// bar behind it is an opaque gradient — so it is gone.
-export const GlassIconButton = styled(IconButton)<IconButtonProps>({
+// Was GlassIconButton, which by the end named nothing that was still true: the
+// backdrop-filter went when the surfaces behind it turned opaque, and the fill
+// and border went when the row became ghosts. It is the icon-only sibling of
+// ToolbarButton, at the same controlSize, so it is named for where it lives.
+//
+// Ghost at rest: no fill, no visible border, so a row of these reads as a row
+// of icons rather than a row of boxes and the eye is free to land on whichever
+// one is emphasised. It also gives hover something to say — the old rest fill
+// sat at 3% white against an 8% hover, a five-point move on an already-bordered
+// chip, which is close to no feedback at all.
+//
+// The border stays in the box as `transparent` rather than being dropped. It
+// keeps one geometry across the row whether or not a given button is
+// emphasised, so a caller can turn `borderColor` on for the primary action
+// without that button growing 2px taller than its neighbours.
+export const ToolbarIconButton = styled(IconButton)<IconButtonProps>({
   color: flowVizTheme.colors.text.secondary,
-  backgroundColor: flowVizTheme.colors.surface.rest,
-  border: `1px solid ${flowVizTheme.colors.surface.border.subtle}`,
+  backgroundColor: 'transparent',
+  border: '1px solid transparent',
   borderRadius: flowVizTheme.borderRadius.md,
-  padding: `${flowVizTheme.spacing.sm}px`,
-  // Scoped to the two properties that actually change, so no future style
-  // addition silently animates as well.
-  transition: `background-color ${flowVizTheme.motion.fast}, color ${flowVizTheme.motion.fast}`,
+  // Fixed box rather than padding around the glyph: the size is the point, and
+  // deriving it from padding makes it drift the moment an icon renders at a
+  // different step. IconButton already centres its child.
+  width: flowVizTheme.controlSize,
+  height: flowVizTheme.controlSize,
+  padding: 0,
+  // Scoped to the properties that actually change, so no future style addition
+  // silently animates as well.
+  transition: `background-color ${flowVizTheme.motion.fast}, color ${flowVizTheme.motion.fast}, border-color ${flowVizTheme.motion.fast}`,
 
   '&:hover': {
     color: flowVizTheme.colors.text.primary,
@@ -42,7 +59,53 @@ export const GlassIconButton = styled(IconButton)<IconButtonProps>({
 
   '&:disabled': {
     color: flowVizTheme.colors.text.disabled,
+    backgroundColor: 'transparent',
+  },
+});
+
+// ============= Toolbar Button =============
+
+/**
+ * A labelled sibling of ToolbarIconButton, at the same `controlSize` height.
+ *
+ * For the one action in a toolbar that carries the row's primary verb. An
+ * icon-only button asks you to infer the verb from a picture, which is a fine
+ * trade for Save or Settings — conventional glyphs, and a tooltip a moment
+ * away — but a poor one for the thing the toolbar is mostly there to do.
+ *
+ * Emphasis is the fill and border, not colour: this system has no primary hue,
+ * and being the only filled control in a row of ghosts is enough.
+ */
+export const ToolbarButton = styled(Button)<ButtonProps>({
+  height: flowVizTheme.controlSize,
+  minWidth: 'auto',
+  padding: '0 10px',
+  gap: 6,
+  ...flowVizTheme.type.md,
+  fontWeight: 500,
+  textTransform: 'none',
+  color: flowVizTheme.colors.text.secondary,
+  backgroundColor: flowVizTheme.colors.surface.rest,
+  border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
+  borderRadius: flowVizTheme.borderRadius.md,
+  boxShadow: 'none',
+  transition: `background-color ${flowVizTheme.motion.fast}, color ${flowVizTheme.motion.fast}, border-color ${flowVizTheme.motion.fast}`,
+
+  // Stated rather than inherited. MUI's Button supplies its own :hover fill
+  // from the palette, and a pseudo-class beats the unqualified background
+  // above it — the same trap that once made HeroSubmitButton flash blue in an
+  // otherwise monochrome UI.
+  '&:hover': {
+    color: flowVizTheme.colors.text.primary,
+    backgroundColor: flowVizTheme.colors.surface.hover,
+    borderColor: flowVizTheme.colors.surface.border.emphasis,
+    boxShadow: 'none',
+  },
+
+  '&:disabled': {
+    color: flowVizTheme.colors.text.disabled,
     backgroundColor: flowVizTheme.colors.surface.rest,
+    borderColor: flowVizTheme.colors.surface.border.subtle,
   },
 });
 
@@ -197,6 +260,7 @@ export const HeroSubmitButton: React.FC<HeroSubmitButtonProps> = ({
 // ============= Export all components =============
 
 export default {
-  GlassIconButton,
+  ToolbarIconButton,
+  ToolbarButton,
   HeroSubmitButton
 };

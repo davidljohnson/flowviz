@@ -45,7 +45,7 @@ The families, with real names:
 | Family | Examples |
 |---|---|
 | Page/panel | `--fv-background-primary`, `--fv-background-secondary`, `--fv-menu-app-bar` |
-| Surface states | `--fv-surface-rest`, `--fv-surface-hover`, `--fv-surface-active`, `--fv-surface-recessed` |
+| Surface states | `--fv-surface-rest`, `--fv-surface-hover`, `--fv-surface-selected`, `--fv-surface-active`, `--fv-surface-recessed` |
 | Borders | `--fv-surface-border-subtle`, `--fv-surface-border-default`, `--fv-surface-border-emphasis` |
 | Text | `--fv-text-primary`, `--fv-text-secondary`, `--fv-text-tertiary`, `--fv-text-disabled` |
 | Status | `--fv-status-{success,error,warning,info}-{bg,text,border,accent}` |
@@ -82,6 +82,33 @@ Keyboard focus is handled globally by `ThemeModeProvider` — a 2px
 for keyboard and not for mouse press. **Do not add per-component focus styling
 and never set `outline: none`**; the whole point is that one rule covers every
 control, which is how it was missed before.
+
+The ring is blue in a UI that is otherwise monochrome, and deliberately so.
+`--fv-focus-ring` is its own token, tuned per theme (a step brighter on dark, a
+step deeper on light), because it has to stay legible on every surface it can
+land on. Drawing it in the overlay ink instead would lose it against a pale
+panel in light mode.
+
+**Menu rows are the one exception**, and it lives in the same global block
+rather than in any component: `.MuiMenuItem-root:focus-visible` drops the
+outline and takes `--fv-surface-active` as its fill instead. A ring held 2px
+clear of a row in a dense list sits in the gutter between neighbours and reads
+as a separate object drawn over the menu rather than as the cursor — and a menu
+already distinguishes its current value, so keyboard focus only has to out-rank
+that.
+
+The surface states are a ladder, and a menu row is where all of it is visible
+at once: `rest` → `hover` (the pointer is over it) → `selected` (this is the
+current value) → `active` (the keyboard cursor is here). Keeping focus at the
+top is what makes the focused row the brightest one, and what keeps a row that
+is both focused and selected reading as focused. Do not use `selected` and
+`active` for the same state in one component — that collapses two of the three
+signals and leaves no way to see where the cursor is.
+
+This is still a visible focus indicator, so it meets the same bar the outline
+does. It is the one place `outline: none` is allowed, and only because
+something else takes over the job in the same rule. If you find yourself
+reaching for that anywhere else, the answer is no.
 
 ## Where the truth lives
 

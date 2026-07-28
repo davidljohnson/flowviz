@@ -167,7 +167,29 @@ export default function SettingsDialog({
     providers,
     selectedModel: defaultModel,
     setSelectedProvider: setProviderConfigProvider,
+    isLoading,
+    error,
   } = useProviderConfig();
+
+  /**
+   * What to say when there is nothing to choose from.
+   *
+   * `isLoading` and `error` were both already computed by the hook and both
+   * thrown away here, so four different situations rendered as the same empty
+   * box: still fetching, request failed, backend up but no API key configured,
+   * and working. A select with no options and no explanation is a control you
+   * have to debug from the outside — the way this was found was by noticing the
+   * menu was blank and going to look for the server by hand.
+   *
+   * The failure message names no port. The frontend reaches the API through
+   * Vite's proxy and has no idea what is on the other end; PORT is configurable,
+   * so asserting 3001 would be a guess that reads as fact.
+   */
+  const modelPlaceholder =
+    isLoading ? 'Loading models…'
+    : error ? "Can't reach the server — is the backend running?"
+    : providers.length === 0 ? 'No providers configured — add an API key to .env'
+    : null;
 
   // Every setting applies — and persists — the moment it's picked. There is no
   // Save button and so no local mirror of the props: the theme already worked
@@ -198,6 +220,23 @@ export default function SettingsDialog({
           </SettingRow>
 
           <SettingRow label="Model">
+            {modelPlaceholder ? (
+              <Typography
+                component="span"
+                // Announced rather than silent: the row it replaces is the one
+                // people open this dialog to use.
+                role="status"
+                sx={{
+                  ...flowVizTheme.type.sm,
+                  textAlign: 'right',
+                  color: error
+                    ? flowVizTheme.colors.status.error.text
+                    : flowVizTheme.colors.text.tertiary,
+                }}
+              >
+                {modelPlaceholder}
+              </Typography>
+            ) : (
             <DropdownSelect
               size="small"
               aria-label="Model"
@@ -249,7 +288,11 @@ export default function SettingsDialog({
                     top: 0,
                     zIndex: 10,
                     backgroundColor: flowVizTheme.colors.menu.appBar,
-                    color: 'rgba(var(--fv-overlay-rgb), 0.45)',
+                    // Was overlay ink at a flat 0.45, which is the same alpha in
+                    // both themes and measured 2.94:1 on white — under the 4.5
+                    // floor for a label this small. text.tertiary is the tuned
+                    // step for exactly this: quiet, but still readable.
+                    color: flowVizTheme.colors.text.tertiary,
                     fontWeight: 600,
                     fontSize: '0.7rem',
                     letterSpacing: '0.1em',
@@ -277,7 +320,9 @@ export default function SettingsDialog({
                         py: 1,
                         fontSize: '0.875rem',
                         fontFamily: 'monospace',
-                        color: 'rgba(var(--fv-overlay-rgb), 0.9)',
+                        // No `color` — DropdownMenuItem already sets
+                        // text.primary, and the 0.9 that stood here was an
+                        // untuned near-miss of it.
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
@@ -304,7 +349,7 @@ export default function SettingsDialog({
                             fontWeight: 600,
                             letterSpacing: '0.03em',
                             backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.08)',
-                            color: 'rgba(var(--fv-overlay-rgb), 0.7)',
+                            color: flowVizTheme.colors.text.secondary,
                             border: '1px solid rgba(var(--fv-overlay-rgb), 0.2)',
                             '& .MuiChip-label': {
                               px: 1,
@@ -318,6 +363,7 @@ export default function SettingsDialog({
                 })
               ])}
             </DropdownSelect>
+            )}
           </SettingRow>
 
           <Box sx={rowGroupDividerSx} />

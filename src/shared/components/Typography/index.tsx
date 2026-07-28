@@ -28,13 +28,27 @@ export const FlowDialogContent = styled(DialogContentText)({
 interface FlowIconProps {
   children: React.ReactElement;
   size?: 'tiny' | 'small' | 'medium' | 'large';
-  color?: 'primary' | 'secondary' | 'tertiary' | 'disabled';
+  /**
+   * Defaults to `inherit`, and should stay there inside anything with hover,
+   * disabled or selected states.
+   *
+   * Pinning a token here writes `color` onto the <svg> itself, and an explicit
+   * value on the child is not something a parent's `&:hover { color }` can
+   * reach — the icon simply never inherits. That is how the app bar's Save
+   * button came to render identically whether or not it was disabled: the
+   * button went to `text.disabled`, the glyph inside it stayed at
+   * `text.secondary`, and the same silence swallowed every hover in the row.
+   *
+   * The named steps are for icons that sit on a plain surface and genuinely
+   * need to be a step quieter than their surroundings.
+   */
+  color?: 'inherit' | 'primary' | 'secondary' | 'tertiary' | 'disabled';
 }
 
-export const FlowIcon: React.FC<FlowIconProps> = ({ 
-  children, 
-  size = 'small', 
-  color = 'secondary' 
+export const FlowIcon: React.FC<FlowIconProps> = ({
+  children,
+  size = 'small',
+  color = 'inherit'
 }) => {
   const getSize = () => {
     switch (size) {
@@ -62,7 +76,7 @@ export const FlowIcon: React.FC<FlowIconProps> = ({
       case 'disabled':
         return flowVizTheme.colors.text.disabled;
       default:
-        return flowVizTheme.colors.text.secondary;
+        return 'inherit';
     }
   };
 

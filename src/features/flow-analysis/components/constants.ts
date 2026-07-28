@@ -68,7 +68,7 @@ export const EDGE_STYLES = {
 
 export const LABEL_STYLES = {
   fontSize: 11,
-  color: 'rgba(var(--fv-overlay-rgb), 0.7)',
+  color: flowVizTheme.colors.text.secondary,
   fontWeight: 500,
   backgroundColor: 'rgba(var(--fv-panel-rgb), 0.95)',
   padding: '2px 6px',

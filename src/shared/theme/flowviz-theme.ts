@@ -40,8 +40,20 @@ export interface ColorTokens {
   surface: {
     rest: string;
     hover: string;
+    /** The top of the ladder: the keyboard-focused row, a pressed control. */
     active: string;
-    focus: string;
+    /**
+     * A chosen-but-not-focused row — the current value in a menu.
+     *
+     * Sits between `hover` and `active` on purpose, so a menu can show three
+     * things at once without them collapsing: what the pointer is over, what is
+     * currently chosen, and where the keyboard cursor is.
+     *
+     * Was `focus`, which had no call sites at all and a name that had become
+     * actively misleading — keyboard focus is drawn with `active`, so a token
+     * called `focus` meant the one thing it was guaranteed not to be used for.
+     */
+    selected: string;
     /** A well sunk INTO the surface — code blocks, inline <code>. On dark that
      *  means a darker patch; on light, a light grey one. */
     recessed: string;
@@ -213,7 +225,7 @@ const darkPalette: Palette = {
       rest: 'rgba(255, 255, 255, 0.03)',
       hover: 'rgba(255, 255, 255, 0.08)',
       active: 'rgba(255, 255, 255, 0.15)',
-      focus: 'rgba(255, 255, 255, 0.1)',
+      selected: 'rgba(255, 255, 255, 0.1)',
       recessed: 'rgba(0, 0, 0, 0.2)',
       recessedStrong: 'rgba(0, 0, 0, 0.35)',
       // Borders carry the structure that blur and drop shadows used to, so
@@ -334,8 +346,20 @@ const lightPalette: Palette = {
     surface: {
       rest: 'rgba(15, 23, 42, 0.03)',
       hover: 'rgba(15, 23, 42, 0.06)',
-      active: 'rgba(15, 23, 42, 0.11)',
-      focus: 'rgba(15, 23, 42, 0.08)',
+      // 0.18, not the 0.11 that used to sit here. `active` is the top of the
+      // ladder and its job is to be unmistakably above whatever it is stacked
+      // against — most visibly the keyboard-focused menu row, which has to
+      // out-rank the selected row beneath it.
+      //
+      // Light's ladder is compressed on purpose, since slate on white reads
+      // harder per unit alpha than white on slate. That is right for the lower
+      // steps and wrong at the top: measured against the 0.08 selected fill,
+      // dark's 0.15 gives a 1.26 contrast ratio and 0.11 here gave 1.06 — a
+      // quarter of the separation, which is why the focused row was hard to
+      // find. 0.18 restores it to 1.24, matching dark rather than merely
+      // looking similar on paper.
+      active: 'rgba(15, 23, 42, 0.18)',
+      selected: 'rgba(15, 23, 42, 0.08)',
       recessed: 'rgba(15, 23, 42, 0.045)',
       recessedStrong: 'rgba(15, 23, 42, 0.06)',
       border: {
@@ -554,6 +578,22 @@ export const flowVizTheme = {
   /** See `typeScale`. Spread a step into any `sx`: `...flowVizTheme.type.md`. */
   type: typeScale,
   uppercase: uppercaseRun,
+
+  /**
+   * The height of every control in the chrome — icon buttons, and the labelled
+   * buttons beside them.
+   *
+   * Not a new number: it is what `.react-flow__controls-button` in editing.css
+   * has always declared. The app bar ran 36 against the canvas controls' 28,
+   * which is how two icon-button systems ended up on screen at once, and the
+   * comment on `ToolbarIconButton` claimed the two matched while they differed on
+   * size, radius, fill and border. One token is what makes that claim true.
+   *
+   * The CSS file still writes `28px` literally — a stylesheet cannot read this
+   * object — so the two are kept honest by the comment there rather than by the
+   * compiler.
+   */
+  controlSize: 28,
 
   // Layout tokens
   spacing: {

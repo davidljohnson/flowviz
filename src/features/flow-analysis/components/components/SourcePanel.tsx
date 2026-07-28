@@ -63,15 +63,15 @@ export default function SourcePanel({ open, title, text, highlightExcerpt, onClo
           borderBottom: '1px solid rgba(var(--fv-overlay-rgb), 0.06)',
         }}
       >
-        <ArticleIcon sx={{ fontSize: 16, color: 'rgba(var(--fv-overlay-rgb), 0.7)', flexShrink: 0 }} />
+        <ArticleIcon sx={{ fontSize: 16, color: flowVizTheme.colors.text.secondary, flexShrink: 0 }} />
         <Typography
           noWrap
-          sx={{ flex: 1, fontSize: '0.82rem', fontWeight: 600, color: 'rgba(var(--fv-overlay-rgb), 0.9)' }}
+          sx={{ flex: 1, fontSize: '0.82rem', fontWeight: 600, color: flowVizTheme.colors.text.primary }}
         >
           {title || 'Source'}
         </Typography>
         <Tooltip title="Close">
-          <IconButton size="small" onClick={onClose} sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.6)' }}>
+          <IconButton size="small" onClick={onClose} sx={{ color: flowVizTheme.colors.text.tertiary }}>
             <CloseIcon fontSize="small" />
           </IconButton>
         </Tooltip>
@@ -85,7 +85,7 @@ export default function SourcePanel({ open, title, text, highlightExcerpt, onClo
           py: 1.5,
           fontSize: '0.8rem',
           lineHeight: 1.65,
-          color: 'rgba(var(--fv-overlay-rgb), 0.75)',
+          color: flowVizTheme.colors.text.secondary,
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
           ...createScrollbarStyle(),
@@ -101,7 +101,7 @@ export default function SourcePanel({ open, title, text, highlightExcerpt, onClo
                 backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.16)',
                 outline: '1px solid rgba(var(--fv-overlay-rgb), 0.35)',
                 borderRadius: flowVizTheme.borderRadius.xs,
-                color: 'rgba(var(--fv-overlay-rgb), 0.98)',
+                color: flowVizTheme.colors.text.primary,
               }}
             >
               {text.slice(range.start, range.end)}

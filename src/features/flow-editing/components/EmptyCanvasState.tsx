@@ -1,7 +1,6 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import SearchIcon from '@mui/icons-material/Search';
 import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import { flowVizTheme, shadowInk } from '../../../shared/theme/flowviz-theme';
 
@@ -59,6 +58,10 @@ const EmptyCanvasState: React.FC<EmptyCanvasStateProps> = ({ onAddNode, onAnalyz
             color: flowVizTheme.colors.text.tertiary,
           }}
         >
+          {/* Decorative, and deliberately not FlowMark: that mark identifies the
+              Analyze action up in the bar, and repeating it here — beside a
+              button that runs the same action — put three copies of one glyph
+              in a single viewport. */}
           <AccountTreeOutlinedIcon />
         </Box>
 
@@ -101,7 +104,6 @@ const EmptyCanvasState: React.FC<EmptyCanvasStateProps> = ({ onAddNode, onAnalyz
                 },
               }}
             >
-              <SearchIcon sx={{ fontSize: '1rem' }} />
               Analyze a report
             </Box>
           )}

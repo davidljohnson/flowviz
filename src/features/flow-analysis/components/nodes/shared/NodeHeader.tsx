@@ -65,7 +65,11 @@ export function TypeToken({ nodeType, size, sx }: { nodeType: string; size: numb
 // with the panel actions pushed to the right. Node cards do not use this — they
 // set the node's name inline with the token instead, so the name leads.
 export function NodeHeader({ nodeType, techniqueId, endSlot, prominent = false, onTypeClick }: NodeHeaderProps) {
-  const labelColor = 'rgba(var(--fv-overlay-rgb), 0.5)';
+  // The type row is 9.6px tracked-out caps — the least forgiving text in the
+  // product — and a flat 0.5 of the ink measured 3.41:1 against a white card.
+  // On dark `tertiary` is 0.5 too, so this costs nothing there and only repairs
+  // light, which is the mode the flat alpha was never tuned for.
+  const labelColor = flowVizTheme.colors.text.tertiary;
 
   return (
     <Box
@@ -148,7 +152,10 @@ export function NodeHeader({ nodeType, techniqueId, endSlot, prominent = false, 
           sx={{
             ml: 'auto',
             pl: 1,
-            color: 'rgba(var(--fv-overlay-rgb), 0.55)',
+            // The technique ID is content, not decoration — it is the one thing
+            // on a node someone might read out loud. 0.55 of the ink gave
+            // 3.99:1 against a white card, under the 4.5 floor.
+            color: flowVizTheme.colors.text.tertiary,
             fontSize: prominent ? '0.72rem' : '0.6rem',
             fontWeight: 600,
             letterSpacing: '0.1em',

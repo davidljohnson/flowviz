@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActionMenu, GlassIconButton } from 'flowviz';
+import { ActionMenu, ToolbarIconButton } from 'flowviz';
 import { Surface } from '../preview-lib/theme';
 
 const Icon = ({ d }: { d: string }) => (
@@ -26,9 +26,9 @@ const Anchored = ({ items }: { items: React.ComponentProps<typeof ActionMenu>['i
   return (
     <div style={{ height: 200 }}>
       <div ref={ref} style={{ display: 'inline-block' }}>
-        <GlassIconButton aria-label="More actions">
+        <ToolbarIconButton aria-label="More actions">
           <Icon d={MORE} />
-        </GlassIconButton>
+        </ToolbarIconButton>
       </div>
       <ActionMenu anchorEl={anchor} open={Boolean(anchor)} onClose={() => {}} items={items} />
     </div>

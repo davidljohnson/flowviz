@@ -116,6 +116,44 @@ export default function ThemeModeProvider({ children }: { children: ReactNode })
             },
 
             /**
+             * Menu rows are the one exception, and they get a filled row rather
+             * than a ring.
+             *
+             * The offset is what makes the ring wrong here. Held 2px clear of a
+             * row in a dense list it lands in the gutter between neighbours and
+             * reads as a separate object drawn over the menu, rather than as
+             * the cursor. It is also a second signal for a job the row's own
+             * background already does — a menu already distinguishes the
+             * current value, so keyboard focus only has to out-rank it.
+             *
+             * `surface.active` is a step above both the hover and selected
+             * fills, so the focused row is always the brightest one, and a
+             * focused row that is also the selected one still reads as focused.
+             *
+             * Two selectors, and both are specificity fights rather than style
+             * choices:
+             *
+             * The first carries two classes so it beats `.MuiButtonBase-root`
+             * above on specificity instead of source order, and beats the
+             * per-menu `.Mui-selected` fills that call sites set through `sx`.
+             *
+             * The second exists because MUI ships its own rule for a row that
+             * is selected AND keyboard-focused, and paints it
+             * `alpha(palette.primary.main, …)` — accent blue at 28%, the
+             * loudest thing in the menu and, in a monochrome UI, the actual
+             * source of most of the blue here. That selector carries three
+             * classes and ties the one above, so order decided it and MUI won.
+             * Four classes settles it.
+             */
+            [[
+              '.MuiButtonBase-root.MuiMenuItem-root:focus-visible',
+              '.MuiButtonBase-root.MuiMenuItem-root.Mui-selected:focus-visible',
+            ].join(', ')]: {
+              outline: 'none',
+              backgroundColor: 'var(--fv-surface-active)',
+            },
+
+            /**
              * Honour the OS "reduce motion" setting globally, rather than
              * relying on each component to remember — only the assistant mark
              * ever did.

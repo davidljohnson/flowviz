@@ -143,7 +143,7 @@ only by a sibling in the same module look dead but are not.
 `CompactButton` (a `styled(GlassMorphButton)`) went — and has since been
 deleted too. **The consequence is worth knowing:** the system has no
 general-purpose text button any more. What remains is icon-only
-(`GlassIconButton`), the hero CTA (`HeroSubmitButton`), and the dialog-scoped
+(`ToolbarIconButton`), the hero CTA (`HeroSubmitButton`), and the dialog-scoped
 pair (`PrimaryButton`, `SecondaryButton`) which live in the `EnhancedDialog`
 module. A feature needing a plain button either reaches for the dialog pair out
 of context or adds a new one.

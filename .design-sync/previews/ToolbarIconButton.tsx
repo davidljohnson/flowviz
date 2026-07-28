@@ -1,4 +1,4 @@
-import { GlassIconButton } from 'flowviz';
+import { ToolbarIconButton } from 'flowviz';
 import { Surface, BothModes } from '../preview-lib/theme';
 
 const Icon = ({ d }: { d: string }) => (
@@ -16,9 +16,9 @@ const SETTINGS =
 /** The app-bar / canvas-control button: a glass disc holding a single glyph. */
 export const Default = () => (
   <Surface>
-    <GlassIconButton aria-label="Zoom to fit">
+    <ToolbarIconButton aria-label="Zoom to fit">
       <Icon d={ZOOM_IN} />
-    </GlassIconButton>
+    </ToolbarIconButton>
   </Surface>
 );
 
@@ -26,24 +26,24 @@ export const Default = () => (
 export const AsAToolbar = () => (
   <Surface>
     <div style={{ display: 'flex', gap: 8 }}>
-      <GlassIconButton aria-label="Zoom to fit">
+      <ToolbarIconButton aria-label="Zoom to fit">
         <Icon d={ZOOM_IN} />
-      </GlassIconButton>
-      <GlassIconButton aria-label="Export">
+      </ToolbarIconButton>
+      <ToolbarIconButton aria-label="Export">
         <Icon d={DOWNLOAD} />
-      </GlassIconButton>
-      <GlassIconButton aria-label="Settings">
+      </ToolbarIconButton>
+      <ToolbarIconButton aria-label="Settings">
         <Icon d={SETTINGS} />
-      </GlassIconButton>
+      </ToolbarIconButton>
     </div>
   </Surface>
 );
 
 export const Disabled = () => (
   <Surface>
-    <GlassIconButton disabled aria-label="Export">
+    <ToolbarIconButton disabled aria-label="Export">
       <Icon d={DOWNLOAD} />
-    </GlassIconButton>
+    </ToolbarIconButton>
   </Surface>
 );
 
@@ -51,9 +51,9 @@ export const Disabled = () => (
 export const DarkAndLight = () => (
   <BothModes>
     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-      <GlassIconButton aria-label="Settings">
+      <ToolbarIconButton aria-label="Settings">
         <Icon d={SETTINGS} />
-      </GlassIconButton>
+      </ToolbarIconButton>
     </div>
   </BothModes>
 );

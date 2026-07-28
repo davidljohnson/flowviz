@@ -155,9 +155,15 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.45 * var(--fv-shadow-alpha))) !important;
 }
 
+/* 28 square, the same flowVizTheme.controlSize the chrome's buttons use — keep
+   the two in step by hand, a stylesheet cannot read the token. It already
+   said 28 and rendered 38: ReactFlow's own rule adds 5px of padding under
+   content-box, so the declared size was the content box and the border box came
+   out ten pixels larger. box-sizing makes the number mean what it says. */
 .react-flow__controls-button {
   background: rgba(var(--fv-raised-rgb), 0.95) !important;
   border-bottom: 1px solid rgba(var(--fv-overlay-rgb), 0.08) !important;
+  box-sizing: border-box;
   width: 28px;
   height: 28px;
 }

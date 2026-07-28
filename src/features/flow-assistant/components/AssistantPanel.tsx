@@ -63,11 +63,13 @@ function CopyMessageButton({ text }: { text: string }) {
           top: 4,
           right: 4,
           p: 0.5,
-          color: 'rgba(var(--fv-overlay-rgb), 0.55)',
+          // 3.99:1 cleared the 3:1 bar for a control, but only just, and the
+          // ladder has a step meant for it.
+          color: flowVizTheme.colors.text.tertiary,
           backgroundColor: 'rgba(var(--fv-panel-rgb), 0.85)',
           opacity: 0,
           transition: flowVizTheme.motion.fast,
-          '&:hover': { color: 'rgba(var(--fv-overlay-rgb), 0.9)', backgroundColor: 'rgba(var(--fv-panel-rgb), 0.95)' },
+          '&:hover': { color: flowVizTheme.colors.text.primary, backgroundColor: 'rgba(var(--fv-panel-rgb), 0.95)' },
         }}
       >
         {copied ? <CheckIcon sx={{ fontSize: 13 }} /> : <ContentCopyIcon sx={{ fontSize: 13 }} />}
@@ -200,23 +202,23 @@ export default function AssistantPanel({
         }}
       >
         <AssistantMark size={19} />
-        <Typography sx={{ flex: 1, fontSize: '0.82rem', fontWeight: 600, color: 'rgba(var(--fv-overlay-rgb), 0.9)' }}>
+        <Typography sx={{ flex: 1, fontSize: '0.82rem', fontWeight: 600, color: flowVizTheme.colors.text.primary }}>
           AI Assistant
         </Typography>
         <Tooltip title={expanded ? 'Shrink panel' : 'Expand panel'}>
-          <IconButton size="small" onClick={toggleExpanded} sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.6)' }}>
+          <IconButton size="small" onClick={toggleExpanded} sx={{ color: flowVizTheme.colors.text.tertiary }}>
             {expanded ? <CloseFullscreenIcon sx={{ fontSize: 16 }} /> : <OpenInFullIcon sx={{ fontSize: 16 }} />}
           </IconButton>
         </Tooltip>
         <Tooltip title="Clear conversation">
           <span>
-            <IconButton size="small" onClick={onClear} disabled={messages.length === 0 || pending} sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.6)' }}>
+            <IconButton size="small" onClick={onClear} disabled={messages.length === 0 || pending} sx={{ color: flowVizTheme.colors.text.tertiary }}>
               <RestartAltIcon fontSize="small" />
             </IconButton>
           </span>
         </Tooltip>
         <Tooltip title="Close">
-          <IconButton size="small" onClick={onClose} sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.6)' }}>
+          <IconButton size="small" onClick={onClose} sx={{ color: flowVizTheme.colors.text.tertiary }}>
             <CloseIcon fontSize="small" />
           </IconButton>
         </Tooltip>
@@ -226,7 +228,9 @@ export default function AssistantPanel({
       <Box ref={listRef} sx={{ flex: 1, overflowY: 'auto', px: 1.5, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1, ...createScrollbarStyle() }}>
         {messages.length === 0 && !pending && (
           <>
-            <Typography sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.45)', fontSize: '0.78rem', px: 0.5, py: 1 }}>
+            {/* Body copy at 0.45 of the ink measured 2.94:1 on light. This is
+                the first thing anyone reads in the panel. */}
+            <Typography sx={{ color: flowVizTheme.colors.text.tertiary, fontSize: '0.78rem', px: 0.5, py: 1 }}>
               Ask about the graph or tell me to edit it — "add a C2 server connected to the loader", "delete the phishing node".
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, px: 0.5 }}>
@@ -240,7 +244,7 @@ export default function AssistantPanel({
                   sx={{
                     height: 24,
                     fontSize: '0.72rem',
-                    color: 'rgba(var(--fv-overlay-rgb), 0.75)',
+                    color: flowVizTheme.colors.text.secondary,
                     backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.05)',
                     border: '1px solid rgba(var(--fv-overlay-rgb), 0.12)',
                     '&:hover': { backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.1)', borderColor: 'rgba(var(--fv-overlay-rgb), 0.28)' },
@@ -260,12 +264,12 @@ export default function AssistantPanel({
               ...(message.role === 'user' && {
                 backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.1)',
                 border: '1px solid rgba(var(--fv-overlay-rgb), 0.16)',
-                color: 'rgba(var(--fv-overlay-rgb), 0.92)',
+                color: flowVizTheme.colors.text.primary,
               }),
               ...(message.role === 'assistant' && {
                 backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.05)',
                 border: '1px solid rgba(var(--fv-overlay-rgb), 0.08)',
-                color: 'rgba(var(--fv-overlay-rgb), 0.85)',
+                color: flowVizTheme.colors.text.primary,
                 position: 'relative' as const,
                 '&:hover .fv-copy': { opacity: 1 },
               }),
@@ -285,13 +289,15 @@ export default function AssistantPanel({
         ))}
         {pending && (
           streamingText ? (
-            <Box sx={{ alignSelf: 'flex-start', maxWidth: '90%', ...bubbleSx, backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.05)', border: '1px solid rgba(var(--fv-overlay-rgb), 0.08)', color: 'rgba(var(--fv-overlay-rgb), 0.85)' }}>
+            <Box sx={{ alignSelf: 'flex-start', maxWidth: '90%', ...bubbleSx, backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.05)', border: '1px solid rgba(var(--fv-overlay-rgb), 0.08)', color: flowVizTheme.colors.text.primary }}>
               <AssistantMarkdown text={trimStreamingTail(streamingText)} onFocusNode={onFocusNode} />
             </Box>
           ) : (
             <Box sx={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 1, ...bubbleSx, backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.05)', border: '1px solid rgba(var(--fv-overlay-rgb), 0.08)' }}>
-              <CircularProgress size={14} sx={{ color: 'rgba(var(--fv-overlay-rgb), 0.5)' }} />
-              <Typography sx={{ fontSize: '0.78rem', color: 'rgba(var(--fv-overlay-rgb), 0.55)' }}>Thinking…</Typography>
+              {/* Matches the "Thinking…" label beside it — the two are one
+                  message and were drifting apart by 0.05. */}
+              <CircularProgress size={14} sx={{ color: flowVizTheme.colors.text.tertiary }} />
+              <Typography sx={{ fontSize: '0.78rem', color: flowVizTheme.colors.text.tertiary }}>Thinking…</Typography>
             </Box>
           )
         )}
@@ -327,7 +333,7 @@ export default function AssistantPanel({
             sx={{
               flex: 1,
               fontSize: '0.82rem',
-              color: 'rgba(var(--fv-overlay-rgb), 0.9)',
+              color: flowVizTheme.colors.text.primary,
               px: 1.25,
               py: 0.75,
               borderRadius: flowVizTheme.borderRadius.md,
@@ -353,9 +359,13 @@ export default function AssistantPanel({
               color: flowVizTheme.colors.inverse.text,
               transition: flowVizTheme.motion.fast,
               '&:hover': { backgroundColor: flowVizTheme.colors.inverse.surfaceHover },
+              // 1.4.3 exempts disabled controls, so this was not a contrast
+              // failure — but there is a token for exactly this state and it
+              // resolves to the same weight, so there is no reason to hand-roll
+              // it.
               '&.Mui-disabled': {
-                backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.06)',
-                color: 'rgba(var(--fv-overlay-rgb), 0.28)',
+                backgroundColor: flowVizTheme.colors.surface.hover,
+                color: flowVizTheme.colors.text.disabled,
               },
             }}
           >

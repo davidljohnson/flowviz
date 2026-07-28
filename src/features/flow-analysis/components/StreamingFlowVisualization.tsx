@@ -32,6 +32,7 @@ import LoadingIndicator from '../../../shared/components/LoadingIndicator';
 import { useFlowEditor, useEditorKeyboard, EdgeLabelEditor, CommandPalette } from '../../flow-editing';
 import type { Command } from '../../flow-editing';
 import type { EdgeLabelEditorState } from '../../flow-editing';
+import { shortcutHint } from '../../../shared/utils/shortcuts';
 import { EdgeActionsProvider } from '../../flow-editing/context/EdgeActionsContext';
 import NodeInspector from '../../flow-editing/components/NodeInspector';
 import EdgeInspector from '../../flow-editing/components/EdgeInspector';
@@ -54,7 +55,7 @@ import BlurOnIcon from '@mui/icons-material/BlurOn';
 import BlurOffIcon from '@mui/icons-material/BlurOff';
 import AddIcon from '@mui/icons-material/Add';
 import CropFreeIcon from '@mui/icons-material/CropFree';
-import SearchIcon from '@mui/icons-material/Search';
+import FlowMark from '../../../shared/components/icons/FlowMark';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import AssistantMark from '../../../shared/components/icons/AssistantMark';
@@ -110,6 +111,20 @@ export interface StreamingFlowVisualizationProps {
   onAnalyzeRequested?: () => void;
   /** Asks the host to empty the canvas (it owns the unsaved-changes prompt). */
   onClearRequested?: () => void;
+  /**
+   * ⌘K entries for actions the host owns — saving, loading, exporting,
+   * settings. They append to the canvas's own commands so the palette covers
+   * the whole product rather than just the half of it that lives on the canvas.
+   */
+  hostCommands?: Command[];
+  /**
+   * The palette is controlled from the host because the app bar has a trigger
+   * for it too, and two owners of one boolean is how a popover ends up
+   * disagreeing with the control that opened it. ⌘K itself still lives here —
+   * the canvas is what the palette mostly acts on.
+   */
+  paletteOpen: boolean;
+  onPaletteOpenChange: (open: boolean) => void;
 }
 
 const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProps> = ({
@@ -117,6 +132,9 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   analysisRequest,
   onAnalyzeRequested,
   onClearRequested,
+  hostCommands,
+  paletteOpen,
+  onPaletteOpenChange,
   loadedFlow,
   onArticleExtracted,
   onExportAvailable,
@@ -617,8 +635,6 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
     finishTurn: finishAssistantTurn,
   });
 
-  const [paletteOpen, setPaletteOpen] = useState(false);
-
   useEditorKeyboard({
     // Also off while the palette is up: its own list handles the arrow keys,
     // and Delete/Backspace would otherwise still reach the canvas behind it.
@@ -632,22 +648,24 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
 
   // ⌘K / Ctrl+K. Registered separately from useEditorKeyboard because it stays
   // live while streaming — analysing is exactly what you might want next.
+  // Re-registered whenever the open state changes, since the toggle now reads
+  // that state rather than owning it.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || event.code !== 'KeyK') return;
       event.preventDefault();
-      setPaletteOpen(prev => !prev);
+      onPaletteOpenChange(!paletteOpen);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [paletteOpen, onPaletteOpenChange]);
 
   const commands = useMemo<Command[]>(() => [
     {
       id: 'analyze',
       label: 'Analyze a report…',
       keywords: 'url text pdf article import threat intel merge',
-      icon: SearchIcon,
+      icon: FlowMark,
       disabled: !onAnalyzeRequested,
       run: () => onAnalyzeRequested?.(),
     },
@@ -707,7 +725,10 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       disabled: !sourceText,
       run: () => setSourcePanelOpen(prev => !prev),
     },
-  ], [onAnalyzeRequested, onClearRequested, isStreaming, openNodePicker, editor, reactFlowInstance, gridVisible, toggleGrid, assistantOpen, sourcePanelOpen, sourceText]);
+    // Canvas commands first: they are what you are looking at. The host's file
+    // operations read as the tail of the same list rather than a second menu.
+    ...(hostCommands ?? []),
+  ], [onAnalyzeRequested, onClearRequested, isStreaming, openNodePicker, editor, reactFlowInstance, gridVisible, toggleGrid, assistantOpen, sourcePanelOpen, sourceText, hostCommands]);
 
   // Edge label editing (double-click an edge)
   const [edgeLabelEdit, setEdgeLabelEdit] = useState<EdgeLabelEditorState | null>(null);
@@ -1357,9 +1378,11 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       sx={{
         width: '100%',
         // Take whatever the app bar leaves, rather than subtracting an assumed
-        // 64px: at fractional display scaling the bar renders ~64.67px, so the
-        // arithmetic overshot the viewport by a sub-pixel and left a permanent
-        // scrollbar. minHeight:0 lets this flex item shrink below its content,
+        // fixed height: at fractional display scaling the bar renders a fraction
+        // over its nominal size, so the arithmetic overshot the viewport by a
+        // sub-pixel and left a permanent scrollbar. It is also why changing the
+        // bar's height needs no corresponding edit here.
+        // minHeight:0 lets this flex item shrink below its content,
         // and its used height stays definite, so ReactFlow's height:100% still
         // resolves and fills the canvas.
         flex: 1,
@@ -1468,10 +1491,10 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
             {/* Editing controls live with the zoom cluster, not a floating bar */}
             {!isStreaming && (
               <>
-                <ControlButton onClick={editor.undo} disabled={!editor.canUndo} title="Undo (Ctrl+Z)">
+                <ControlButton onClick={editor.undo} disabled={!editor.canUndo} title={`Undo ${shortcutHint('Z')}`}>
                   <UndoIcon sx={{ fontSize: 14 }} />
                 </ControlButton>
-                <ControlButton onClick={editor.redo} disabled={!editor.canRedo} title="Redo (Ctrl+Y)">
+                <ControlButton onClick={editor.redo} disabled={!editor.canRedo} title={`Redo ${shortcutHint('Y')}`}>
                   <RedoIcon sx={{ fontSize: 14 }} />
                 </ControlButton>
                 <ControlButton onClick={editor.relayout} title="Clean up layout">
@@ -1521,7 +1544,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       {/* ⌘K — one way in to everything that populates the canvas */}
       <CommandPalette
         open={paletteOpen}
-        onClose={() => setPaletteOpen(false)}
+        onClose={() => onPaletteOpenChange(false)}
         commands={commands}
       />
 

@@ -21,7 +21,7 @@ function OperatorNode({ data, selected }: NodeProps) {
       <Typography
         component="span"
         sx={{
-          color: 'rgba(var(--fv-overlay-rgb), 0.9)',
+          color: flowVizTheme.colors.text.primary,
           fontWeight: 700,
           fontSize: '0.8rem',
           letterSpacing: '0.12em',

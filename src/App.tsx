@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Snackbar, Alert } from '@mui/material';
+import SaveIcon from '@mui/icons-material/Save';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
+import DownloadIcon from '@mui/icons-material/Download';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { flowVizTheme } from './shared/theme/flowviz-theme';
 import StreamingFlowVisualization from './features/flow-analysis/components/StreamingFlowVisualization';
 import { SaveFlowDialog, LoadFlowDialog } from './features/flow-storage/components';
@@ -7,8 +11,10 @@ import { SavedFlow } from './features/flow-storage/types/SavedFlow';
 import StreamingProgressBar from './shared/components/StreamingProgressBar';
 import { AppBar, NewSearchDialog, SettingsDialog, AnalyzeDialog } from './features/app/components';
 import type { AnalyzeMode } from './features/app/components/AnalyzeDialog';
-import { useAppState } from './features/app/hooks';
+import type { Command } from './features/flow-editing';
+import { useAppState, useAppShortcuts } from './features/app/hooks';
 import { useProviderConfig, isModelAvailable } from './features/app/hooks/useProviderConfig';
+import { shortcut } from './shared/utils/shortcuts';
 // Input limits based on Claude's context window; shared with AnalysisInput so
 // the submit guard and the character counter can't drift apart.
 import { TEXT_LIMITS, getTextStats } from './shared/utils/textLimits';
@@ -283,6 +289,100 @@ export default function App() {
     setToastOpen(false);
   };
 
+  const canExport = Boolean(exportFunction) && canvasHasContent;
+
+  // Owned here rather than in the visualization: the app bar has a trigger for
+  // the palette too, and one boolean with two owners is how a popover ends up
+  // disagreeing with the control that opened it.
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  useAppShortcuts({
+    enabled: !isStreaming,
+    canSave: canvasHasContent,
+    canExport,
+    onSave: () => setSaveFlowDialogOpen(true),
+    onLoad: () => setLoadFlowDialogOpen(true),
+    // Straight to PNG. The app bar's button opens a format menu, but a
+    // shortcut that only opens another menu isn't worth a keystroke, and PNG is
+    // the format people actually reach for — the other three stay on the menu.
+    onExport: () => handleDownloadClick('png'),
+    onSettings: () => setSettingsDialogOpen(true),
+  });
+
+  /**
+   * The ⌘K entries for actions App owns rather than the canvas.
+   *
+   * The palette had every canvas command and none of the file ones, so the
+   * things the app bar does were the only part of the product with no keyboard
+   * route at all. Passing them down rather than adding four more callback props
+   * keeps the labels, icons and disabled tests next to the state they read.
+   *
+   * Rebuilt each render rather than memoised: the visualization below is not
+   * memoised either, so it re-renders with App whatever this array's identity
+   * is, and a dependency list that quietly omitted `handleDownloadClick` to
+   * keep the memo intact would be buying nothing with a stale closure.
+   */
+  const hostCommands: Command[] = [
+    {
+      id: 'save-flow',
+      label: 'Save analysis…',
+      hint: shortcut('S'),
+      keywords: 'store keep persist write disk',
+      icon: SaveIcon,
+      disabled: !canvasHasContent,
+      run: () => setSaveFlowDialogOpen(true),
+    },
+    {
+      id: 'load-flow',
+      label: 'Load analysis…',
+      hint: shortcut('O'),
+      keywords: 'open restore saved recent browse',
+      icon: FolderOpenIcon,
+      run: () => setLoadFlowDialogOpen(true),
+    },
+    {
+      id: 'export-png',
+      label: 'Export as PNG',
+      hint: shortcut('E'),
+      keywords: 'download image picture screenshot save',
+      icon: DownloadIcon,
+      disabled: !canExport,
+      run: () => handleDownloadClick('png'),
+    },
+    {
+      id: 'export-stix',
+      label: 'Export as STIX bundle',
+      keywords: 'download json threat intel share',
+      icon: DownloadIcon,
+      disabled: !canExport,
+      run: () => handleDownloadClick('json'),
+    },
+    {
+      id: 'export-afb',
+      label: 'Export as AFB',
+      keywords: 'download attack flow builder',
+      icon: DownloadIcon,
+      disabled: !canExport,
+      run: () => handleDownloadClick('afb'),
+    },
+    {
+      id: 'export-flowviz',
+      label: 'Export as FlowViz',
+      keywords: 'download json native viewport',
+      icon: DownloadIcon,
+      disabled: !canExport,
+      run: () => handleDownloadClick('flowviz'),
+    },
+    {
+      id: 'settings',
+      label: 'Settings…',
+      hint: shortcut(','),
+      keywords: 'preferences provider model edge colour theme',
+      icon: SettingsIcon,
+      run: () => setSettingsDialogOpen(true),
+    },
+  ];
+
   return (
     <Box sx={{
       // Exactly the viewport, not at least it: the app shell is a fixed frame
@@ -306,15 +406,15 @@ export default function App() {
       display: 'flex',
       flexDirection: 'column',
     }}>
-      <AppBar 
-        isStreaming={isStreaming}
+      <AppBar
         exportFunction={exportFunction}
-        canSave={canvasHasContent}
+        canvasHasContent={canvasHasContent}
         onNewSearch={handleNewSearch}
         onDownloadClick={handleDownloadClick}
         onSaveClick={() => setSaveFlowDialogOpen(true)}
         onLoadClick={() => setLoadFlowDialogOpen(true)}
         onSettingsClick={() => setSettingsDialogOpen(true)}
+        onOpenCommandPalette={() => setPaletteOpen(true)}
       />
       
       <StreamingProgressBar isVisible={isStreaming} />
@@ -324,6 +424,9 @@ export default function App() {
         analysisRequest={analysisRequest}
         onAnalyzeRequested={handleNewSearch}
         onClearRequested={() => setNewSearchDialogOpen(true)}
+        hostCommands={hostCommands}
+        paletteOpen={paletteOpen}
+        onPaletteOpenChange={setPaletteOpen}
         loadedFlow={loadedFlow}
         onArticleExtracted={(text) => setExtractedText(text)}
         onExportAvailable={handleExportAvailable}
