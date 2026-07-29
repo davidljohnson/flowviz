@@ -12,7 +12,7 @@ import {
   useReactFlow,
   ConnectionMode
 } from 'reactflow';
-import type { Connection, Edge } from 'reactflow';
+import type { Connection, Edge, Node } from 'reactflow';
 import { toPng } from 'html-to-image';
 import { STIXBundleExporter } from '../../flow-export/services/stixBundleExporter';
 import { AttackFlowV3Exporter } from '../../flow-export/services/attackFlowV3Exporter';
@@ -23,7 +23,19 @@ import { flowVizTheme, themePalettes, currentThemeMode } from '../../../shared/t
 import { useThemeMode } from '../../../shared/theme/ThemeModeProvider';
 import ErrorBoundary from '../../../shared/components/ErrorBoundary';
 
-import { THEME, NODE_TYPES, MERGE_CLUSTER_GAP } from './constants';
+import {
+  THEME,
+  NODE_TYPES,
+  MERGE_CLUSTER_GAP,
+  DECK,
+  RESOLVE_MS,
+  RESOLVE_STAGGER_MS,
+  RESOLVE_MAX_STAGGERED_RANKS,
+  READABLE_ZOOM,
+  START_ZOOM_MAX,
+  OVERVIEW_HOLD_MS,
+  START_VIEW_MS,
+} from './constants';
 import { StreamingDirectFlowClient } from '../services/streamingDirectFlowClient';
 import { getLayoutedElements, boundsOf, type Bounds } from './utils/layoutUtils';
 
@@ -66,6 +78,38 @@ import AssistantMark from '../../../shared/components/icons/AssistantMark';
 // Spacing of the background dot grid; the snap-to-grid step matches it so
 // dragged nodes land on the visible dots.
 const GRID_SIZE = 20;
+
+/**
+ * Drop edges that duplicate a route through an operator: the model tends to
+ * emit A -> B alongside A -> OP and OP -> B, which draws the same path twice.
+ *
+ * Runs over one analysis run's own edges, before they are laid out — an edge
+ * the user drew, or one from an earlier analysis, is never a candidate because
+ * it is not in the buffer.
+ */
+const pruneOperatorBypasses = (edges: Edge[], nodes: { id: string; type?: string }[]): Edge[] => {
+  const operatorIds = new Set(
+    nodes.filter(n => n.type === 'AND_operator' || n.type === 'OR_operator').map(n => n.id)
+  );
+  if (operatorIds.size === 0) return edges;
+
+  const feedsOperators = new Map<string, string[]>();
+  const operatorTargets = new Map<string, Set<string>>();
+  edges.forEach(edge => {
+    if (operatorIds.has(edge.target)) {
+      feedsOperators.set(edge.source, [...(feedsOperators.get(edge.source) || []), edge.target]);
+    }
+    if (operatorIds.has(edge.source)) {
+      if (!operatorTargets.has(edge.source)) operatorTargets.set(edge.source, new Set());
+      operatorTargets.get(edge.source)!.add(edge.target);
+    }
+  });
+
+  return edges.filter(edge => {
+    const ops = feedsOperators.get(edge.source);
+    return !ops?.some(op => operatorTargets.get(op)?.has(edge.target));
+  });
+};
 
 export interface StreamingFlowVisualizationProps {
   url: string; // Can be URL or text content
@@ -244,6 +288,21 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   const [isStreaming, setIsStreaming] = useState(false);
   const streamingClientRef = useRef<StreamingDirectFlowClient | null>(null);
 
+  /**
+   * Which half of the reveal is running.
+   *
+   * `collecting` — cards are landing in the staging deck. Slots are fixed on
+   * arrival and the camera holds still, so the only motion is a new card.
+   * `resolving` — the real layout is known and every card is travelling to it.
+   *
+   * Culling is off for both: during collection the deck is small enough that
+   * everything is on screen anyway, and during the resolve a culled card would
+   * be dropped from the DOM mid-flight. It also stops entrance animations
+   * replaying, which is what happened when a moving camera remounted a card
+   * that had already settled.
+   */
+  const [revealPhase, setRevealPhase] = useState<'idle' | 'collecting' | 'resolving'>('idle');
+
   // Use refs to avoid unstable dependencies
   const isStreamingRef = useRef(isStreaming);
   useEffect(() => {
@@ -332,6 +391,27 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   const preservedBoundsRef = useRef<Bounds | null>(null);
   const newNodeIdsRef = useRef<Set<string>>(new Set());
 
+  // Staging deck bookkeeping: where the grid starts, how wide it is, and how
+  // many slots have been handed out. Fixed for the run, so a card's slot is a
+  // pure function of its arrival index and nothing already placed can move.
+  const deckRef = useRef<{
+    origin: { x: number; y: number };
+    count: number;
+    /** Radius, in cells, the camera is currently framing. */
+    framedRadius: number;
+  } | null>(null);
+  // Edges are held back until the cards have landed. ReactFlow knows a node's
+  // final position the moment it is set — only the visual transform transitions
+  // — so an edge drawn during the resolve would be strung between the places
+  // the cards are heading for, not the places they appear to be.
+  const bufferedEdgesRef = useRef<Edge[]>([]);
+  const revealTimersRef = useRef<number[]>([]);
+
+  const clearRevealTimers = useCallback(() => {
+    revealTimersRef.current.forEach(id => clearTimeout(id));
+    revealTimersRef.current = [];
+  }, []);
+
   const handleNodesChange = useCallback((changes: any) => {
     onNodesChange(changes);
   }, [onNodesChange]);
@@ -410,6 +490,181 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   const editorFitView = useCallback(() => {
     reactFlowInstance?.fitView({ padding: 0.15, duration: 600, maxZoom: 1.5, minZoom: 0.1 });
   }, [reactFlowInstance]);
+
+  /**
+   * Bring `target` into view at a zoom that respects `maxZoom`.
+   *
+   * ReactFlow's own fitBounds takes no zoom ceiling and the canvas allows 4x, so
+   * framing a two-node flow through it drives the camera absurdly close. Working
+   * the zoom out by hand and handing it to setCenter also means the framing is
+   * computed from positions we already hold, rather than from ReactFlow's
+   * internal store — which lags a setNodes by a render.
+   */
+  const canvasRect = useCallback(
+    () => document.querySelector('.flow-visualization-container')?.getBoundingClientRect() ?? null,
+    [],
+  );
+
+  /** The zoom a fit of `target` would settle on, before any ceiling is applied. */
+  const fitZoomFor = useCallback((target: Bounds, padding = 0.15) => {
+    const rect = canvasRect();
+    if (!rect) return 1;
+    const usable = 1 - padding * 2;
+    return Math.min(
+      (rect.width * usable) / Math.max(target.maxX - target.minX, 1),
+      (rect.height * usable) / Math.max(target.maxY - target.minY, 1),
+    );
+  }, [canvasRect]);
+
+  const frameBounds = useCallback((
+    target: Bounds,
+    { maxZoom = 1.2, duration = 700, padding = 0.15 }: { maxZoom?: number; duration?: number; padding?: number } = {},
+  ) => {
+    if (!reactFlowInstance) return;
+    const zoom = Math.max(0.1, Math.min(fitZoomFor(target, padding), maxZoom));
+    reactFlowInstance.setCenter(
+      (target.minX + target.maxX) / 2,
+      (target.minY + target.maxY) / 2,
+      { zoom, duration },
+    );
+  }, [reactFlowInstance, fitZoomFor]);
+
+  /**
+   * Settle on the beginning of a flow at a zoom you can actually read.
+   *
+   * Used when the graph is too long to be both fully framed and legible — an
+   * attack chain is typically three times taller than it is wide, against a
+   * canvas that is wider than it is tall, so fitting it wastes most of the width
+   * and shrinks every card to a smudge. Fitting the *width* instead spends the
+   * whole frame and lands at a readable zoom; the flow then reads top to bottom,
+   * which is the direction it was laid out in and the order it happened in.
+   */
+  const frameStartOf = useCallback((laid: Node[], full: Bounds) => {
+    const rect = canvasRect();
+    if (!rect || !reactFlowInstance) return;
+
+    const widthZoom = (rect.width * 0.85) / Math.max(full.maxX - full.minX, 1);
+    const zoom = Math.min(Math.max(widthZoom, READABLE_ZOOM), START_ZOOM_MAX);
+    const viewHeight = rect.height / zoom;
+
+    // Centre on the part of the flow that will actually be on screen: the first
+    // rank of a wide graph can sit well off the whole column's centre line.
+    const head = laid.filter(n => n.position.y <= full.minY + viewHeight);
+    const headBounds = boundsOf(head.length > 0 ? head : laid) ?? full;
+
+    reactFlowInstance.setCenter(
+      (headBounds.minX + headBounds.maxX) / 2,
+      full.minY + viewHeight / 2 - 40,
+      { zoom, duration: START_VIEW_MS },
+    );
+  }, [canvasRect, reactFlowInstance]);
+
+  /**
+   * What the user can currently see, in flow coordinates. Used to place
+   * assistant-added nodes near them and to decide whether the camera needs to
+   * move at all once a turn lands.
+   */
+  const visibleBounds = useCallback((): Bounds | null => {
+    const container = document.querySelector('.flow-visualization-container');
+    const rect = container?.getBoundingClientRect();
+    if (!rect || !reactFlowInstance) return null;
+    const topLeft = reactFlowInstance.screenToFlowPosition({ x: rect.left, y: rect.top });
+    const bottomRight = reactFlowInstance.screenToFlowPosition({ x: rect.right, y: rect.bottom });
+    return { minX: topLeft.x, minY: topLeft.y, maxX: bottomRight.x, maxY: bottomRight.y };
+  }, [reactFlowInstance]);
+
+  /** The box a spiral of the given radius (in cells) occupies, cards included. */
+  const deckExtent = useCallback((radius: number): Bounds | null => {
+    const deck = deckRef.current;
+    if (!deck) return null;
+    const halfWidth = (radius + 0.5) * DECK.gapX;
+    const halfHeight = (radius + 0.5) * DECK.gapY;
+    return {
+      minX: deck.origin.x - halfWidth,
+      maxX: deck.origin.x + halfWidth,
+      minY: deck.origin.y - halfHeight,
+      maxY: deck.origin.y + halfHeight,
+    };
+  }, []);
+
+  /**
+   * Open the staging deck for a run.
+   *
+   * A fresh analysis spirals out from the middle of the current view, so the
+   * first card lands where the user is already looking. A merge stages well
+   * clear of the existing flow — the exact spot barely matters, since the
+   * camera follows the deck and the resolve repositions the whole cluster
+   * underneath the preserved graph anyway; what matters is that a spiral of
+   * unknown size can never grow back up into the user's work.
+   */
+  const openDeck = useCallback((preserved: Bounds | null) => {
+    const view = visibleBounds();
+
+    const origin = preserved
+      ? {
+          x: (preserved.minX + preserved.maxX) / 2,
+          y: preserved.maxY + MERGE_CLUSTER_GAP + DECK.gapY * 8,
+        }
+      : view
+        ? { x: (view.minX + view.maxX) / 2, y: (view.minY + view.maxY) / 2 }
+        : { x: 0, y: 0 };
+
+    // Start framing whatever already fits, so a view with room to spare does
+    // not get a pointless camera move on the first card.
+    const fits = view && !preserved
+      ? Math.min(
+          (view.maxX - view.minX) / 2 / DECK.gapX,
+          (view.maxY - view.minY) / 2 / DECK.gapY,
+        )
+      : 0;
+
+    deckRef.current = { origin, count: 0, framedRadius: Math.max(fits, DECK.minFramedRadius) };
+
+    if (preserved) {
+      // The merge deck is nowhere near the current view, so go to it once, now,
+      // rather than letting the first card arrive somewhere off screen.
+      const extent = deckExtent(DECK.minFramedRadius);
+      if (extent) frameBounds(extent, { maxZoom: 1, duration: 600 });
+    }
+  }, [visibleBounds, deckExtent, frameBounds]);
+
+  /**
+   * The next slot in the spiral. Handed out once and never revisited — the
+   * whole point of the deck is that nothing already on screen moves.
+   */
+  const nextDeckSlot = useCallback(() => {
+    const deck = deckRef.current;
+    if (!deck) return { x: 0, y: 0 };
+    const index = deck.count;
+    deck.count += 1;
+
+    const radius = DECK.spiralSpacing * Math.sqrt(index);
+    const angle = index * DECK.goldenAngle;
+    return {
+      x: deck.origin.x + radius * Math.cos(angle) * DECK.gapX,
+      y: deck.origin.y + radius * Math.sin(angle) * DECK.gapY,
+    };
+  }, []);
+
+  /**
+   * Pull the camera back once the spiral outgrows what is framed.
+   *
+   * The radius climbs as sqrt(n), so this fires a handful of times across a
+   * run — roughly every time the deck grows by half again — instead of on every
+   * card. Each move is a genuine response to content leaving the frame, and the
+   * zoom only ever goes out, so the deck reads as steadily gathering rather
+   * than as a camera that cannot keep still.
+   */
+  const keepDeckFramed = useCallback(() => {
+    const deck = deckRef.current;
+    if (!deck) return;
+    const radius = DECK.spiralSpacing * Math.sqrt(Math.max(deck.count - 1, 0));
+    if (radius <= deck.framedRadius) return;
+
+    deck.framedRadius = Math.max(radius * DECK.spiralHeadroom, DECK.minFramedRadius);
+    const extent = deckExtent(deck.framedRadius);
+    if (extent) frameBounds(extent, { maxZoom: 1, duration: 550, padding: 0.06 });
+  }, [deckExtent, frameBounds]);
 
   // Docking or undocking the source column resizes the canvas, so re-frame
   // the graph in whatever space is left once the layout has settled
@@ -651,8 +906,16 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       // mid-turn can be overwritten by the next applied op - the window is
       // seconds long and the alternative (re-seeding per op) breaks same-tick
       // sequences, so the trade goes this way.
+      const view = visibleBounds();
       turn = {
-        session: createOpsSession(getEdgeConfig()),
+        session: createOpsSession(getEdgeConfig(), {
+          // Captured once, at the turn's first op: nodes added later in the same
+          // turn stack from where the user was when they asked, even if an
+          // earlier op's framing has since moved the camera.
+          origin: view
+            ? { x: (view.minX + view.maxX) / 2, y: (view.minY + view.maxY) / 2 }
+            : null,
+        }),
         nodes: nodesRef.current,
         edges: edgesRef.current,
         opened: false,
@@ -671,7 +934,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       setEdges(step.edges);
     }
     return step.result;
-  }, [getEdgeConfig, editor, setNodes, setEdges]);
+  }, [getEdgeConfig, editor, setNodes, setEdges, visibleBounds]);
 
   const finishAssistantTurn = useCallback((instruction: string, ok: boolean) => {
     const turn = assistantTurnRef.current;
@@ -685,8 +948,58 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
     if (turn.session.didRelayout) {
       // Same deferral relayout uses: let ReactFlow commit positions first
       setTimeout(() => editorFitView(), 50);
+      return;
     }
-  }, [editor, editorFitView]);
+
+    // Frame what the turn added, together with whatever it attached to, so the
+    // result is on screen. Nothing did this before: the assistant would place
+    // nodes outside the viewport and the only hint was the chat transcript.
+    const added = new Set(turn.session.addedNodeIds);
+    if (added.size === 0) return;
+
+    // Direct neighbours come along so a new node arrives with the context it was
+    // connected to, rather than framed alone against empty canvas.
+    const framed = new Set(added);
+    turn.edges.forEach(edge => {
+      if (added.has(edge.source)) framed.add(edge.target);
+      if (added.has(edge.target)) framed.add(edge.source);
+    });
+
+    const target = boundsOf(turn.nodes.filter(n => framed.has(n.id)));
+    if (!target) return;
+
+    setTimeout(() => {
+      if (!reactFlowInstance) return;
+      // Already looking at it? Then hold still. Re-framing a change the user can
+      // plainly see just moves the ground under them for no information.
+      const view = visibleBounds();
+      const alreadyVisible = view
+        && target.minX >= view.minX && target.maxX <= view.maxX
+        && target.minY >= view.minY && target.maxY <= view.maxY;
+      if (alreadyVisible) return;
+
+      const width = target.maxX - target.minX;
+      const height = target.maxY - target.minY;
+
+      // Pan at the zoom the user chose whenever the result fits there. fitBounds
+      // takes no maxZoom and the canvas allows 4x, so framing a single new node
+      // through it would rush the camera in on one card. Falling back to it only
+      // when the target genuinely overflows means the zoom can only ever go out.
+      if (view && width <= (view.maxX - view.minX) * 0.8 && height <= (view.maxY - view.minY) * 0.8) {
+        reactFlowInstance.setCenter(
+          target.minX + width / 2,
+          target.minY + height / 2,
+          { zoom: reactFlowInstance.getZoom(), duration: 600 },
+        );
+        return;
+      }
+
+      reactFlowInstance.fitBounds(
+        { x: target.minX, y: target.minY, width, height },
+        { padding: 0.2, duration: 600 },
+      );
+    }, 50);
+  }, [editor, editorFitView, reactFlowInstance, visibleBounds]);
 
   const getAssistantGraph = useCallback(
     () => serializeGraph(nodesRef.current, edgesRef.current),
@@ -880,6 +1193,135 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
     }
   }, [loadedFlow, reactFlowInstance, setNodes, setEdges, getEdgeConfig, editor.resetHistory, assistant.restore]);
 
+  /**
+   * Phase two of the reveal: turn the staging deck into the graph.
+   *
+   * Runs once per analysis, when the edges are finally in. Everything before
+   * this point was collection — cards sitting in fixed slots — because the model
+   * returns its nodes and edges as two separate arrays and there is no structure
+   * to lay out until the second one arrives. So this is the only layout pass,
+   * and the only time anything on the canvas moves.
+   *
+   * Also called when a fresh analysis fails part-way: a laid-out partial graph
+   * is a better thing to be left holding than a grid of loose cards.
+   */
+  const resolveReveal = useCallback(() => {
+    const isMergeRun = preservedIdsRef.current.size > 0;
+    const arrived = newNodeIdsRef.current;
+
+    // Hands the canvas back to the user. Deferred to the end of the resolve
+    // rather than fired when the stream closes: until the cards have landed the
+    // graph is still assembling, and everything gated on isStreaming (selection,
+    // the keyboard, edge pinning) should stay gated.
+    const endRun = () => {
+      setRevealPhase('idle');
+      setIsStreaming(false);
+      onStreamingEnd?.();
+      if (isMergeRun) {
+        // The merge arrived on top of work the user may want back, so it becomes
+        // one undo entry rather than wiping their history.
+        editor.endBatch('Analyze report');
+      } else {
+        // The settled graph is the undo baseline: nothing from the streaming
+        // pipeline itself should be undoable.
+        editor.resetHistory();
+      }
+    };
+
+    const runNodes = nodesRef.current.filter(n => arrived.has(n.id));
+    if (runNodes.length === 0) {
+      endRun();
+      return;
+    }
+
+    // No chainOrphans: it exists to fake a spine while edges are still in
+    // flight, and inventing one now would override the structure that arrived.
+    const runEdges = pruneOperatorBypasses(bufferedEdgesRef.current, nodesRef.current);
+    const runIds = new Set(runNodes.map(n => n.id));
+    const layoutEdges = runEdges.filter(e => runIds.has(e.source) && runIds.has(e.target));
+
+    let laid = getLayoutedElements(runNodes, layoutEdges).nodes;
+
+    if (isMergeRun && preservedBoundsRef.current) {
+      const pb = preservedBoundsRef.current;
+      const nb = boundsOf(laid);
+      if (nb) {
+        // Anchor the cluster's top edge below the existing flow and centre it
+        // horizontally, so the two read as separate flows.
+        const dx = (pb.minX + pb.maxX) / 2 - (nb.minX + nb.maxX) / 2;
+        const dy = (pb.maxY + MERGE_CLUSTER_GAP) - nb.minY;
+        laid = laid.map(n => ({ ...n, position: { x: n.position.x + dx, y: n.position.y + dy } }));
+      }
+    }
+
+    // Rank order drives the stagger, so the flow unfolds from its start rather
+    // than every card setting off at once.
+    const ranks = [...new Set(laid.map(n => Math.round(n.position.y)))].sort((a, b) => a - b);
+    const rankIndex = new Map(ranks.map((y, i) => [y, i]));
+    const staggeredRanks = Math.min(Math.max(ranks.length - 1, 0), RESOLVE_MAX_STAGGERED_RANKS);
+    const settleMs = RESOLVE_MS + staggeredRanks * RESOLVE_STAGGER_MS;
+
+    setRevealPhase('resolving');
+    const laidById = new Map(laid.map(n => [n.id, n]));
+    setNodes(prev => prev.map(node => {
+      const destination = laidById.get(node.id);
+      if (!destination) return node;
+      const rank = Math.min(
+        rankIndex.get(Math.round(destination.position.y)) ?? 0,
+        RESOLVE_MAX_STAGGERED_RANKS,
+      );
+      return {
+        ...destination,
+        style: {
+          transition: `transform ${RESOLVE_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`,
+          transitionDelay: `${rank * RESOLVE_STAGGER_MS}ms`,
+        },
+      };
+    }));
+
+    // The camera travels on the same clock as the cards, framing where they are
+    // going. Computed from `laid` rather than through fitView, so it does not
+    // depend on ReactFlow having caught up with the setNodes above.
+    const target = boundsOf(laid);
+    if (target) {
+      revealTimersRef.current.push(window.setTimeout(
+        () => frameBounds(target, { maxZoom: 1.2, duration: settleMs }),
+        30,
+      ));
+
+      // Overview, then start. A flow long enough that fitting it falls below
+      // READABLE_ZOOM cannot show both its shape and its content at once, so it
+      // shows them in turn: the cards assemble into the whole graph, hold for a
+      // beat, then the camera glides to the top, where reading begins. A flow
+      // that is legible when fitted just stays fitted.
+      if (fitZoomFor(target) < READABLE_ZOOM) {
+        revealTimersRef.current.push(window.setTimeout(
+          () => frameStartOf(laid, target),
+          settleMs + OVERVIEW_HOLD_MS,
+        ));
+      }
+    }
+
+    // Edges only once the cards have landed — see bufferedEdgesRef for why they
+    // cannot be drawn while the cards are still travelling.
+    revealTimersRef.current.push(window.setTimeout(() => {
+      setEdges(prev => [
+        ...prev.filter(e => !runIds.has(e.source) || !runIds.has(e.target)),
+        ...runEdges.map(e => ({ ...e, className: 'fv-edge-enter' })),
+      ]);
+    }, settleMs));
+
+    // Drop the transition styles and the entrance class once they have played,
+    // so nothing re-animates when culling later brings an element back.
+    revealTimersRef.current.push(window.setTimeout(() => {
+      setNodes(prev => prev.map(node => arrived.has(node.id)
+        ? { ...node, style: undefined, dragging: false, selected: false }
+        : node));
+      setEdges(prev => prev.map(e => (e.className ? { ...e, className: undefined } : e)));
+      endRun();
+    }, settleMs + 600));
+  }, [editor, frameBounds, fitZoomFor, frameStartOf, onStreamingEnd, setNodes, setEdges]);
+
   // Start streaming when URL is provided
   useEffect(() => {
     if (!analysisRequest) return;
@@ -896,6 +1338,8 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
 
     const startStreaming = async () => {
       newNodeIdsRef.current = new Set();
+      bufferedEdgesRef.current = [];
+      clearRevealTimers();
 
       if (request.mode === 'replace') {
         setNodes([]);
@@ -912,7 +1356,13 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
         editor.beginBatch();
       }
 
+      // Deck anchored before the first card can ask for a slot. On a merge it
+      // opens below the preserved flow, which is where the cluster lands anyway,
+      // so the cards do not have to cross the canvas when the layout resolves.
+      openDeck(preservedBoundsRef.current);
+
       setIsStreaming(true);
+      setRevealPhase('collecting');
       setShowLoadingIndicator(true); // Show loading indicator when starting
       onStreamingStart?.(); // Notify parent that streaming has started
 
@@ -953,145 +1403,38 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
           // Hide loading indicator when first node appears
           setShowLoadingIndicator(false);
 
-          setNodes((prevNodes) => {
-            // Add node with initial hidden state to avoid position blip
-            const cleanNode = {
-              ...node,
-              style: {
-                opacity: 0,
-                transition: 'opacity 0.3s ease-in-out'
-              }
-            };
-            const newNodes = [...prevNodes, cleanNode];
-            console.log(`✨ Added node ${node.id} (${node.type}) - Total: ${newNodes.length}`);
-            return newNodes;
-          });
+          // Straight into a deck slot, at full opacity — the card's entrance is
+          // the CSS animation, and it plays where the card will stay. Nothing
+          // already on the canvas is touched.
+          const position = nextDeckSlot();
+          setNodes((prevNodes) => [...prevNodes, { ...node, position, style: undefined }]);
+          keepDeckFramed();
         },
-        
+
         onEdge: (edge) => {
           if (isStale()) return;
-          setEdges((prevEdges) => {
-            // Check if edge already exists to prevent duplicates
-            if (prevEdges.some(e => e.id === edge.id)) {
-              console.log(`⚠️ Edge already exists: ${edge.id}`);
-              return prevEdges;
-            }
-            
-            console.log(`🔗 Adding edge: ${edge.id} (${edge.source} → ${edge.target})`);
-            
-            const edgeConfig = getEdgeConfig();
-            return [...prevEdges, {
-              ...edge,
-              type: edgeConfig.type,
-              data: { ...edge.data, ...edgeConfig.data },
-              style: edgeConfig.style,
-              className: 'fv-edge-enter' // fade-in on arrival, final style from the start
-            }];
+          // Buffered, not drawn. Every node arrives before any edge does, so at
+          // this point the cards are still in the deck and an edge between two
+          // of them would describe the deck, not the attack.
+          if (bufferedEdgesRef.current.some(e => e.id === edge.id)) return;
+          const edgeConfig = getEdgeConfig();
+          bufferedEdgesRef.current.push({
+            ...edge,
+            type: edgeConfig.type,
+            data: { ...edge.data, ...edgeConfig.data },
+            style: edgeConfig.style,
           });
         },
-        
+
         onComplete: () => {
           if (isStale()) return;
           activeRequestIdRef.current = null;
           streamingClientRef.current = null;
           console.log('✅ Streaming completed');
-          setIsStreaming(false);
           setShowLoadingIndicator(false); // Hide loading indicator on complete
-          onStreamingEnd?.(); // Notify parent that streaming has ended
-          
-          // Clean up nodes and edges - remove any streaming artifacts. Scoped to
-          // this run's nodes: on a merge the rest of the canvas is the user's,
-          // and clearing its styles and selection would be a side effect of
-          // analysing something else.
-          const isMergeRun = preservedIdsRef.current.size > 0;
-          const arrived = newNodeIdsRef.current;
-          const isFromThisRun = (id: string) => !isMergeRun || arrived.has(id);
-
-          setTimeout(() => {
-            setNodes((currentNodes) =>
-              currentNodes.map(node => isFromThisRun(node.id) ? ({
-                ...node,
-                style: undefined, // Remove any inline styles
-                dragging: false,
-                selected: false,
-              }) : node)
-            );
-
-            // Drop the entrance class so culled edges don't re-fade when
-            // panning brings them back into view, and remove redundant
-            // operator-bypass edges: the model tends to emit A -> B alongside
-            // A -> OP and OP -> B, which doubles up the drawn path
-            setEdges((currentEdges) => {
-              const operatorIds = new Set(
-                nodesRef.current
-                  .filter(n => n.type === 'AND_operator' || n.type === 'OR_operator')
-                  .map(n => n.id)
-              );
-
-              const feedsOperators = new Map<string, string[]>();
-              const operatorTargets = new Map<string, Set<string>>();
-              currentEdges.forEach(e => {
-                if (operatorIds.has(e.target)) {
-                  feedsOperators.set(e.source, [...(feedsOperators.get(e.source) || []), e.target]);
-                }
-                if (operatorIds.has(e.source)) {
-                  if (!operatorTargets.has(e.source)) {
-                    operatorTargets.set(e.source, new Set());
-                  }
-                  operatorTargets.get(e.source)!.add(e.target);
-                }
-              });
-
-              return currentEdges
-                .filter(e => {
-                  // Never prune an edge the user drew or that belongs to an
-                  // earlier analysis — only this run's own duplicates.
-                  if (!isFromThisRun(e.source) || !isFromThisRun(e.target)) return true;
-                  const ops = feedsOperators.get(e.source);
-                  const isBypass = ops?.some(op => operatorTargets.get(op)?.has(e.target));
-                  return !isBypass;
-                })
-                .map(edge => ({
-                  ...edge,
-                  className: undefined,
-                }));
-            });
-
-            if (isMergeRun) {
-              // The merge arrived on top of work the user may want back, so it
-              // becomes one undo entry rather than wiping their history.
-              editor.endBatch('Analyze report');
-            } else {
-              // The cleaned-up graph is the undo baseline: nothing from the
-              // streaming pipeline itself should be undoable
-              editor.resetHistory();
-            }
-          }, 100);
-          
-          setTimeout(() => {
-            if (!reactFlowInstance) return;
-            if (isMergeRun) {
-              // Frame what just arrived rather than refitting the whole board,
-              // which would zoom out on every merge until nothing is readable.
-              const merged = nodesRef.current.filter(n => arrived.has(n.id));
-              const b = boundsOf(merged);
-              if (b) {
-                reactFlowInstance.fitBounds(
-                  { x: b.minX, y: b.minY, width: b.maxX - b.minX, height: b.maxY - b.minY },
-                  { padding: 0.2, duration: 800 }
-                );
-                return;
-              }
-            }
-            reactFlowInstance.fitView({
-              padding: 0.15,
-              duration: 800,
-              maxZoom: 1.5,
-              minZoom: 0.1
-            });
-          }, 600);
+          resolveReveal();
         },
-        
+
         onError: (err) => {
           if (isStale()) return;
           // Stop accepting this run's output. The client does not return after
@@ -1101,6 +1444,10 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
           streamingClientRef.current = null;
           console.error('❌ Streaming error:', err);
 
+          clearRevealTimers();
+          setShowLoadingIndicator(false); // Hide loading indicator on error
+          onError?.(err, request.mode); // Pass error to parent for snackbar display
+
           if (request.mode === 'merge') {
             // Put the canvas back rather than stranding half a report on top of
             // the user's flow.
@@ -1108,12 +1455,17 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
             preservedIdsRef.current = new Set();
             preservedBoundsRef.current = null;
             newNodeIdsRef.current = new Set();
+            bufferedEdgesRef.current = [];
+            setRevealPhase('idle');
+            setIsStreaming(false);
+            onStreamingEnd?.();
+            return;
           }
 
-          setIsStreaming(false);
-          setShowLoadingIndicator(false); // Hide loading indicator on error
-          onStreamingEnd?.(); // Notify parent that streaming has ended (even on error)
-          onError?.(err, request.mode); // Pass error to parent for snackbar display
+          // A fresh analysis keeps whatever arrived, so resolve it: cards left
+          // sitting in the staging deck would read as a bug rather than as a
+          // partial result. resolveReveal ends the run once it settles.
+          resolveReveal();
         }
       }, {
         provider: request.provider,
@@ -1126,106 +1478,6 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
     // Only the request drives this. Provider and model ride along inside it, so
     // changing the model in Settings no longer re-triggers a running analysis.
   }, [analysisRequest]);
-
-  // Track when re-layout needed
-  const [needsLayout, setNeedsLayout] = useState(false);
-  
-  // Re-layout the graph only during streaming
-  useEffect(() => {
-    if (!isStreaming) return; // Early exit if not streaming
-    
-    if (nodes.length > 0 || edges.length > 0) {
-      console.log(`🎯 Layout trigger: ${nodes.length} nodes, ${edges.length} edges, streaming: ${isStreaming}`);
-      // Only update layout during streaming
-      const timeoutId = setTimeout(() => {
-        setNeedsLayout(true);
-      }, 100);
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [nodes.length, edges.length, isStreaming]);
-
-  // Apply layout when needed - ONLY during streaming
-  useEffect(() => {
-    if (needsLayout && nodes.length > 0 && isStreaming) {
-      const preserved = preservedIdsRef.current;
-      const isMerge = preserved.size > 0;
-
-      // Lay out only what this run brought in. Passing the whole graph would
-      // rewrite every position — Dagre has no concept of a pinned node — and
-      // chainOrphans would additionally weld the incoming nodes onto the tail
-      // of the existing ones, collapsing both flows into a single chain.
-      const newNodes = isMerge ? nodes.filter(n => !preserved.has(n.id)) : nodes;
-      if (newNodes.length === 0) {
-        setNeedsLayout(false);
-        return;
-      }
-      const newIds = new Set(newNodes.map(n => n.id));
-      const newEdges = isMerge
-        ? edges.filter(e => newIds.has(e.source) && newIds.has(e.target))
-        : edges;
-
-      console.log(`🎨 Applying layout to ${newNodes.length} nodes, ${newEdges.length} edges${isMerge ? ' (merge)' : ''}`);
-      // Apply Dagre layout, chaining not-yet-connected nodes so streamed nodes
-      // cascade top-to-bottom instead of spreading into one horizontal rank
-      let laid = getLayoutedElements(newNodes, newEdges, { chainOrphans: true }).nodes;
-
-      if (isMerge && preservedBoundsRef.current) {
-        const pb = preservedBoundsRef.current;
-        const nb = boundsOf(laid);
-        if (nb) {
-          // Anchor the cluster's TOP edge a fixed distance below the existing
-          // flow, and centre it horizontally. Anchoring the centre instead
-          // would make the whole cluster creep upward as it grows, since Dagre
-          // re-lays it from scratch on every streamed node.
-          const dx = (pb.minX + pb.maxX) / 2 - (nb.minX + nb.maxX) / 2;
-          const dy = (pb.maxY + MERGE_CLUSTER_GAP) - nb.minY;
-          laid = laid.map(n => ({ ...n, position: { x: n.position.x + dx, y: n.position.y + dy } }));
-        }
-      }
-
-      // Update nodes with new positions and make them visible.
-      // Nodes that were already visible glide to their new position; nodes being
-      // revealed for the first time only fade in (no slide from the origin).
-      const laidById = new Map(laid.map(n => [n.id, n]));
-
-      // Map over the previous array rather than replacing it wholesale, so
-      // preserved nodes keep both their position and their object identity —
-      // history entries share node objects by reference, and ReactFlow's
-      // measured dimensions live on them.
-      setNodes(prev => prev.map(n => {
-        const l = laidById.get(n.id);
-        if (!l) return n;
-        const wasVisible = (n.style as React.CSSProperties | undefined)?.opacity === 1;
-        return {
-          ...l,
-          style: {
-            opacity: 1,
-            transition: wasVisible
-              ? 'opacity 0.5s ease-in-out, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1)'
-              : 'opacity 0.5s ease-in-out'
-          }
-        };
-      }));
-      // Don't override edges here - they are managed by the streaming callbacks
-
-      // Keep the view centered on the graph during streaming. Suppressed on a
-      // merge: the user is looking at their existing flow, and re-framing every
-      // ~100ms as the new cluster grows would drag it out from under them.
-      if (reactFlowInstance && !isMerge) {
-        setTimeout(() => {
-          reactFlowInstance.fitView({
-            padding: 0.2,
-            duration: 450,
-            maxZoom: 1.2,
-            minZoom: 0.1
-          });
-        }, 50);
-      }
-      
-      setNeedsLayout(false);
-    }
-  }, [needsLayout, reactFlowInstance, isStreaming]);
 
   // Remove mouse enter handler for better performance
 
@@ -1461,7 +1713,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   return (
     <EdgeActionsProvider value={edgeActions}>
     <Box
-      className={`flow-visualization-container${isStreaming ? ' fv-streaming' : ''}`}
+      className={`flow-visualization-container${revealPhase === 'collecting' ? ' fv-collecting' : ''}`}
       sx={{
         width: '100%',
         // Take whatever the app bar leaves, rather than subtracting an assumed
@@ -1560,7 +1812,12 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
           defaultEdgeOptions={defaultEdgeOptions}
           style={reactFlowStyle}
           disableKeyboardA11y={true}
-          onlyRenderVisibleElements={true}
+          // Off for both reveal phases: during collection the deck is small
+          // enough to be on screen anyway, and during the resolve a culled card
+          // would be dropped from the DOM mid-flight. It also stops a card that
+          // has already settled replaying its entrance when a camera move
+          // remounts it.
+          onlyRenderVisibleElements={revealPhase === 'idle'}
           nodeOrigin={[0.5, 0.5]}
           minZoom={0.1}
           maxZoom={4}

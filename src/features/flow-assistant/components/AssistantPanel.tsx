@@ -262,9 +262,16 @@ export default function AssistantPanel({
             same 0.29 radius ratio, same 16px glyph inside it. The two panels
             stack into one column, so their headers should share an anatomy:
             [anchor] [label] [actions]. Neutral rather than tinted, because the
-            token's colour carries a node's type and the assistant has none. */}
+            token's colour carries a node's type and the assistant has none.
+
+            Still while a reply is in flight. It used to twinkle, which put two
+            busy signals on screen at once — and unevenly: both ran while we
+            waited for the first token, then the spinner row below was replaced
+            by the reply and the twinkle carried on alone, so one animation
+            meant "waiting" and then "still going". The spinner owns the state
+            now, down where the answer actually arrives. */}
         <Box sx={assistantTokenSx}>
-          <AssistantMark size={16} thinking={pending} />
+          <AssistantMark size={16} />
         </Box>
         <Typography sx={{ flex: 1, ...flowVizTheme.type.md, fontWeight: 600, color: flowVizTheme.colors.text.primary }}>
           Assistant

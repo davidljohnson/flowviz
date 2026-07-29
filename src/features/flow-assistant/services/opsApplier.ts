@@ -1,12 +1,42 @@
 import { Node, Edge } from 'reactflow';
 import { createFlowNode, EditorNodeType, NODE_TYPE_LABELS } from '../../flow-editing/utils/nodeFactoryDefaults';
-import { getLayoutedElements, boundsOf, type Bounds } from '../../flow-analysis/components/utils/layoutUtils';
+import { getLayoutedElements, boundsOf, layoutSizeOf } from '../../flow-analysis/components/utils/layoutUtils';
+import { LAYOUT_CONFIG } from '../../flow-analysis/components/constants';
 import { AssistantOp, OpResult, COMMON_DATA_FIELDS, TYPE_DATA_FIELDS, EDITOR_NODE_TYPES } from '../types';
 
 const MAX_OPS = 50;
-// Spacing for nodes placed beside an anchor; positions are node centers.
-const NEAR_OFFSET_X = 260;
-const STACK_OFFSET_Y = 140;
+// Spacing for nodes placed beside or below an anchor; positions are node
+// centres. Derived from the layout's own box plus its sibling gap, so a node
+// the assistant drops sits where "Clean up layout" would have put it — and, more
+// basically, doesn't overlap. Both offsets used to be narrower than the card
+// they were spacing (260 and 140 against a 270x150 box), which is why stacked
+// additions came out as a slightly staggered pile.
+const NEAR_OFFSET_X = LAYOUT_CONFIG.nodeWidth + LAYOUT_CONFIG.nodesep;
+const STACK_OFFSET_Y = LAYOUT_CONFIG.nodeHeight + LAYOUT_CONFIG.nodesep;
+// Breathing room required between a placed node and an existing one.
+const CLEARANCE = 24;
+// Bounded so a dense graph can't spin here; overlapping is a worse outcome than
+// off-screen only in the abstract, and 12 steps is most of a screen width.
+const MAX_NUDGES = 12;
+
+/** True if a card centred at `point` would sit on top of any existing node. */
+const collides = (point: { x: number; y: number }, existing: Node[]) =>
+  existing.some(node => {
+    const size = layoutSizeOf(node);
+    return (
+      Math.abs(node.position.x - point.x) < (size.width + LAYOUT_CONFIG.nodeWidth) / 2 + CLEARANCE &&
+      Math.abs(node.position.y - point.y) < (size.height + LAYOUT_CONFIG.nodeHeight) / 2 + CLEARANCE
+    );
+  });
+
+/** Slide right from `point` until the slot is clear of existing nodes. */
+const nudgeClear = (point: { x: number; y: number }, existing: Node[]) => {
+  let candidate = point;
+  for (let i = 0; i < MAX_NUDGES && collides(candidate, existing); i++) {
+    candidate = { x: candidate.x + NEAR_OFFSET_X, y: candidate.y };
+  }
+  return candidate;
+};
 
 export interface AssistantEdgeConfig {
   type: string;
@@ -19,6 +49,7 @@ export interface ApplyOpsInput {
   edges: Edge[];
   ops: AssistantOp[];
   edgeConfig: AssistantEdgeConfig;
+  options?: OpsSessionOptions;
 }
 
 export interface ApplyOpsOutput {
@@ -29,12 +60,26 @@ export interface ApplyOpsOutput {
   changed: boolean;
   /** True if a relayout ran, so the caller can defer a fitView. */
   didRelayout: boolean;
+  /** Ids of the nodes these ops created, so the caller can frame them. */
+  addedNodeIds: string[];
+}
+
+export interface OpsSessionOptions {
+  /**
+   * Flow-space point that unanchored nodes grow from — the centre of what the
+   * user is looking at when the turn starts. Without it they are placed off the
+   * right-hand edge of the whole graph, which is nowhere near the viewport for
+   * anyone zoomed in on part of a flow.
+   */
+  origin?: { x: number; y: number } | null;
 }
 
 export interface OpsSession {
   /** Apply one op against the given graph; returns the next graph and the verdict. */
   applyOne(nodes: Node[], edges: Edge[], op: AssistantOp): { nodes: Node[]; edges: Edge[]; result: OpResult };
   readonly didRelayout: boolean;
+  /** Ids of the nodes this turn created, so the caller can frame them. */
+  readonly addedNodeIds: string[];
 }
 
 /**
@@ -51,15 +96,19 @@ export interface OpsSession {
  * rest still apply. The model never mints ids - new nodes carry a temporary
  * "ref", and real ids come from createFlowNode.
  */
-export function createOpsSession(edgeConfig: AssistantEdgeConfig): OpsSession {
+export function createOpsSession(
+  edgeConfig: AssistantEdgeConfig,
+  options: OpsSessionOptions = {},
+): OpsSession {
   const refMap = new Map<string, string>();
   // Stagger nodes added around the same anchor so they don't stack exactly
   const anchorCounts = new Map<string, number>();
   let unanchoredCount = 0;
   // Frozen at the first unanchored add so later adds stack instead of walking
-  let initialBounds: Bounds | null | undefined;
+  let unanchoredBase: { x: number; y: number } | undefined;
   let index = 0;
   let didRelayout = false;
+  const addedNodeIds: string[] = [];
 
   const nodeName = (node: Node) => (node.data?.name as string) || node.type || 'node';
 
@@ -95,10 +144,19 @@ export function createOpsSession(edgeConfig: AssistantEdgeConfig): OpsSession {
         anchorCounts.set(anchor.id, count + 1);
         return { x: anchor.position.x + NEAR_OFFSET_X, y: anchor.position.y + count * STACK_OFFSET_Y };
       }
-      if (initialBounds === undefined) initialBounds = boundsOf(nodes);
-      const position = initialBounds
-        ? { x: initialBounds.maxX + NEAR_OFFSET_X, y: initialBounds.minY + unanchoredCount * STACK_OFFSET_Y }
-        : { x: unanchoredCount * NEAR_OFFSET_X, y: 0 };
+      if (unanchoredBase === undefined) {
+        // Prefer where the user is looking. The graph bounds remain the fallback
+        // for callers with no viewport to offer (tests, headless application).
+        const bounds = boundsOf(nodes);
+        unanchoredBase = options.origin
+          ?? (bounds ? { x: bounds.maxX + NEAR_OFFSET_X, y: bounds.minY } : { x: 0, y: 0 });
+      }
+      // Stack down the column, then step aside from anything already there —
+      // including nodes added earlier in this same turn, which are in `nodes`.
+      const position = nudgeClear(
+        { x: unanchoredBase.x, y: unanchoredBase.y + unanchoredCount * STACK_OFFSET_Y },
+        nodes,
+      );
       unanchoredCount += 1;
       return position;
     };
@@ -116,6 +174,7 @@ export function createOpsSession(edgeConfig: AssistantEdgeConfig): OpsSession {
         const node = createFlowNode(op.nodeType, placeNewNode(op.near));
         node.data = { ...node.data, ...sanitizeData(op.nodeType, op.data) };
         nodes = [...nodes, node];
+        addedNodeIds.push(node.id);
         if (typeof op.ref === 'string' && op.ref) refMap.set(op.ref, node.id);
         result = applied(`Added ${NODE_TYPE_LABELS[op.nodeType]} "${nodeName(node)}"`);
         break;
@@ -235,12 +294,15 @@ export function createOpsSession(edgeConfig: AssistantEdgeConfig): OpsSession {
     get didRelayout() {
       return didRelayout;
     },
+    get addedNodeIds() {
+      return addedNodeIds;
+    },
   };
 }
 
 /** Batch convenience over a session - one call applies a whole op list. */
 export function applyAssistantOps(input: ApplyOpsInput): ApplyOpsOutput {
-  const session = createOpsSession(input.edgeConfig);
+  const session = createOpsSession(input.edgeConfig, input.options);
   let nodes = input.nodes;
   let edges = input.edges;
   const results: OpResult[] = [];
@@ -256,5 +318,6 @@ export function applyAssistantOps(input: ApplyOpsInput): ApplyOpsOutput {
     results,
     changed: results.some(r => r.status === 'applied'),
     didRelayout: session.didRelayout,
+    addedNodeIds: session.addedNodeIds,
   };
 }

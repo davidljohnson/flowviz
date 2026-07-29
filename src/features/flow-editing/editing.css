@@ -118,20 +118,29 @@
 
 /* --- Streaming animations --- */
 
-/* Soft scale/settle entrance for node cards while a flow is streaming in.
-   Scoped to .fv-streaming so cards don't re-animate when panning/zooming an
-   already-rendered flow (onlyRenderVisibleElements remounts them). */
+/* Entrance for a card landing in the staging deck. Scoped to .fv-collecting,
+   which is only set while cards are arriving — during the resolve the cards are
+   travelling to their laid-out positions and must not also be scaling, and once
+   the flow has settled a remount (culling, panning) must not replay this. */
 @keyframes fvCardIn {
   from {
+    opacity: 0;
     transform: scale(0.92) translateY(10px);
   }
   to {
+    opacity: 1;
     transform: none;
   }
 }
 
-.fv-streaming .react-flow__node .fv-card {
-  animation: fvCardIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+.fv-collecting .react-flow__node .fv-card {
+  animation: fvCardIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* The resolve moves the node wrapper, so the card inside must not fight it with
+   a transform of its own. */
+.fv-collecting .react-flow__node {
+  transition: none;
 }
 
 /* Edges fade in as they arrive in the stream */

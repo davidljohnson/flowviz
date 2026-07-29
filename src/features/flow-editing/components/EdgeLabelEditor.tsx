@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Autocomplete, Box, Popover, TextField, createFilterOptions } from '@mui/material';
-import type { Instance as PopperInstance } from '@popperjs/core';
 import { flowVizTheme, createScrollbarStyle } from '../../../shared/theme/flowviz-theme';
 
 // Verbs the STIX exporter maps to real relationship types
@@ -46,10 +45,17 @@ interface EdgeLabelEditorProps {
  */
 const EdgeLabelEditor: React.FC<EdgeLabelEditorProps> = ({ state, onCommit, onClose }) => {
   const [value, setValue] = useState('');
-  const popperRef = useRef<PopperInstance>(null);
+  // The suggestion list is held shut until the popover has finished growing —
+  // see the comment on the Popover below for why. `settled` is a ref because
+  // only the openOnFocus/typing handlers read it, and re-rendering on it would
+  // be a render nobody is waiting for.
+  const [listOpen, setListOpen] = useState(false);
+  const settled = useRef(false);
 
   useEffect(() => {
     setValue(state?.label ?? '');
+    setListOpen(false);
+    settled.current = false;
   }, [state]);
 
   if (!state) return null;
@@ -66,14 +72,25 @@ const EdgeLabelEditor: React.FC<EdgeLabelEditorProps> = ({ state, onCommit, onCl
       anchorPosition={{ top: state.y, left: state.x }}
       onClose={commit}
       transformOrigin={{ vertical: 'top', horizontal: 'center' }}
-      // The suggestion list is positioned against the input, and the input is
-      // still growing when it opens: the field autofocuses on mount, which
-      // opens the list, while Popover's Grow transition is part-way through
-      // scaling this paper up. Popper measures a smaller, higher anchor and
-      // never recomputes, so the list settles 15px too high and covers the very
-      // field you are typing in — which is what made an edge label look like it
-      // had been picked twice. Re-measure once the growing has finished.
-      TransitionProps={{ onEntered: () => popperRef.current?.update() }}
+      // The suggestion list is positioned against the input, and on mount the
+      // input is not where it will end up: autofocus opens the list while Grow
+      // is still scaling this paper up from the top-left corner of the screen.
+      // Popper measures that anchor and paints the list there for a frame,
+      // which is the flash of a menu in the top-left before it drops into place
+      // under the edge. Worse, the label lands in `value` from an effect, so
+      // that first frame filters nothing and the flash is the full fifteen
+      // verbs rather than the one or two you would actually see.
+      //
+      // Re-measuring afterwards was the old fix, and it corrected where the
+      // list ended up without stopping it being painted somewhere else first.
+      // So the list stays shut until the growing is done. Focus is untouched —
+      // the field still takes it on mount, so typing is never dropped.
+      TransitionProps={{
+        onEntered: () => {
+          settled.current = true;
+          setListOpen(true);
+        },
+      }}
       slotProps={{
         paper: {
           sx: {
@@ -91,6 +108,11 @@ const EdgeLabelEditor: React.FC<EdgeLabelEditorProps> = ({ state, onCommit, onCl
         <Autocomplete
           freeSolo
           openOnFocus
+          open={listOpen}
+          // Focus and typing both ask for the list; before the popover has
+          // settled the answer is no, and `onEntered` opens it instead.
+          onOpen={() => { if (settled.current) setListOpen(true); }}
+          onClose={() => setListOpen(false)}
           options={RELATIONSHIP_SUGGESTIONS}
           // A lone suggestion identical to what's already typed tells you
           // nothing — it just prints the word a second time under the field,
@@ -138,7 +160,6 @@ const EdgeLabelEditor: React.FC<EdgeLabelEditorProps> = ({ state, onCommit, onCl
             />
           )}
           slotProps={{
-            popper: { popperRef },
             paper: {
               sx: {
                 backgroundColor: flowVizTheme.colors.menu.dialog,

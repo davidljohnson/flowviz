@@ -6,8 +6,6 @@ interface AssistantMarkProps {
    * is how MUI's icons behave and what the command palette assumes.
    */
   size?: number;
-  /** Twinkle while a reply is being generated. */
-  thinking?: boolean;
   sx?: object;
 }
 
@@ -24,15 +22,18 @@ const SPARK_PATH =
  * graph glyph that could have gone here earns more on Analyze — see
  * `FlowMark` — where building the graph is the job.
  *
- * Still by default. Motion is reserved for `thinking`, where it twinkles rather
- * than rotates: a spinning mark is a loading spinner, and the panel already has
- * one of those in the message list. Reduced motion gets the static mark.
+ * Still, always. It carried a `thinking` twinkle for the assistant panel's
+ * header, which meant the panel ran two busy signals at once — the twinkle and
+ * the spinner in the message list — and the panel keeps the spinner, since it
+ * sits where the reply arrives. An identity mark reporting status is also a
+ * poor division of labour: this same glyph anchors the node inspector's assist
+ * action and the empty state, where there is nothing to report.
  *
  * Never pins its own colour, so hover and disabled states on any control around
  * it can reach it. Accepts { sx } so it can stand in for an icon component
  * wherever one is expected (command palette, menu rows).
  */
-export default function AssistantMark({ size, thinking = false, sx }: AssistantMarkProps) {
+export default function AssistantMark({ size, sx }: AssistantMarkProps) {
   return (
     <Box
       component="svg"
@@ -42,21 +43,7 @@ export default function AssistantMark({ size, thinking = false, sx }: AssistantM
         width: size ?? '1em',
         height: size ?? '1em',
         flexShrink: 0,
-        '& .fv-spark': { fill: 'currentColor', transformOrigin: '50% 50%' },
-        ...(thinking && {
-          '& .fv-spark': {
-            fill: 'currentColor',
-            transformOrigin: '50% 50%',
-            animation: 'fvSparkTwinkle 1.3s ease-in-out infinite',
-          },
-          '@keyframes fvSparkTwinkle': {
-            '0%, 100%': { opacity: 0.4, transform: 'scale(0.84)' },
-            '50%': { opacity: 1, transform: 'scale(1)' },
-          },
-        }),
-        '@media (prefers-reduced-motion: reduce)': {
-          '& .fv-spark': { animation: 'none', opacity: 1, transform: 'none' },
-        },
+        '& .fv-spark': { fill: 'currentColor' },
         ...sx,
       }}
     >

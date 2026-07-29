@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Node, Edge } from 'reactflow';
-import { applyAssistantOps, AssistantEdgeConfig } from './opsApplier';
+import { applyAssistantOps, AssistantEdgeConfig, OpsSessionOptions } from './opsApplier';
 import { AssistantOp } from '../types';
 
 const edgeConfig: AssistantEdgeConfig = {
@@ -23,8 +23,12 @@ const edge = (id: string, source: string, target: string): Edge => ({
   type: 'floating',
 });
 
-const apply = (nodes: Node[], edges: Edge[], ops: AssistantOp[]) =>
-  applyAssistantOps({ nodes, edges, ops, edgeConfig });
+const apply = (
+  nodes: Node[],
+  edges: Edge[],
+  ops: AssistantOp[],
+  options?: OpsSessionOptions,
+) => applyAssistantOps({ nodes, edges, ops, edgeConfig, options });
 
 describe('applyAssistantOps', () => {
   it('adds a node with sanitized data and resolves its ref in later ops', () => {
@@ -64,8 +68,49 @@ describe('applyAssistantOps', () => {
       { op: 'add_node', ref: 'b', nodeType: 'tool', near: 'n1' },
     ]);
     const [, first, second] = result.nodes;
-    expect(first.position).toEqual({ x: 360, y: 50 });
-    expect(second.position).toEqual({ x: 360, y: 190 });
+    // Offsets are the layout's own box plus its sibling gap (270+60, 150+60)
+    expect(first.position).toEqual({ x: 430, y: 50 });
+    expect(second.position).toEqual({ x: 430, y: 260 });
+  });
+
+  it('grows unanchored nodes from the supplied origin', () => {
+    // Far from the graph, as it is whenever the user has panned elsewhere
+    const result = apply([node('n1')], [], [
+      { op: 'add_node', ref: 'a', nodeType: 'tool' },
+      { op: 'add_node', ref: 'b', nodeType: 'tool' },
+    ], { origin: { x: 2000, y: 900 } });
+
+    const [, first, second] = result.nodes;
+    expect(first.position).toEqual({ x: 2000, y: 900 });
+    expect(second.position).toEqual({ x: 2000, y: 1110 });
+  });
+
+  it('steps an unanchored node aside from whatever is already at the origin', () => {
+    // Origin sits directly on n1, which is what happens when the assistant adds
+    // a node while the user is looking straight at an existing one.
+    const result = apply([node('n1')], [], [
+      { op: 'add_node', ref: 'a', nodeType: 'tool' },
+    ], { origin: { x: 0, y: 0 } });
+
+    expect(result.nodes[1].position).toEqual({ x: 330, y: 0 });
+  });
+
+  it('falls back to the graph bounds when no origin is given', () => {
+    const result = apply([{ ...node('n1'), position: { x: 100, y: 50 } }], [], [
+      { op: 'add_node', ref: 'a', nodeType: 'tool' },
+    ]);
+
+    // Right of n1's box (270 wide, centred at 100) plus the standard offset
+    expect(result.nodes[1].position).toEqual({ x: 565, y: -25 });
+  });
+
+  it('reports the nodes it added so the caller can frame them', () => {
+    const result = apply([node('n1')], [], [
+      { op: 'add_node', ref: 'a', nodeType: 'tool' },
+      { op: 'update_node', id: 'n1', data: { name: 'Renamed' } },
+    ], { origin: { x: 500, y: 500 } });
+
+    expect(result.addedNodeIds).toEqual([result.nodes[1].id]);
   });
 
   it('skips invalid ops but applies the rest', () => {

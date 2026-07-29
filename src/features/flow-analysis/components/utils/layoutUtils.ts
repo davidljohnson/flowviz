@@ -85,7 +85,7 @@ export const getLayoutedElements = (nodes: Node[], edges: Edge[], options: Layou
 export interface Bounds { minX: number; minY: number; maxX: number; maxY: number; }
 
 /** The size Dagre reserves for a node — the layout's own idea of its extent. */
-const layoutSizeOf = (node: Node) => {
+export const layoutSizeOf = (node: Node) => {
   const isOperator = node.type === 'AND_operator' || node.type === 'OR_operator';
   return {
     width: isOperator ? 90 : LAYOUT_CONFIG.nodeWidth,

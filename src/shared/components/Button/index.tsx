@@ -1,10 +1,9 @@
 import {
-    Box,
     Button,
     ButtonProps,
+    CircularProgress,
     IconButton,
     IconButtonProps,
-    keyframes,
     styled,
 } from '@mui/material';
 import React from 'react';
@@ -110,17 +109,23 @@ export const ToolbarButton = styled(Button)<ButtonProps>({
 });
 
 // ============= Dialog Button Variants =============
-// ============= Hero Submit Button (Special Animated Button) =============
+// ============= Hero Submit Button =============
 
-const moveLight = keyframes`
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(100%);
-  }
-`;
-
+/**
+ * The submit action of a form — Analyze report, Add to canvas, Replace canvas.
+ *
+ * It used to announce itself: a dot-matrix pattern and a light that swept the
+ * width of the button, on hover and on a loop while the request ran. Two
+ * problems. It broke the hover rule stated at the top of this file — surfaces
+ * lighten, nothing moves — so the one button that mattered most was the one
+ * that behaved unlike every other control in the app. And a perpetual sweep
+ * reads as decoration rather than status; it says the same thing at second 1
+ * and at second 40.
+ *
+ * So it hovers like ToolbarButton, and says it is busy with the spinner the
+ * rest of the app already uses for in-place work — 14px, tertiary ink, beside
+ * the label that stays put.
+ */
 interface HeroSubmitButtonProps extends ButtonProps {
   isLoading?: boolean;
   children: React.ReactNode;
@@ -147,58 +152,16 @@ export const HeroSubmitButton: React.FC<HeroSubmitButtonProps> = ({
         fontWeight: 500,
         letterSpacing: '0.01em',
         color: flowVizTheme.colors.text.primary,
-        transition: flowVizTheme.motion.normal,
+        // Scoped to what actually changes, so a later style addition cannot
+        // silently start animating — same rule as the toolbar controls.
+        transition: `background-color ${flowVizTheme.motion.fast}, color ${flowVizTheme.motion.fast}, border-color ${flowVizTheme.motion.fast}`,
         cursor: 'pointer',
-        position: 'relative',
-        isolation: 'isolate',
-        overflow: 'hidden',
         boxShadow: 'none',
         border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
         display: 'flex',
         alignItems: 'center',
         gap: 1.5,
-        
-        '& .content-wrapper': {
-          position: 'relative',
-          zIndex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1.5,
-        },
-        
-        // Dot pattern overlay for loading/active state
-        '&::before': {
-          content: '""',
-          position: 'absolute',
-          inset: 0,
-          background: `radial-gradient(circle at 2px 2px, ${flowVizTheme.colors.text.tertiary} 0.5px, transparent 0.7px)`,
-          backgroundSize: '4px 4px',
-          backgroundRepeat: 'repeat',
-          opacity: isLoading ? 1 : 0,
-          transition: 'opacity 150ms ease',
-          pointerEvents: 'none',
-          zIndex: 1,
-          ...(isLoading && {
-            maskImage: 'linear-gradient(90deg, transparent, white 25%, white 75%, transparent)',
-            maskSize: '200% 100%',
-            animation: `${moveLight} 2s cubic-bezier(0.4, 0, 0.2, 1) infinite`,
-          }),
-        },
-        
-        // Shimmer light that sweeps across on hover and while loading. Was a
-        // blue gradient; it is the overlay ink now, like everything else.
-        '&::after': {
-          content: '""',
-          position: 'absolute',
-          inset: 0,
-          background: `linear-gradient(90deg, transparent, ${flowVizTheme.colors.surface.border.focus} 25%, ${flowVizTheme.colors.surface.border.focus} 75%, transparent)`,
-          transform: 'translateX(-100%)',
-          opacity: 0,
-          transition: 'opacity 150ms ease',
-          pointerEvents: 'none',
-          zIndex: 0,
-        },
-        
+
         '&:hover': {
           // Stated explicitly, not left to the base declaration. MUI's
           // containedPrimary supplies its own :hover fill from palette.primary
@@ -206,50 +169,31 @@ export const HeroSubmitButton: React.FC<HeroSubmitButtonProps> = ({
           // background above it, so omitting this is how the button came to
           // flash blue on hover in an otherwise monochrome UI.
           backgroundColor: flowVizTheme.colors.surface.hover,
-          border: `1px solid ${flowVizTheme.colors.surface.border.focus}`,
-
-          // Animated dot pattern on hover
-          '&::before': {
-            opacity: 1,
-            maskImage: 'linear-gradient(90deg, transparent, white 25%, white 75%, transparent)',
-            maskSize: '200% 100%',
-            animation: `${moveLight} 2s cubic-bezier(0.4, 0, 0.2, 1) infinite`,
-          },
-          
-          // Animated shimmer light
-          '&::after': {
-            opacity: 1,
-            animation: `${moveLight} 2s cubic-bezier(0.4, 0, 0.2, 1) infinite`,
-          },
+          borderColor: flowVizTheme.colors.surface.border.emphasis,
+          boxShadow: 'none',
         },
-        
+
         '&:disabled': {
           background: flowVizTheme.colors.background.raised,
           color: flowVizTheme.colors.text.disabled,
-          border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
+          borderColor: flowVizTheme.colors.surface.border.default,
           cursor: 'default',
-
-          '&:hover': {
-            border: `1px solid ${flowVizTheme.colors.surface.border.default}`,
-
-            '&::before': {
-              opacity: 0,
-              animation: 'none',
-            },
-            
-            '&::after': {
-              opacity: 0,
-              animation: 'none',
-            },
-          },
         },
-        
+
         ...props.sx,
       }}
     >
-      <Box className="content-wrapper">
-        {children}
-      </Box>
+      {isLoading && (
+        <CircularProgress
+          // A status indicator: keeps turning under reduce-motion, since a
+          // frozen spinner would claim the request had stopped.
+          data-fv-motion="progress"
+          size={14}
+          thickness={5}
+          sx={{ color: flowVizTheme.colors.text.tertiary, flexShrink: 0 }}
+        />
+      )}
+      {children}
     </Button>
   );
 };
