@@ -106,11 +106,11 @@ export const StatusChip = React.forwardRef<HTMLDivElement, StatusChipProps>((pro
         color: statusColors.text,
         border: `1px solid ${statusColors.border}`,
         borderRadius: flowVizTheme.borderRadius.sm,
-        fontSize: size === 'small' ? '0.7rem' : '0.75rem',
+        // On the scale and the shared caps tracking; was 0.7/0.75rem at 0.05em.
+        ...(size === 'small' ? flowVizTheme.type.xs : flowVizTheme.type.sm),
+        ...flowVizTheme.uppercase,
         fontWeight: 700,
-        letterSpacing: '0.05em',
         height: size === 'small' ? '20px' : '24px',
-        textTransform: 'uppercase',
         transition: `background-color ${flowVizTheme.motion.fast}`,
         '&:hover': {
           backgroundColor: variant === 'filled'

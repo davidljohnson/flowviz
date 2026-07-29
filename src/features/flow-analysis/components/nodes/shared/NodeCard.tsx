@@ -1,5 +1,6 @@
 import { Box } from '@mui/material';
 import { getBaseNodeStyle, getNodeSurfaceStyle, getNodeColor } from './nodeStyles';
+import { useDetailState } from './presentationScale';
 import { NodeHandles } from './NodeHandles';
 import { NodeHeader } from './NodeHeader';
 import { NodeContent } from './NodeContent';
@@ -20,14 +21,31 @@ interface NodeCardProps {
 export function NodeCard({ data, selected, showCommandLine }: NodeCardProps) {
   const isNewNode = data.isNewNode;
   const techniqueId = typeof data.technique_id === 'string' ? data.technique_id.trim() : '';
+  const { tier, pinned } = useDetailState();
 
   return (
     <Box
       className="fv-card"
       sx={{ ...getBaseNodeStyle(selected, isNewNode), '--fv-node-glow': `${getNodeColor(data.type)}4D` }}
     >
-      <Box sx={getNodeSurfaceStyle(data.type, selected)}>
-        <Box sx={{ px: 1.75, pt: 1.5, pb: 1.5, position: 'relative' }}>
+      <Box sx={getNodeSurfaceStyle(data.type, selected, tier, pinned)}>
+        {/*
+          Faded, never unmounted. At `token` the text is a few pixels tall and
+          reads as grey noise competing with the colour that has taken over the
+          card — but the card is sized by its contents (minWidth 210, height
+          from the text), so removing them would resize every node and shift the
+          layout mid-zoom. Opacity costs nothing and holds the geometry still.
+        */}
+        <Box
+          sx={{
+            px: 1.75,
+            pt: 1.5,
+            pb: 1.5,
+            position: 'relative',
+            opacity: tier === 'token' ? 0 : 1,
+            transition: pinned ? 'none' : 'opacity 180ms ease',
+          }}
+        >
           <NodeHeader nodeType={data.type} techniqueId={techniqueId || undefined} />
 
           <Box sx={{ mt: 1 }}>

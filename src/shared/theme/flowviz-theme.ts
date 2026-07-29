@@ -143,10 +143,20 @@ export interface ColorTokens {
   typeInk: string;
   typeInkBase: string;
   /**
-   * The keyboard focus ring. Deliberately its own token rather than reusing
-   * `accent.blue`: the ring has to stay legible against every surface it can
-   * land on, so it is a step brighter than the accent on dark and a step
-   * deeper on light.
+   * The keyboard focus ring — monochrome, and the page's own ink.
+   *
+   * It was a blue, which made it the last hue in the chrome after primary
+   * actions moved to `inverse`. Colour on this product means one thing, node
+   * type, and it means it on the canvas; a blue ring was the only thing left
+   * contradicting that.
+   *
+   * Ink rather than a mid grey because a focus indicator has to clear 3:1
+   * against what it sits on (WCAG 2.4.11), and this lands around 19:1 in both
+   * modes. It survives landing on a white `inverse` chip because the ring is an
+   * offset outline, not a fill: the 2px gap in ThemeModeProvider shows the page
+   * through, so the ring is always read against the page and the chip is always
+   * inverted from it. A fill of this colour genuinely would disappear into the
+   * overlay ladder — the offset is what makes the monochrome ring work.
    */
   focusRing: string;
   /** rgb triple, not a color: see the module comment. */
@@ -209,16 +219,24 @@ const darkPalette: Palette = {
     // A four-step elevation ladder: canvas → app bar → panel → overlay. Each
     // step is a small lightness increase, which is what separates surfaces now
     // that they're opaque and the blur is gone.
+    //
+    // The ramp is neutral, anchored on #08090a — the public site's canvas.
+    // It used to be GitHub's #0d1117 family, which is a blue-tinted slate, and
+    // that put the two surfaces of the product on different greys: the site
+    // read as neutral near-black and the app as cool. The step *sizes* are
+    // unchanged, because they were tuned and they work — measured in L*, the
+    // old ladder ran 4.95 → 7.56 → 9.60 → 13.03, and this one runs
+    // 2.42 → 5.04 → 7.24 → 10.26. Same intervals, moved down and de-tinted.
     background: {
-      primary: '#0d1117',
-      secondary: '#161b22',
-      panel: '#161b22',
-      raised: '#1c222b',
+      primary: '#08090a',
+      secondary: '#151618',
+      panel: '#151618',
+      raised: '#1b1c1f',
     },
 
     menu: {
-      appBar: '#12171e',
-      dialog: '#1c222b',
+      appBar: '#101113',
+      dialog: '#1b1c1f',
     },
 
     surface: {
@@ -264,30 +282,37 @@ const darkPalette: Palette = {
     },
 
     canvas: {
-      backdrop: 'radial-gradient(circle at 50% 50%, #0d1117 0%, #090b0f 100%)',
-      bloom: 'radial-gradient(circle at center, rgba(59, 130, 246, 0.15), transparent 70%)',
+      backdrop: 'radial-gradient(circle at 50% 50%, #08090a 0%, #050506 100%)',
+      // Neutral, and faint. This was a blue wash at 0.15 — the accent hue bled
+      // across the whole canvas, tinting every node colour uniformly and
+      // compressing exactly the discrimination the palette exists to provide
+      // at low zoom. A bloom should lift the centre of the canvas, not colour it.
+      bloom: 'radial-gradient(circle at center, rgba(255, 255, 255, 0.045), transparent 70%)',
       dots: 'rgba(255, 255, 255, 0.22)',
       handle: '#ffffff',
-      edgeArrow: 'rgb(150, 153, 158)',
-      edgeArrowStrong: 'rgb(224, 227, 232)',
+      // Neutral greys. These were rgb(150, 153, 158) and rgb(224, 227, 232) —
+      // eight points of blue over red, which was invisible against the old
+      // cool canvas and reads as a faint tint against the neutral one.
+      edgeArrow: 'rgb(152, 152, 154)',
+      edgeArrowStrong: 'rgb(226, 226, 228)',
       scrim: 'rgba(0, 0, 0, 0.68)',
     },
 
     node: {
-      surface: 'linear-gradient(180deg, #1e232b 0%, #171b21 100%)',
+      surface: 'linear-gradient(180deg, #1d1e21 0%, #16171a 100%)',
       border: 'rgba(255, 255, 255, 0.08)',
       borderHover: 'rgba(255, 255, 255, 0.28)',
       highlight: 'rgba(255, 255, 255, 0.06)',
-      operatorSurface: 'linear-gradient(180deg, rgba(32, 38, 47, 0.94) 0%, rgba(19, 24, 31, 0.96) 100%)',
-      pill: '#20262f',
-      pillHover: '#2a323d',
-      pillGhost: 'rgba(32, 38, 47, 0.9)',
+      operatorSurface: 'linear-gradient(180deg, rgba(32, 33, 36, 0.94) 0%, rgba(18, 19, 22, 0.96) 100%)',
+      pill: '#202124',
+      pillHover: '#2b2c30',
+      pillGhost: 'rgba(32, 33, 36, 0.9)',
     },
 
     inverse: {
       surface: 'rgba(255, 255, 255, 0.9)',
       surfaceHover: '#ffffff',
-      text: '#0d1117',
+      text: '#08090a',
     },
 
     scrollbar: {
@@ -301,12 +326,12 @@ const darkPalette: Palette = {
     typeRing: '0.34',
     typeInset: '0.18',
     typeInk: '100%',
-    typeInkBase: '#0f172a',
+    typeInkBase: '#08090a',
 
-    focusRing: '#60a5fa',
+    focusRing: '#f7f8f8',
     overlayRgb: '255, 255, 255',
-    panelRgb: '13, 17, 23',
-    raisedRgb: '22, 27, 34',
+    panelRgb: '8, 9, 10',
+    raisedRgb: '21, 22, 24',
   },
 
   // Shadows separate things that genuinely float; they are not how depth is
@@ -332,7 +357,7 @@ const lightPalette: Palette = {
     // On light every raised surface is simply white; the ladder is carried by
     // the border and, for true overlays, a shadow.
     background: {
-      primary: '#eef1f6',
+      primary: '#f0f1f2',
       secondary: '#ffffff',
       panel: '#ffffff',
       raised: '#ffffff',
@@ -344,42 +369,44 @@ const lightPalette: Palette = {
     },
 
     surface: {
-      rest: 'rgba(15, 23, 42, 0.03)',
-      hover: 'rgba(15, 23, 42, 0.06)',
+      rest: 'rgba(8, 9, 10, 0.03)',
+      hover: 'rgba(8, 9, 10, 0.06)',
       // 0.18, not the 0.11 that used to sit here. `active` is the top of the
       // ladder and its job is to be unmistakably above whatever it is stacked
       // against — most visibly the keyboard-focused menu row, which has to
       // out-rank the selected row beneath it.
       //
-      // Light's ladder is compressed on purpose, since slate on white reads
-      // harder per unit alpha than white on slate. That is right for the lower
-      // steps and wrong at the top: measured against the 0.08 selected fill,
-      // dark's 0.15 gives a 1.26 contrast ratio and 0.11 here gave 1.06 — a
-      // quarter of the separation, which is why the focused row was hard to
-      // find. 0.18 restores it to 1.24, matching dark rather than merely
+      // Light's ladder is compressed on purpose, since dark ink on white reads
+      // harder per unit alpha than white ink on black. That is right for the
+      // lower steps and wrong at the top: measured against the 0.08 selected
+      // fill, dark's 0.15 gives about 1.17 and 0.11 here gave 1.07 — a
+      // fraction of the separation, which is why the focused row was hard to
+      // find. 0.18 puts light at 1.26, at or above dark rather than merely
       // looking similar on paper.
-      active: 'rgba(15, 23, 42, 0.18)',
-      selected: 'rgba(15, 23, 42, 0.08)',
-      recessed: 'rgba(15, 23, 42, 0.045)',
-      recessedStrong: 'rgba(15, 23, 42, 0.06)',
+      active: 'rgba(8, 9, 10, 0.18)',
+      selected: 'rgba(8, 9, 10, 0.08)',
+      recessed: 'rgba(8, 9, 10, 0.045)',
+      recessedStrong: 'rgba(8, 9, 10, 0.06)',
       border: {
-        subtle: 'rgba(15, 23, 42, 0.06)',
-        default: 'rgba(15, 23, 42, 0.12)',
-        emphasis: 'rgba(15, 23, 42, 0.22)',
-        focus: 'rgba(15, 23, 42, 0.45)',
+        subtle: 'rgba(8, 9, 10, 0.06)',
+        default: 'rgba(8, 9, 10, 0.12)',
+        emphasis: 'rgba(8, 9, 10, 0.22)',
+        focus: 'rgba(8, 9, 10, 0.45)',
       },
     },
 
     text: {
-      primary: 'rgba(15, 23, 42, 0.92)',
-      secondary: 'rgba(15, 23, 42, 0.66)',
+      primary: 'rgba(8, 9, 10, 0.92)',
+      secondary: 'rgba(8, 9, 10, 0.66)',
       // 0.48 measured 3.20:1 on white and 3.13:1 on the canvas, under the 4.5:1
       // AA floor — and tertiary carries real content: captions, hints, source
-      // lines. 0.62 clears it on both (5.02 and 4.80); 0.60 sits exactly on the
-      // threshold against the canvas, which is no margin at all.
-      tertiary: 'rgba(15, 23, 42, 0.62)',
+      // lines. 0.62 clears it on both, and with the neutral ink it clears it by
+      // more than it used to: 5.67 on white and 5.49 on the canvas, up from
+      // 5.02 and 4.80 when this was slate. Near-black is simply darker than
+      // #0f172a, so every light-mode text ratio moved the right way.
+      tertiary: 'rgba(8, 9, 10, 0.62)',
       // Left as-is deliberately: WCAG 1.4.3 exempts disabled controls.
-      disabled: 'rgba(15, 23, 42, 0.3)',
+      disabled: 'rgba(8, 9, 10, 0.3)',
     },
 
     // Same hues as `accent.*` at the 600 step; text drops to 700/800 so it holds
@@ -401,37 +428,37 @@ const lightPalette: Palette = {
     },
 
     canvas: {
-      backdrop: 'radial-gradient(circle at 50% 50%, #f3f5f9 0%, #e6eaf1 100%)',
-      bloom: 'radial-gradient(circle at center, rgba(37, 99, 235, 0.1), transparent 70%)',
-      dots: 'rgba(15, 23, 42, 0.16)',
-      handle: '#334155',
-      edgeArrow: 'rgb(122, 130, 142)',
-      edgeArrowStrong: 'rgb(30, 41, 59)',
-      scrim: 'rgba(15, 23, 42, 0.4)',
+      backdrop: 'radial-gradient(circle at 50% 50%, #f5f6f7 0%, #e8e9ea 100%)',
+      bloom: 'radial-gradient(circle at center, rgba(255, 255, 255, 0.5), transparent 70%)',
+      dots: 'rgba(8, 9, 10, 0.16)',
+      handle: '#3d3d40',
+      edgeArrow: 'rgb(128, 128, 130)',
+      edgeArrowStrong: 'rgb(35, 36, 38)',
+      scrim: 'rgba(8, 9, 10, 0.4)',
     },
 
     node: {
-      surface: 'linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%)',
-      border: 'rgba(15, 23, 42, 0.12)',
-      borderHover: 'rgba(15, 23, 42, 0.3)',
+      surface: 'linear-gradient(180deg, #ffffff 0%, #f8f8f9 100%)',
+      border: 'rgba(8, 9, 10, 0.12)',
+      borderHover: 'rgba(8, 9, 10, 0.3)',
       // No lit top edge on a white card — it would only muddy the corner.
       highlight: 'rgba(255, 255, 255, 0)',
       operatorSurface: 'linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(242, 245, 250, 0.97) 100%)',
       pill: '#ffffff',
-      pillHover: '#f1f4f9',
+      pillHover: '#f2f2f3',
       pillGhost: 'rgba(255, 255, 255, 0.92)',
     },
 
     inverse: {
-      surface: 'rgba(15, 23, 42, 0.88)',
-      surfaceHover: '#0f172a',
+      surface: 'rgba(8, 9, 10, 0.88)',
+      surfaceHover: '#08090a',
       text: '#ffffff',
     },
 
     scrollbar: {
-      thumb: 'rgba(15, 23, 42, 0.16)',
-      thumbHover: 'rgba(15, 23, 42, 0.24)',
-      thumbActive: 'rgba(15, 23, 42, 0.32)',
+      thumb: 'rgba(8, 9, 10, 0.16)',
+      thumbHover: 'rgba(8, 9, 10, 0.24)',
+      thumbActive: 'rgba(8, 9, 10, 0.32)',
     },
 
     // Flat (top === bottom), barely there, and the glyph deepened to 62% of
@@ -442,18 +469,18 @@ const lightPalette: Palette = {
     typeRing: '0.18',
     typeInset: '0',
     typeInk: '62%',
-    typeInkBase: '#0f172a',
+    typeInkBase: '#08090a',
 
-    focusRing: '#1d4ed8',
-    overlayRgb: '15, 23, 42',
+    focusRing: '#08090a',
+    overlayRgb: '8, 9, 10',
     panelRgb: '255, 255, 255',
     raisedRgb: '255, 255, 255',
   },
 
   shadows: {
-    sm: '0 1px 2px rgba(15, 23, 42, 0.06)',
-    md: '0 6px 16px rgba(15, 23, 42, 0.09)',
-    lg: '0 16px 40px rgba(15, 23, 42, 0.14)',
+    sm: '0 1px 2px rgba(8, 9, 10, 0.06)',
+    md: '0 6px 16px rgba(8, 9, 10, 0.09)',
+    lg: '0 16px 40px rgba(8, 9, 10, 0.14)',
   },
 
   // Light surfaces can't carry the same shadow weight without looking grubby.
@@ -723,6 +750,29 @@ export const createPanelStyle = () => ({
   boxShadow: flowVizTheme.effects.shadows.md,
 });
 
+
+/**
+ * The label that names a control — a field in an inspector, a section in a
+ * dialog.
+ *
+ * Sentence case, and that is the whole point of it existing as a token. Caps in
+ * this UI are for *badges*: a stamp that puts a thing in a category, next to an
+ * icon or a colour — a node's type row, a status chip, a code block's language.
+ * A label that merely names the control below it is not stamping anything, and
+ * the inspector dropped uppercase here because five shouted labels was more
+ * emphasis than five field names carry.
+ *
+ * It lives here rather than beside the inspector fields because three features
+ * want it now: the node inspector, the edge inspector, and the analyze dialog,
+ * whose "This canvas" label was the last one still shouting.
+ */
+export const controlLabel = {
+  display: 'block',
+  ...typeScale.md,
+  color: flowVizTheme.colors.text.secondary,
+  fontWeight: 500,
+  mb: 0.75,
+};
 
 export const createStatusStyle = (status: 'success' | 'error' | 'warning' | 'info') => ({
   backgroundColor: flowVizTheme.colors.status[status].bg,

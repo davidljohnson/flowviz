@@ -204,10 +204,16 @@ class ErrorBoundary extends Component<Props, State> {
                   variant="contained"
                   startIcon={<RefreshIcon />}
                   onClick={this.handleReload}
+                  // The primary action inverts against the page rather than
+                  // taking a colour — the same gesture as the public site's
+                  // .btn-primary, and as the assistant's send button. This was
+                  // the one filled blue button in the app, which read as an
+                  // accent system that nothing else belonged to.
                   sx={{
-                    backgroundColor: flowVizTheme.colors.accent.blue,
+                    backgroundColor: flowVizTheme.colors.inverse.surface,
+                    color: flowVizTheme.colors.inverse.text,
                     '&:hover': {
-                      backgroundColor: flowVizTheme.colors.status.info.accent
+                      backgroundColor: flowVizTheme.colors.inverse.surfaceHover
                     }
                   }}
                 >

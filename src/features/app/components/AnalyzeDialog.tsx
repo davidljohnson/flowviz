@@ -6,7 +6,7 @@ import {
   EnhancedDialogContent,
 } from '../../../shared/components/EnhancedDialog';
 import SegmentedControl from '../../../shared/components/SegmentedControl';
-import { flowVizTheme } from '../../../shared/theme/flowviz-theme';
+import { flowVizTheme, controlLabel } from '../../../shared/theme/flowviz-theme';
 import AnalysisInput from './AnalysisInput';
 
 export type AnalyzeMode = 'merge' | 'replace';
@@ -78,18 +78,7 @@ export default function AnalyzeDialog({
         >
           {canvasHasContent && (
             <Box sx={{ mb: 2.5 }}>
-              <Typography
-                component="label"
-                sx={{
-                  display: 'block',
-                  color: flowVizTheme.colors.text.tertiary,
-                  fontSize: '0.68rem',
-                  fontWeight: 600,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                  mb: 0.75,
-                }}
-              >
+              <Typography component="label" sx={controlLabel}>
                 This canvas
               </Typography>
               <SegmentedControl

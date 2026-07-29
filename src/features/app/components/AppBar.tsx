@@ -76,7 +76,7 @@ export default function AppBar({
         // `backgroundColor` immediately cancelled by a `background` shorthand
         // below it — the bar computed to transparent — and the gradient that
         // replaced it did nothing on dark either, because `--fv-panel-rgb` is
-        // the same #0d1117 as `background.primary`, so it faded the colour into
+        // the same #08090a as `background.primary`, so it faded the colour into
         // itself. On light it ran the ladder backwards, fading toward white.
         // One opaque token and the hairline border carry the elevation now.
         backgroundColor: flowVizTheme.colors.menu.appBar,

@@ -114,9 +114,13 @@ export function NodeHeader({ nodeType, techniqueId, endSlot, prominent = false, 
         <Typography
           sx={{
             color: labelColor,
-            textTransform: 'uppercase',
-            fontSize: prominent ? '0.72rem' : '0.6rem',
-            letterSpacing: '0.1em',
+            // A badge, so caps — but on the shared scale and the shared caps
+            // tracking. It ran at 0.6rem/0.72rem and 0.1em, which were three
+            // sizes and one of three different letter-spacings across the four
+            // uppercase runs in the app. `uppercase` comes last so its tracking
+            // wins over the step's own.
+            ...(prominent ? flowVizTheme.type.sm : flowVizTheme.type.xs),
+            ...flowVizTheme.uppercase,
             fontWeight: 600,
             lineHeight: 1.2,
             whiteSpace: 'nowrap',

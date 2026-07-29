@@ -85,9 +85,10 @@ function CodeBlock({ lang, text }: { lang: string; text: string }) {
           borderBottom: '1px solid rgba(var(--fv-overlay-rgb), 0.06)',
         }}
       >
-        {/* 0.35 of the ink measured 2.23:1 on light — and this is 9.6px caps,
-            the least forgiving text in the product. */}
-        <Box sx={{ flex: 1, fontSize: '0.6rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: flowVizTheme.colors.text.tertiary }}>
+        {/* 0.35 of the ink measured 2.23:1 on light, which is why this is
+            text.tertiary. It used to be 9.6px caps, the least forgiving text in
+            the product; on the scale's 11px floor it has a little more room. */}
+        <Box sx={{ flex: 1, ...flowVizTheme.type.xs, ...flowVizTheme.uppercase, color: flowVizTheme.colors.text.tertiary }}>
           {lang || 'code'}
         </Box>
         <Tooltip title={copied ? 'Copied' : 'Copy'}>

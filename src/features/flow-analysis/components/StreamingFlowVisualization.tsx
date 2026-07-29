@@ -14,6 +14,8 @@ import {
 } from 'reactflow';
 import type { Connection, Edge, Node } from 'reactflow';
 import { toPng } from 'html-to-image';
+import { flushSync } from 'react-dom';
+import { PresentationScaleProvider } from './nodes/shared/presentationScale';
 import { STIXBundleExporter } from '../../flow-export/services/stixBundleExporter';
 import { AttackFlowV3Exporter } from '../../flow-export/services/attackFlowV3Exporter';
 import { SavedFlow } from '../../flow-storage/types/SavedFlow';
@@ -200,6 +202,11 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   selectedModel,
 }) => {
   const reactFlowInstance = useReactFlow();
+
+  // Non-null only while a PNG capture is in flight; see presentationScale.tsx.
+  // Nodes read this instead of the live zoom so the image keeps full detail
+  // regardless of how far out the viewport happens to be sitting.
+  const [exportScale, setExportScale] = useState<number | null>(null);
   // Only the bits the theme can't reach through CSS variables need this —
   // arrowhead markers and the PNG canvas fill.
   const { mode } = useThemeMode();
@@ -1544,6 +1551,20 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       // export transform is then applied to the clone by html-to-image, which
       // leaves the culling that already ran untouched.
       const currentViewport = reactFlowInstance.getViewport();
+
+      // Pin node detail for the capture, so it can't follow the viewport.
+      // fitView below drops the live zoom to whatever frames the whole flow —
+      // deep into token territory for a large one — and without this the
+      // capture would faithfully record label-less colour blocks.
+      //
+      // Floored at 1 rather than passed as-is: `zoom` backs off below 0.7 for a
+      // flow over ~11.5k px wide or ~20M px², which would put the *image* in
+      // mid/token and reintroduce the same fault on exactly the large diagrams
+      // most worth exporting. A PNG can be magnified after the fact, so its
+      // geometric scale should govern resolution only — never what gets drawn.
+      // Detail is not recoverable once it's been left out of the capture.
+      flushSync(() => setExportScale(Math.max(zoom, 1)));
+
       reactFlowInstance.fitView({ padding: 0.1, duration: 0 });
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
@@ -1571,6 +1592,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
         console.error('Error exporting to PNG:', error);
       } finally {
         reactFlowInstance.setViewport(currentViewport);
+        setExportScale(null);
       }
     } else if (format === 'json') {
       // Export as STIX bundle
@@ -1763,6 +1785,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
 
       {/* React Flow Graph */}
       <Box sx={{ height: '100%' }}>
+        <PresentationScaleProvider scale={exportScale}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -1882,7 +1905,8 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
             )}
           </Controls>
         </ReactFlow>
-        
+        </PresentationScaleProvider>
+
         {/* Loading Indicator - centered in the graph during loading */}
         <LoadingIndicator isVisible={showLoadingIndicator} contentType={contentType} />
 

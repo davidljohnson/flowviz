@@ -55,8 +55,13 @@ export const EDGE_STYLES = {
     strokeWidth: 1.5,
     strokeDasharray: '4 4',
   },
+  // Emphasis, drawn in the structural ink rather than a hue. This was
+  // accent.blue, which is the same value `action` carries — so a highlighted
+  // edge read as belonging to the technique nodes it ran between rather than
+  // as being called out. Edges are structure, not entities, so they take the
+  // brightest neutral and let the type colours keep their meaning.
   highlighted: {
-    stroke: flowVizTheme.colors.accent.blue,
+    stroke: flowVizTheme.colors.canvas.edgeArrowStrong,
     strokeWidth: 2,
     strokeDasharray: '0',
   },

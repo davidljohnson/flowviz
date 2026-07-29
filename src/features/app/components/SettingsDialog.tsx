@@ -275,9 +275,10 @@ export default function SettingsDialog({
                     // step for exactly this: quiet, but still readable.
                     color: flowVizTheme.colors.text.tertiary,
                     fontWeight: 600,
-                    fontSize: '0.7rem',
-                    letterSpacing: '0.1em',
-                    textTransform: 'uppercase',
+                    // A group divider in the menu, so caps — on the scale and
+                    // the shared tracking; was 0.7rem at 0.1em.
+                    ...flowVizTheme.type.xs,
+                    ...flowVizTheme.uppercase,
                     lineHeight: '32px',
                     py: 0.5,
                     px: 2,

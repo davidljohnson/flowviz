@@ -51,8 +51,10 @@
   opacity: 1 !important;
   cursor: crosshair;
   background: var(--fv-canvas-handle);
-  /* Glow matches the node's type color (set per-node via --fv-node-glow). */
-  box-shadow: 0 0 0 6px var(--fv-node-glow, rgba(59, 130, 246, 0.3));
+  /* Glow matches the node's type color (set per-node via --fv-node-glow). The
+     fallback is neutral: it used to be accent blue, which is chrome, and this
+     is a canvas mark — the two colour systems are kept apart on purpose. */
+  box-shadow: 0 0 0 6px var(--fv-node-glow, rgba(var(--fv-overlay-rgb), 0.3));
 }
 
 /* --- Edge label affordance ---
