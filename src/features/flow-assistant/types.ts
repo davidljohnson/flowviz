@@ -1,4 +1,5 @@
 import { EditorNodeType } from '../flow-editing/utils/nodeFactoryDefaults';
+import type { SerializedContext } from './services/graphContext';
 
 /**
  * Operations the assistant may emit. This vocabulary is described to the model
@@ -31,6 +32,13 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'error';
   text: string;
   opResults?: OpResult[];
+  /**
+   * What was pinned when this turn was sent, kept as a receipt on the bubble.
+   * Snapshotted rather than resolved live: the chips above the composer track
+   * the graph, but a sent message should keep saying what it was actually
+   * asked with, even after the node is renamed or removed from the row.
+   */
+  contexts?: SerializedContext[];
 }
 
 /** Fields every node type accepts in its data bag. */

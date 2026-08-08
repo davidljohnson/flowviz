@@ -58,7 +58,8 @@ import NodeTypePickerMenu, { NodePickerState } from '../../flow-editing/componen
 import SourcePanel from './components/SourcePanel';
 import { normalizeSourceText } from './utils/sourceHighlight';
 import { EditorNodeType } from '../../flow-editing/utils/nodeFactoryDefaults';
-import { AssistantPanel, useAssistant, createOpsSession, serializeGraph, serializeSelection } from '../../flow-assistant';
+import { AssistantPanel, useAssistant, createOpsSession, serializeGraph, serializeContexts } from '../../flow-assistant';
+import SelectionBar from '../../flow-editing/components/SelectionBar';
 import type { AssistantOp, OpResult, OpsSession } from '../../flow-assistant';
 import type { AnalysisRequest } from '../types/analysisRequest';
 import UndoIcon from '@mui/icons-material/Undo';
@@ -222,6 +223,22 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   const [sourcePanelOpen, setSourcePanelOpen] = useState(false);
   // Launched from the bottom-right orb; the panel replaces the orb in place
   const [assistantOpen, setAssistantOpen] = useState(false);
+  /**
+   * Nodes/edges pinned into the assistant's context row, oldest first.
+   *
+   * Ids, not snapshots, so a rename shows through and a delete drops the chip —
+   * `serializeContexts` resolves them against the live graph on every read.
+   * They persist until removed rather than clearing per turn, so a follow-up
+   * question keeps pointing at the same thing.
+   */
+  const [assistantContextIds, setAssistantContextIds] = useState<string[]>([]);
+
+  /** Pin ids, ignoring any already present, and open the panel on them. */
+  const addAssistantContexts = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    setAssistantContextIds(prev => [...prev, ...ids.filter(id => !prev.includes(id))]);
+    setAssistantOpen(true);
+  }, []);
 
   // Pasted-text analyses and loaded text flows arrive through the url prop,
   // so fall back to it when no article event has populated the state.
@@ -725,6 +742,16 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   }, []);
 
   const handleNodeClick = useCallback((event: React.MouseEvent, node: any) => {
+    // Shift is ReactFlow's multiSelectionKeyCode, so this click is building a
+    // group, not choosing a node. Retargeting the inspector on each one made it
+    // flick through the selection and left it showing whichever node happened
+    // to be last — the selection bar speaks for the group instead.
+    if (event.shiftKey) {
+      setInspectorNodeId(null);
+      setInspectorFocusName(false);
+      setInspectorFocusNotes(false);
+      return;
+    }
     // Clicking a node's note glyph opens straight onto its notes field.
     const onNoteBadge = Boolean((event.target as HTMLElement)?.closest?.('.fv-note-badge'));
     openInspector(node.id, { focusNotes: onNoteBadge });
@@ -752,6 +779,20 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   const inspectorNode = useMemo(
     () => (inspectorNodeId ? nodes.find(n => n.id === inspectorNodeId) ?? null : null),
     [inspectorNodeId, nodes]
+  );
+
+  // Drives the selection bar. Ids rather than the nodes so the memo only
+  // recomputes when the set actually changes, not on every drag frame.
+  const selectedNodeIds = useMemo(
+    () => nodes.filter(n => n.selected).map(n => n.id),
+    [nodes]
+  );
+
+  // Pinned context for display. Resolved against `nodes`/`edges` rather than
+  // the refs the send path uses, so the chips re-render on a rename or delete.
+  const assistantContexts = useMemo(
+    () => serializeContexts(assistantContextIds, nodes, edges),
+    [assistantContextIds, nodes, edges]
   );
 
   // Live edge backing the edge inspector (+ its endpoint node labels)
@@ -1012,9 +1053,9 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
     () => serializeGraph(nodesRef.current, edgesRef.current),
     [],
   );
-  const getAssistantSelection = useCallback(
-    () => serializeSelection(inspectorNodeId, selectedEdgeId, nodesRef.current, edgesRef.current),
-    [inspectorNodeId, selectedEdgeId],
+  const getAssistantContexts = useCallback(
+    () => serializeContexts(assistantContextIds, nodesRef.current, edgesRef.current),
+    [assistantContextIds],
   );
   const getAssistantSourceText = useCallback(() => sourceText, [sourceText]);
 
@@ -1036,7 +1077,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
     provider: selectedProvider,
     model: selectedModel,
     getGraph: getAssistantGraph,
-    getSelection: getAssistantSelection,
+    getContexts: getAssistantContexts,
     getSourceText: getAssistantSourceText,
     applyOp: handleAssistantOp,
     finishTurn: finishAssistantTurn,
@@ -1170,7 +1211,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       setArticleText(loadedFlow.sourceText || null);
       setArticleTitle('');
       assistant.restore(loadedFlow.assistantMessages ?? []);
-      
+
       // Apply current edge styling to loaded edges
       const edgeConfig = getEdgeConfig();
       const styledEdges = loadedFlow.edges.map(edge => ({
@@ -1943,7 +1984,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
               ? () => setSourcePanelOpen(true)
               : undefined
           }
-          onAskAssistant={() => setAssistantOpen(true)}
+          onAskAssistant={() => addAssistantContexts([inspectorNode.id])}
           onClose={closeInspector}
           stacked={assistantOpen}
         />
@@ -1992,11 +2033,21 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
           </IconButton>
         </Tooltip>
       )}
+      <SelectionBar
+        count={selectedNodeIds.length}
+        onAskAbout={() => addAssistantContexts(selectedNodeIds)}
+        onClear={() => setNodes(nds => nds.map(n => (n.selected ? { ...n, selected: false } : n)))}
+      />
+
       <AssistantPanel
         open={assistantOpen}
         messages={assistant.messages}
         pending={assistant.pending}
         hasGraph={nodes.length > 0}
+        contexts={assistantContexts}
+        nodeCount={nodes.length}
+        onRemoveContext={(id) => setAssistantContextIds(prev => prev.filter(x => x !== id))}
+        onClearContexts={() => setAssistantContextIds([])}
         streamingText={assistant.streamingText}
         disabled={isStreaming}
         onSend={assistant.send}

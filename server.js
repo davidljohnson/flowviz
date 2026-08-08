@@ -596,10 +596,21 @@ app.post('/api/analyze-stream', rateLimits.streaming, async (req, res) => {
 app.post('/api/assistant-stream', rateLimits.assistant, async (req, res) => {
   logger.info('Starting assistant streaming request...');
 
-  const { provider, model, messages, graph, selection, sourceText } = req.body;
+  const { provider, model, messages, graph, contexts, sourceText } = req.body;
 
   if (sourceText !== undefined && sourceText !== null && typeof sourceText !== 'string') {
     return res.status(400).json({ error: 'sourceText must be a string' });
+  }
+
+  if (contexts !== undefined) {
+    if (!Array.isArray(contexts) || contexts.length > 50) {
+      return res.status(400).json({ error: 'contexts must be an array of at most 50 entries' });
+    }
+    for (const context of contexts) {
+      if (!context || typeof context.id !== 'string' || typeof context.name !== 'string') {
+        return res.status(400).json({ error: 'each context needs a string id and name' });
+      }
+    }
   }
 
   if (!Array.isArray(messages) || messages.length === 0 || messages.length > 40) {
@@ -645,7 +656,7 @@ app.post('/api/assistant-stream', rateLimits.assistant, async (req, res) => {
   try {
     const system = buildAssistantSystemPrompt({
       graph,
-      selection,
+      contexts,
       // Cap defensively even though the client already truncates
       sourceText: sourceText ? sourceText.substring(0, 20000) : null,
     });

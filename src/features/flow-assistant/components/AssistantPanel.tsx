@@ -8,8 +8,12 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
 import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import ArrowRightAltIcon from '@mui/icons-material/ArrowRightAlt';
 import { createScrollbarStyle, flowVizTheme } from '../../../shared/theme/flowviz-theme';
 import { ChatMessage, OpResult } from '../types';
+import type { SerializedContext } from '../services/graphContext';
+import { TypeToken } from '../../flow-analysis/components/nodes/shared/NodeHeader';
 import { trimStreamingTail } from '../services/markdown';
 import { copyText } from '../services/clipboard';
 import AssistantMarkdown from './AssistantMarkdown';
@@ -20,6 +24,12 @@ interface AssistantPanelProps {
   pending: boolean;
   /** Whether the canvas has nodes; picks which suggested prompts show. */
   hasGraph: boolean;
+  /** Pinned nodes/edges, resolved live against the graph. */
+  contexts: SerializedContext[];
+  /** How many nodes are on the canvas; the baseline chip states it. */
+  nodeCount: number;
+  onRemoveContext: (id: string) => void;
+  onClearContexts: () => void;
   /** The in-flight reply's text as it streams; null until the answer starts. */
   streamingText: string | null;
   /** True while an analysis is streaming - input is held until it finishes. */
@@ -171,6 +181,168 @@ function OpChips({ results }: { results: OpResult[] }) {
   );
 }
 
+/** Shared chip geometry: 22 tall, one step below the 24 of the prompt chips. */
+const chipBaseSx = {
+  height: 22,
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 0.625,
+  borderRadius: flowVizTheme.borderRadius.sm,
+  ...flowVizTheme.type.xs,
+  flexShrink: 0,
+  maxWidth: '100%',
+};
+
+/**
+ * States the context the user never chose and cannot remove: the whole graph,
+ * which goes up on every turn.
+ *
+ * Dashed and unremovable on purpose. A pinned chip is something you did; this
+ * is something that is simply true, and the two must not look alike — without
+ * it, a row of node chips reads as "the assistant can only see these", which is
+ * the opposite of what happens.
+ */
+function BaselineChip({ nodeCount }: { nodeCount: number }) {
+  return (
+    <Tooltip title="The full graph is always sent. Pinned items add emphasis; they never narrow it.">
+      <Box
+        sx={{
+          ...chipBaseSx,
+          px: 0.875,
+          border: '1px dashed rgba(var(--fv-overlay-rgb), 0.14)',
+          color: flowVizTheme.colors.text.tertiary,
+        }}
+      >
+        <AccountTreeIcon sx={{ fontSize: 11 }} />
+        <Box component="span">Whole flow · {nodeCount} {nodeCount === 1 ? 'node' : 'nodes'}</Box>
+      </Box>
+    </Tooltip>
+  );
+}
+
+/** One pinned node or edge, carrying its type colour and its own remove. */
+function ContextChip({ context, onRemove }: { context: SerializedContext; onRemove: () => void }) {
+  return (
+    <Box
+      sx={{
+        ...chipBaseSx,
+        pl: 0.5,
+        pr: 0.25,
+        backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.05)',
+        border: '1px solid rgba(var(--fv-overlay-rgb), 0.12)',
+        color: flowVizTheme.colors.text.secondary,
+        transition: flowVizTheme.motion.fast,
+        '&:hover': { borderColor: 'rgba(var(--fv-overlay-rgb), 0.28)' },
+      }}
+    >
+      {/* The node card's own token, shrunk — the chip should read as the same
+          object you clicked on the canvas, and colour is how the app says type. */}
+      {context.kind === 'node' && context.nodeType
+        ? <TypeToken nodeType={context.nodeType} size={14} />
+        : <ArrowRightAltIcon sx={{ fontSize: 13, color: flowVizTheme.colors.text.tertiary }} />}
+      <Tooltip title={context.name}>
+        <Box
+          component="span"
+          sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 150 }}
+        >
+          {context.name}
+        </Box>
+      </Tooltip>
+      <IconButton
+        size="small"
+        onClick={onRemove}
+        aria-label={`Remove ${context.name} from context`}
+        sx={{
+          p: 0,
+          width: 16,
+          height: 16,
+          color: flowVizTheme.colors.text.tertiary,
+          '&:hover': { color: flowVizTheme.colors.text.primary, backgroundColor: 'transparent' },
+        }}
+      >
+        <CloseIcon sx={{ fontSize: 11 }} />
+      </IconButton>
+    </Box>
+  );
+}
+
+/**
+ * The row above the composer: what the assistant is being pointed at.
+ *
+ * Hidden entirely on an empty canvas — with no graph and nothing pinned there
+ * is no context to describe, and an empty dashed chip is just chrome.
+ */
+function ContextRow({
+  contexts,
+  nodeCount,
+  onRemove,
+  onClear,
+}: {
+  contexts: SerializedContext[];
+  nodeCount: number;
+  onRemove: (id: string) => void;
+  onClear: () => void;
+}) {
+  if (nodeCount === 0 && contexts.length === 0) return null;
+  return (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.625, alignItems: 'center' }}>
+      {nodeCount > 0 && <BaselineChip nodeCount={nodeCount} />}
+      {contexts.map((context) => (
+        <ContextChip key={context.id} context={context} onRemove={() => onRemove(context.id)} />
+      ))}
+      {/* Only once removing them one by one is the worse option. */}
+      {contexts.length > 1 && (
+        <Box
+          component="button"
+          onClick={onClear}
+          sx={{
+            ...flowVizTheme.type.xs,
+            background: 'none',
+            border: 'none',
+            p: 0,
+            ml: 0.25,
+            cursor: 'pointer',
+            color: flowVizTheme.colors.text.tertiary,
+            transition: flowVizTheme.motion.fast,
+            '&:hover': { color: flowVizTheme.colors.text.primary },
+          }}
+        >
+          Clear
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+/** The chips a sent message was asked with, above its text. */
+function MessageContexts({ contexts }: { contexts: SerializedContext[] }) {
+  return (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 0.625 }}>
+      {contexts.map((context) => (
+        <Box
+          key={context.id}
+          sx={{
+            ...chipBaseSx,
+            height: 18,
+            px: 0.5,
+            ...flowVizTheme.type.xs,
+            backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.06)',
+            border: '1px solid rgba(var(--fv-overlay-rgb), 0.12)',
+            color: flowVizTheme.colors.text.tertiary,
+          }}
+        >
+          {context.kind === 'node' && context.nodeType
+            ? <TypeToken nodeType={context.nodeType} size={11} />
+            : <ArrowRightAltIcon sx={{ fontSize: 11 }} />}
+          <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }}>
+            {context.name}
+          </Box>
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
 /**
  * The AI graph assistant chat. Bottom-right on purpose: the node/edge
  * inspectors own the top-right corner, and keeping both visible lets the user
@@ -181,6 +353,10 @@ export default function AssistantPanel({
   messages,
   pending,
   hasGraph,
+  contexts,
+  nodeCount,
+  onRemoveContext,
+  onClearContexts,
   streamingText,
   disabled,
   onSend,
@@ -356,6 +532,9 @@ export default function AssistantPanel({
               }),
             }}
           >
+            {message.role === 'user' && message.contexts && message.contexts.length > 0 && (
+              <MessageContexts contexts={message.contexts} />
+            )}
             {message.role === 'assistant'
               ? <AssistantMarkdown text={message.text} onFocusNode={onFocusNode} />
               : message.text}
@@ -384,14 +563,21 @@ export default function AssistantPanel({
         <Box
           sx={{
             display: 'flex',
-            alignItems: 'flex-end',
-            gap: 0.5,
+            flexDirection: 'column',
+            gap: 0.875,
             px: 1.5,
             py: 1,
             borderTop: '1px solid rgba(var(--fv-overlay-rgb), 0.06)',
             opacity: disabled ? 0.5 : 1,
           }}
         >
+          <ContextRow
+            contexts={contexts}
+            nodeCount={nodeCount}
+            onRemove={onRemoveContext}
+            onClear={onClearContexts}
+          />
+          <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.5 }}>
           <InputBase
             inputRef={inputRef}
             value={draft}
@@ -447,6 +633,7 @@ export default function AssistantPanel({
           >
             <ArrowUpwardIcon sx={{ fontSize: 16 }} />
           </IconButton>
+          </Box>
         </Box>
       </Tooltip>
     </Box>

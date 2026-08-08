@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { AssistantOp, ChatMessage, OpResult } from '../types';
 import { streamAssistant } from '../services/assistantClient';
-import { SerializedGraph, SerializedSelection } from '../services/graphContext';
+import { SerializedGraph, SerializedContext } from '../services/graphContext';
 
 const HISTORY_CAP = 20;
 
@@ -9,7 +9,7 @@ interface UseAssistantParams {
   provider?: string;
   model?: string;
   getGraph: () => SerializedGraph;
-  getSelection: () => SerializedSelection | null;
+  getContexts: () => SerializedContext[];
   /** The source article behind the canvas, or null when there is none. */
   getSourceText: () => string | null;
   /** Apply one op to the canvas as it streams; returns its verdict. */
@@ -31,7 +31,7 @@ const summarizeResults = (results: OpResult[]): string => {
   return ` [ops: ${parts.join(', ')}]`;
 };
 
-export function useAssistant({ provider, model, getGraph, getSelection, getSourceText, applyOp, finishTurn }: UseAssistantParams) {
+export function useAssistant({ provider, model, getGraph, getContexts, getSourceText, applyOp, finishTurn }: UseAssistantParams) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pending, setPending] = useState(false);
   // The in-flight reply's message text as it streams; null when idle
@@ -53,7 +53,16 @@ export function useAssistant({ provider, model, getGraph, getSelection, getSourc
         content: m.role === 'assistant' ? m.text + summarizeResults(m.opResults ?? []) : m.text,
       }));
 
-    setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'user', text: trimmed }]);
+    // Read once and reuse: the row is live against the graph, so resolving it
+    // twice could put different chips on the bubble than went up the wire.
+    const contexts = getContexts();
+
+    setMessages(prev => [...prev, {
+      id: crypto.randomUUID(),
+      role: 'user',
+      text: trimmed,
+      ...(contexts.length > 0 && { contexts }),
+    }]);
     setPending(true);
     setStreamingText(null);
 
@@ -68,7 +77,7 @@ export function useAssistant({ provider, model, getGraph, getSelection, getSourc
         model,
         messages: [...history, { role: 'user', content: trimmed }],
         graph: getGraph(),
-        selection: getSelection(),
+        contexts,
         sourceText: getSourceText()?.slice(0, SOURCE_TEXT_CAP) ?? null,
       }, {
         onMessageDelta: setStreamingText,
@@ -98,7 +107,7 @@ export function useAssistant({ provider, model, getGraph, getSelection, getSourc
       setPending(false);
       setStreamingText(null);
     }
-  }, [provider, model, getGraph, getSelection, getSourceText, applyOp, finishTurn]);
+  }, [provider, model, getGraph, getContexts, getSourceText, applyOp, finishTurn]);
 
   const clear = useCallback(() => setMessages([]), []);
 

@@ -1,12 +1,12 @@
 import { AssistantResponse } from '../types';
-import { SerializedGraph, SerializedSelection } from './graphContext';
+import { SerializedGraph, SerializedContext } from './graphContext';
 
 export interface AssistantRequest {
   provider?: string;
   model?: string;
   messages: { role: 'user' | 'assistant'; content: string }[];
   graph: SerializedGraph;
-  selection?: SerializedSelection | null;
+  contexts?: SerializedContext[];
   /** The article/report behind the canvas, capped by the caller. */
   sourceText?: string | null;
 }

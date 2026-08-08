@@ -7,9 +7,15 @@
  * opsApplier.ts - the two must stay in sync.
  */
 
-export function buildAssistantSystemPrompt({ graph, selection, sourceText }) {
-  const selectionNote = selection
-    ? `\nThe user currently has the ${selection.kind} "${selection.name}" (id: ${selection.id}) selected. When they say "this ${selection.kind}", they mean it.`
+export function buildAssistantSystemPrompt({ graph, contexts, sourceText }) {
+  // Emphasis, never a filter. The user can see a chip saying the whole graph is
+  // attached, so an answer that narrows itself to the pinned nodes contradicts
+  // what the panel just told them.
+  const pinned = Array.isArray(contexts) ? contexts : [];
+  const contextNote = pinned.length > 0
+    ? `\nThe user has pinned ${pinned.length === 1 ? 'this' : 'these'} for attention:\n${
+        pinned.map(c => `- ${c.kind} "${c.name}" (id: ${c.id})`).join('\n')
+      }\nWhen they say "this ${pinned[0].kind}", "these", or "them", they mean the pinned items above. Treat them as what the user is pointing at, NOT as a limit on what you may consider — the whole graph above is still in scope, and you should still draw on the rest of it when it helps answer.`
     : '';
 
   const sourceSection = sourceText
@@ -25,7 +31,7 @@ The "message" may use light markdown: **bold**, *italic*, \`inline code\`, ## he
 ## Current graph
 
 ${JSON.stringify(graph, null, 2)}
-${selectionNote}${sourceSection}
+${contextNote}${sourceSection}
 ## Operations
 
 Each entry in "ops" is one of:

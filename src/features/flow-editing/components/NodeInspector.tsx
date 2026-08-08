@@ -258,7 +258,7 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
     }] : []),
     ...(onAskAssistant ? [{
       id: 'ask-assistant',
-      label: 'Ask AI about this node',
+      label: 'Ask about this node',
       icon: <AssistantMark size={16} />,
       onClick: onAskAssistant,
     }] : []),

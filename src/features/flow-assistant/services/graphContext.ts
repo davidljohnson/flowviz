@@ -22,10 +22,19 @@ export interface SerializedGraph {
   edges: SerializedEdge[];
 }
 
-export interface SerializedSelection {
+/**
+ * One thing the user has pinned for the assistant's attention.
+ *
+ * Emphasis, not a filter: the whole graph goes up on every turn regardless, and
+ * the panel says so with a chip of its own. A context narrows what the user is
+ * pointing *at*, never what the model is allowed to see.
+ */
+export interface SerializedContext {
   kind: 'node' | 'edge';
   id: string;
   name: string;
+  /** Drives the chip's type colour. Nodes only — edges have no type token. */
+  nodeType?: string;
 }
 
 /**
@@ -59,23 +68,39 @@ export function serializeGraph(nodes: Node[], edges: Edge[]): SerializedGraph {
   };
 }
 
-export function serializeSelection(
-  inspectorNodeId: string | null,
-  selectedEdgeId: string | null,
+/**
+ * Resolve pinned ids against the live graph.
+ *
+ * Ids rather than snapshots is the point: a pinned node that gets renamed
+ * shows its new name, and one that gets deleted drops out of the row instead
+ * of leaving a chip pointing at nothing. Order follows `ids`, so chips sit in
+ * the order they were added.
+ */
+export function serializeContexts(
+  ids: string[],
   nodes: Node[],
   edges: Edge[],
-): SerializedSelection | null {
-  if (inspectorNodeId) {
-    const node = nodes.find(n => n.id === inspectorNodeId);
+): SerializedContext[] {
+  const out: SerializedContext[] = [];
+  for (const id of ids) {
+    const node = nodes.find(n => n.id === id);
     if (node) {
-      return { kind: 'node', id: node.id, name: (node.data?.name as string) || node.type || 'node' };
+      out.push({
+        kind: 'node',
+        id: node.id,
+        name: (node.data?.name as string) || node.type || 'node',
+        nodeType: node.type,
+      });
+      continue;
     }
-  }
-  if (selectedEdgeId) {
-    const edge = edges.find(e => e.id === selectedEdgeId);
+    const edge = edges.find(e => e.id === id);
     if (edge) {
-      return { kind: 'edge', id: edge.id, name: typeof edge.label === 'string' && edge.label ? edge.label : 'edge' };
+      out.push({
+        kind: 'edge',
+        id: edge.id,
+        name: typeof edge.label === 'string' && edge.label ? edge.label : 'edge',
+      });
     }
   }
-  return null;
+  return out;
 }
