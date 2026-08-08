@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import fetch from 'node-fetch';
 import { fileTypeFromBuffer } from 'file-type';
 import { Readability } from '@mozilla/readability';
@@ -727,7 +727,18 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-app.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT}`);
-  logger.info(`Health check: http://localhost:${PORT}/health`);
-});
+// The hosted service imports this app and mounts auth, entitlement, and
+// metering middleware in front of it, so binding a port has to be conditional
+// on being the process entry point rather than a side effect of importing.
+// `npm run server` and `node server.js` are unaffected.
+const isEntryPoint =
+  Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isEntryPoint) {
+  app.listen(PORT, () => {
+    logger.info(`Server running on port ${PORT}`);
+    logger.info(`Health check: http://localhost:${PORT}/health`);
+  });
+}
+
+export default app;

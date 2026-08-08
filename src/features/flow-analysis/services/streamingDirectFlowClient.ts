@@ -1,5 +1,6 @@
 import { APIError } from './errors';
 import { Node, Edge } from 'reactflow';
+import { apiFetch } from '../../../shared/services/api/apiClient';
 
 export interface StreamingDirectFlowCallbacks {
   onNode: (node: Node) => void;
@@ -123,7 +124,7 @@ export class StreamingDirectFlowClient {
       const isUrl = input.startsWith('http://') || input.startsWith('https://');
       this.sourceUrl = isUrl ? input : null;
 
-      const response = await fetch('/api/analyze-stream', {
+      const response = await apiFetch('/api/analyze-stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,5 +1,6 @@
 import { AssistantResponse } from '../types';
 import { SerializedGraph, SerializedContext } from './graphContext';
+import { apiFetch } from '../../../shared/services/api/apiClient';
 
 export interface AssistantRequest {
   provider?: string;
@@ -125,7 +126,7 @@ export async function streamAssistant(
   callbacks?: AssistantStreamCallbacks,
 ): Promise<AssistantResponse> {
   const { onMessageDelta, onOp } = callbacks ?? {};
-  const response = await fetch('/api/assistant-stream', {
+  const response = await apiFetch('/api/assistant-stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),

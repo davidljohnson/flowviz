@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
 import ErrorBoundary from './shared/components/ErrorBoundary';
 import ThemeModeProvider from './shared/theme/ThemeModeProvider';
+import { AuthProvider } from './features/account';
 // Self-host Inter (the family the theme names) so the UI renders in it rather
 // than falling through to Segoe UI / system sans. Just the weights the app uses.
 import '@fontsource/inter/400.css';
@@ -28,7 +29,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <ThemeModeProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <App />
+          {/* Inside the query provider, which it uses to drop cached data
+              belonging to a previous identity. A no-op unless this build is
+              configured with a Supabase project. */}
+          <AuthProvider>
+            <App />
+          </AuthProvider>
         </QueryClientProvider>
       </ErrorBoundary>
     </ThemeModeProvider>

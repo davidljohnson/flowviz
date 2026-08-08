@@ -1,7 +1,7 @@
-import axios from 'axios';
 import { IImageDownloader } from '../interfaces';
 import { ImageInfo } from '../types';
 import { IMAGE_DOWNLOAD_CONFIG } from '../config';
+import { apiFetch } from '../../api/apiClient';
 
 export class ImageDownloader implements IImageDownloader {
   async downloadAsBase64(imageInfo: ImageInfo): Promise<string> {
@@ -16,15 +16,21 @@ export class ImageDownloader implements IImageDownloader {
       try {
         console.log(`Downloading image (attempt ${attempt}): ${imageInfo.src}`);
         
-        // Use the proxy server to fetch images to avoid CORS issues
-        const response = await axios.get(IMAGE_DOWNLOAD_CONFIG.apiEndpoint, {
-          params: { url: imageInfo.src },
-          responseType: 'json', // Get JSON response with base64 and mediaType
-          timeout: IMAGE_DOWNLOAD_CONFIG.timeout,
-        });
-        
-        const { base64, mediaType } = response.data;
-        
+        // Use the proxy server to fetch images to avoid CORS issues. Goes
+        // through apiFetch so the request lands on the configured backend and
+        // carries the session credential when the endpoint is behind auth.
+        const query = new URLSearchParams({ url: imageInfo.src });
+        const response = await apiFetch(
+          `${IMAGE_DOWNLOAD_CONFIG.apiEndpoint}?${query}`,
+          { signal: AbortSignal.timeout(IMAGE_DOWNLOAD_CONFIG.timeout) }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Image proxy returned ${response.status}`);
+        }
+
+        const { base64, mediaType } = await response.json();
+
         if (!base64) {
           throw new Error('Server returned empty base64 data');
         }

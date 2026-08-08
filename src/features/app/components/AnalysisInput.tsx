@@ -15,6 +15,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CloseIcon from '@mui/icons-material/Close';
+import { apiFetch } from '../../../shared/services/api/apiClient';
 import { SearchInputURL, SearchInputMultiline } from '../../../shared/components/SearchInput';
 import SegmentedControl from '../../../shared/components/SegmentedControl';
 import { HeroSubmitButton } from '../../../shared/components/Button';
@@ -127,7 +128,7 @@ export default function AnalysisInput({
         const images = await renderPdfImagePages(file, 3);
         if (images.length > 0) {
           setPdfStatus('vision');
-          const resp = await fetch('/api/vision-analysis', {
+          const resp = await apiFetch('/api/vision-analysis', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ images, articleText: result.text }),

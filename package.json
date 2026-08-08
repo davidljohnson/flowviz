@@ -28,6 +28,7 @@
     "@mozilla/readability": "^0.6.0",
     "@mui/icons-material": "^5.15.10",
     "@mui/material": "^5.15.10",
+    "@supabase/supabase-js": "^2.111.0",
     "@tanstack/react-query": "^5.20.5",
     "@types/dagre": "^0.7.53",
     "axios": "^1.6.7",
