@@ -1,5 +1,11 @@
 import { SavedFlow, ImportResult } from '../types/SavedFlow';
 import { IFlowStorage, StorageError } from './StorageInterface';
+import {
+  validateFlow,
+  isValidFlowFile,
+  flowToBlob,
+  flowsToBlob,
+} from './flowValidation';
 
 /**
  * A catch binding is `unknown` — anything can be thrown, not just an Error.
@@ -127,32 +133,11 @@ export class LocalStorageService implements IFlowStorage {
   }
 
   async exportFlow(id: string, _filename?: string): Promise<Blob> {
-    const flow = await this.loadFlow(id);
-    const exportData = {
-      ...flow,
-      exportedAt: new Date().toISOString(),
-      exportedBy: 'FlowViz Open Source',
-      version: this.VERSION
-    };
-    
-    return new Blob([JSON.stringify(exportData, null, 2)], {
-      type: 'application/json'
-    });
+    return flowToBlob(await this.loadFlow(id), 'FlowViz Open Source');
   }
 
   async exportAllFlows(): Promise<Blob> {
-    const flows = await this.listFlows();
-    const exportData = {
-      flows,
-      exportedAt: new Date().toISOString(),
-      exportedBy: 'FlowViz Open Source',
-      version: this.VERSION,
-      totalFlows: flows.length
-    };
-    
-    return new Blob([JSON.stringify(exportData, null, 2)], {
-      type: 'application/json'
-    });
+    return flowsToBlob(await this.listFlows(), 'FlowViz Open Source');
   }
 
   async importFlow(file: File): Promise<SavedFlow> {
@@ -249,80 +234,29 @@ export class LocalStorageService implements IFlowStorage {
     localStorage.removeItem(this.STORAGE_KEY);
   }
 
-  async updateFlowMetadata(id: string, updates: Partial<SavedFlow['metadata']>): Promise<void> {
+  async updateFlowDetails(
+    id: string,
+    updates: { title?: string; description?: string; tags?: string[] }
+  ): Promise<void> {
+    // Reads the stored flow rather than accepting one from the caller, so the
+    // graph comes from storage and cannot be clobbered by a partial copy.
     const flow = await this.loadFlow(id);
-    flow.metadata = {
-      ...flow.metadata,
-      ...updates,
-      updatedAt: new Date().toISOString()
-    };
+
+    if (updates.title !== undefined) flow.title = updates.title;
+    if (updates.description !== undefined) flow.metadata.description = updates.description;
+    if (updates.tags !== undefined) flow.metadata.tags = updates.tags;
+
+    flow.metadata.updatedAt = new Date().toISOString();
     await this.saveFlow(flow);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   validateFlow(flow: any): SavedFlow | null {
-    try {
-      // Check required fields
-      if (!flow.id || !flow.title || !flow.nodes || !flow.edges || !flow.metadata) {
-        return null;
-      }
-      
-      // Check arrays
-      if (!Array.isArray(flow.nodes) || !Array.isArray(flow.edges)) {
-        return null;
-      }
-      
-      // Check metadata structure
-      if (!flow.metadata.createdAt || !flow.metadata.updatedAt) {
-        return null;
-      }
-      
-      // Ensure required metadata fields exist
-      const validatedFlow: SavedFlow = {
-        id: flow.id,
-        title: flow.title,
-        sourceUrl: flow.sourceUrl,
-        sourceText: flow.sourceText,
-        inputMode: flow.inputMode || 'url',
-        nodes: flow.nodes,
-        edges: flow.edges,
-        metadata: {
-          createdAt: flow.metadata.createdAt,
-          updatedAt: flow.metadata.updatedAt,
-          version: flow.metadata.version || '1.0.0',
-          description: flow.metadata.description,
-          tags: Array.isArray(flow.metadata.tags) ? flow.metadata.tags : [],
-          nodeCount: flow.metadata.nodeCount || flow.nodes.length,
-          edgeCount: flow.metadata.edgeCount || flow.edges.length,
-        },
-        visualization: flow.visualization || {},
-        analysis: flow.analysis || {},
-        assistantMessages: Array.isArray(flow.assistantMessages) ? flow.assistantMessages : undefined
-      };
-      
-      return validatedFlow;
-    } catch {
-      return null;
-    }
+    return validateFlow(flow);
   }
 
   async isValidFlowFile(file: File): Promise<boolean> {
-    try {
-      if (!file.type.includes('json') && !file.name.endsWith('.json') && !file.name.endsWith('.flowviz')) {
-        return false;
-      }
-      
-      const text = await file.text();
-      const data = JSON.parse(text);
-      
-      // Check if it's a single flow or bulk export
-      if (data.flows && Array.isArray(data.flows)) {
-        return data.flows.length > 0 && this.validateFlow(data.flows[0]) !== null;
-      }
-      
-      return this.validateFlow(data) !== null;
-    } catch {
-      return false;
-    }
+    return isValidFlowFile(file);
   }
 
   private saveToStorage(flows: SavedFlow[]): void {

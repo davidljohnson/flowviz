@@ -288,17 +288,12 @@ const LoadFlowDialog: React.FC<LoadFlowDialogProps> = ({
     if (!editingFlow || !editTitle.trim()) return;
 
     try {
-      const updatedFlow = {
-        ...editingFlow,
+      // Details only. `editingFlow` came from the list, which carries no graph,
+      // so saving it whole would write empty nodes and edges over the flow.
+      await flowStorage.updateFlowDetails(editingFlow.id, {
         title: editTitle.trim(),
-        metadata: {
-          ...editingFlow.metadata,
-          description: editDescription.trim(),
-          updatedAt: new Date().toISOString()
-        }
-      };
-
-      await flowStorage.saveFlow(updatedFlow);
+        description: editDescription.trim(),
+      });
       await loadFlows();
       setEditDialogOpen(false);
       setEditingFlow(null);

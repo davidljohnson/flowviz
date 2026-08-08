@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { LocalStorageService } from './LocalStorageService';
 
-// We only test the pure validateFlow() method — no localStorage mocking needed.
+// validateFlow() is pure and needs no setup. The write paths below install an
+// in-memory localStorage stub per test.
 
 function makeValidFlow(overrides: Record<string, any> = {}) {
   return {
@@ -162,5 +163,81 @@ describe('LocalStorageService.validateFlow()', () => {
     expect(result).not.toBeNull();
     expect(result!.nodes).toEqual([]);
     expect(result!.edges).toEqual([]);
+  });
+});
+
+// ── updateFlowDetails() ─────────────────────────────────────────────
+//
+// Renaming from the library list is the one write that does NOT carry a graph:
+// the list holds summaries. These pin down that a rename touches the title and
+// nothing else, because the previous implementation saved a whole flow object
+// supplied by the caller and would have written a summary's empty arrays over
+// a real graph.
+
+const memoryStorage = () => {
+  let store: Record<string, string> = {};
+  return {
+    getItem: (key: string) => store[key] ?? null,
+    setItem: (key: string, value: string) => {
+      store[key] = value;
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      store = {};
+    },
+  };
+};
+
+describe('LocalStorageService.updateFlowDetails()', () => {
+  let service: LocalStorageService;
+
+  beforeEach(() => {
+    (globalThis as any).localStorage = memoryStorage();
+    service = new LocalStorageService();
+  });
+
+  it('renames without disturbing the graph', async () => {
+    await service.saveFlow(makeValidFlow() as any);
+
+    await service.updateFlowDetails('flow-1', { title: 'Renamed' });
+
+    const reloaded = await service.loadFlow('flow-1');
+    expect(reloaded.title).toBe('Renamed');
+    expect(reloaded.nodes).toHaveLength(1);
+    expect(reloaded.edges).toHaveLength(1);
+  });
+
+  it('survives a caller that only has a summary', async () => {
+    await service.saveFlow(makeValidFlow() as any);
+
+    // What the library list actually holds: no nodes, no edges.
+    const summary = { ...makeValidFlow(), nodes: [], edges: [] };
+
+    await service.updateFlowDetails(summary.id, { title: 'From summary' });
+
+    const reloaded = await service.loadFlow('flow-1');
+    expect(reloaded.title).toBe('From summary');
+    expect(reloaded.nodes).toHaveLength(1);
+    expect(reloaded.edges).toHaveLength(1);
+  });
+
+  it('updates description and tags, leaving unnamed fields alone', async () => {
+    await service.saveFlow(makeValidFlow() as any);
+
+    await service.updateFlowDetails('flow-1', {
+      description: 'A description',
+      tags: ['lockbit', 'ransomware'],
+    });
+
+    const reloaded = await service.loadFlow('flow-1');
+    expect(reloaded.title).toBe('Test Flow');
+    expect(reloaded.metadata.description).toBe('A description');
+    expect(reloaded.metadata.tags).toEqual(['lockbit', 'ransomware']);
+  });
+
+  it('rejects an unknown id', async () => {
+    await expect(service.updateFlowDetails('nope', { title: 'x' })).rejects.toThrow();
   });
 });

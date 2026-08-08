@@ -13,6 +13,7 @@ import { AppBar, NewSearchDialog, SettingsDialog, AnalyzeDialog } from './featur
 import type { AnalyzeMode } from './features/app/components/AnalyzeDialog';
 import type { Command } from './features/flow-editing';
 import { useAppState, useAppShortcuts } from './features/app/hooks';
+import { useSharedFlow } from './features/flow-storage/hooks/useSharedFlow';
 import { useProviderConfig, isModelAvailable } from './features/app/hooks/useProviderConfig';
 import { shortcut } from './shared/utils/shortcuts';
 // Input limits based on Claude's context window; shared with AnalysisInput so
@@ -277,6 +278,22 @@ export default function App() {
     setLoadFlowDialogOpen(false);
     showToast(`Loaded analysis: "${flow.title}"`, 'success');
   };
+
+  // A flow named in the URL opens straight onto the canvas, so a link from
+  // anywhere else lands on the graph rather than on an empty app. Runs once,
+  // when the fetch settles.
+  const sharedFlow = useSharedFlow();
+  useEffect(() => {
+    if (sharedFlow.flow) {
+      handleLoadFlow(sharedFlow.flow);
+    } else if (sharedFlow.error) {
+      showToast(sharedFlow.error, 'error');
+    }
+    // handleLoadFlow closes over render-scoped setters but is stable in
+    // behaviour; re-running on its identity would reload the flow every render
+    // and discard the visitor's edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sharedFlow.flow, sharedFlow.error]);
 
   const handleCloseError = () => {
     setShowError(false);

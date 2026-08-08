@@ -23,7 +23,18 @@ export interface IFlowStorage {
   
   // Metadata and management
   clearAllFlows(): Promise<void>;
-  updateFlowMetadata(id: string, updates: Partial<SavedFlow['metadata']>): Promise<void>;
+
+  /**
+   * Renames or re-describes a flow without touching its graph.
+   *
+   * Distinct from saveFlow because the library list holds summaries, not whole
+   * flows — a rename that round-tripped through saveFlow would write the
+   * summary's empty node and edge arrays over the real ones.
+   */
+  updateFlowDetails(
+    id: string,
+    updates: { title?: string; description?: string; tags?: string[] }
+  ): Promise<void>;
   
   // Validation
   validateFlow(flow: any): SavedFlow | null;

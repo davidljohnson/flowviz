@@ -64,6 +64,29 @@ OPENAI_MODEL=gpt-4o
 PORT=3001
 ```
 
+## Optional: Accounts
+
+FlowViz runs with no accounts by default. Everyone who opens it gets the whole
+app — AI analysis included, using the API key in your `.env`. Nothing is held
+back, and you do not need to read this section to self-host.
+
+If you are running a shared instance and want per-user sign-in and server-side
+flow storage instead of browser localStorage, point the app at a
+[Supabase](https://supabase.com) project of your own:
+
+```env
+# Both must be set, or accounts stay off
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+
+# Only if the frontend and backend are served from different origins
+VITE_API_BASE_URL=https://api.your-domain.com
+```
+
+The Supabase SDK is loaded on demand, so a build without these variables never
+downloads it. The anon key is public by design — it identifies the project and
+grants nothing on its own.
+
 ## Ollama Configuration
 
 1. Download Ollama from [ollama.com/download](https://ollama.com/download)
