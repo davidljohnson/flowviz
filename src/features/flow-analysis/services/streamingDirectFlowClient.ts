@@ -7,6 +7,8 @@ export interface StreamingDirectFlowCallbacks {
   onProgress?: (stage: string, message: string) => void;
   /** The server-extracted article for URL analyses (readability output). */
   onArticle?: (article: { title: string; text: string }) => void;
+  /** The vision pass's reading of the article's images, when there were any. */
+  onVision?: (text: string) => void;
   onComplete: () => void;
   onError: (error: Error) => void;
 }
@@ -193,6 +195,13 @@ export class StreamingDirectFlowClient {
               // The extracted article, sent once after readability parsing
               if (event.type === 'article' && typeof event.text === 'string') {
                 callbacks.onArticle?.({ title: event.title || '', text: event.text });
+              }
+
+              // What the vision pass read out of the article's images. Part of
+              // the grounding corpus, not the article — the source panel shows
+              // the article, so these stay separate.
+              if (event.type === 'vision' && typeof event.text === 'string') {
+                callbacks.onVision?.(event.text);
               }
               
               if (event.type === 'content_block_delta' && event.delta?.text) {

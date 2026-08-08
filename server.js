@@ -556,6 +556,14 @@ app.post('/api/analyze-stream', rateLimits.streaming, async (req, res) => {
               const visionResult = await aiProvider.analyzeVision(processedImages, finalText);
               visionAnalysis = visionResult.analysisText;
               logger.info(`Vision analysis complete: ${visionAnalysis.length} chars`);
+              // Hand it back for the same reason as the article: it is part of
+              // what the nodes were grounded in, so an excerpt quoting a
+              // screenshot is quoting THIS, and a check that only knows the
+              // article text would call it invented.
+              res.write(`data: ${JSON.stringify({
+                type: 'vision',
+                text: visionAnalysis.substring(0, 50000),
+              })}\n\n`);
             } catch (visionError) {
               logger.warn(`Vision analysis failed with ${selectedProvider}:`, visionError.message);
               // Continue without vision analysis

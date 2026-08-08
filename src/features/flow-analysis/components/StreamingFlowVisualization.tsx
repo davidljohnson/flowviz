@@ -219,6 +219,17 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   // server-extracted article for URL analyses, or a saved flow's kept text.
   // A merge of a second report overwrites it - the panel shows the latest.
   const [articleText, setArticleText] = useState<string | null>(null);
+  /**
+   * The vision pass's reading of the article's images, for this session's
+   * analysis only.
+   *
+   * Not persisted with a saved flow, which is why `groundedThisSession` gates
+   * the excerpt check: on a reloaded flow we hold the article but not this,
+   * and a node quoting a screenshot would be wrongly called invented. Better
+   * to say nothing than to accuse a good quote.
+   */
+  const [visionText, setVisionText] = useState<string | null>(null);
+  const [groundedThisSession, setGroundedThisSession] = useState(false);
   const [articleTitle, setArticleTitle] = useState<string>('');
   const [sourcePanelOpen, setSourcePanelOpen] = useState(false);
   // Launched from the bottom-right orb; the panel replaces the orb in place
@@ -1211,6 +1222,11 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       setArticleText(loadedFlow.sourceText || null);
       setArticleTitle('');
       assistant.restore(loadedFlow.assistantMessages ?? []);
+      // A saved flow carries its article but not the vision pass, so we no
+      // longer hold everything its excerpts were drawn from. The check goes
+      // quiet rather than flagging screenshot-derived quotes as invented.
+      setVisionText(null);
+      setGroundedThisSession(false);
 
       // Apply current edge styling to loaded edges
       const edgeConfig = getEdgeConfig();
@@ -1389,6 +1405,12 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       bufferedEdgesRef.current = [];
       clearRevealTimers();
 
+      // This run's grounding is about to be captured in full, so the excerpt
+      // check can speak. Any vision text from a previous run belongs to a
+      // different article and must not vouch for this one's quotes.
+      setVisionText(null);
+      setGroundedThisSession(true);
+
       if (request.mode === 'replace') {
         setNodes([]);
         setEdges([]);
@@ -1443,6 +1465,11 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
           setArticleTitle(article.title);
           // Hoist to the host so Save can persist it as the flow's sourceText
           onArticleExtracted?.(article.text, article.title);
+        },
+
+        onVision: (text) => {
+          if (isStale()) return;
+          setVisionText(text);
         },
 
         onNode: (node) => {
@@ -1985,6 +2012,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
               : undefined
           }
           onAskAssistant={() => addAssistantContexts([inspectorNode.id])}
+          groundingSources={groundedThisSession ? [sourceText, visionText] : null}
           onClose={closeInspector}
           stacked={assistantOpen}
         />

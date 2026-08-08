@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { Fragment, useEffect, useMemo, useRef } from 'react';
 import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import ArticleIcon from '@mui/icons-material/Article';
 import CloseIcon from '@mui/icons-material/Close';
 import { createScrollbarStyle, flowVizTheme } from '../../../../shared/theme/flowviz-theme';
-import { findExcerptRange } from '../utils/sourceHighlight';
+import { findExcerptRanges } from '../utils/sourceHighlight';
 
 interface SourcePanelProps {
   open: boolean;
@@ -27,16 +27,26 @@ interface SourcePanelProps {
 export default function SourcePanel({ open, title, text, highlightExcerpt, onClose }: SourcePanelProps) {
   const highlightRef = useRef<HTMLSpanElement | null>(null);
 
-  const range = useMemo(
-    () => (highlightExcerpt ? findExcerptRange(text, highlightExcerpt) : null),
+  // Usually one span; more when the excerpt was welded from several passages,
+  // in which case each is marked and the elided text between them is left
+  // plain — the gap IS the point.
+  const ranges = useMemo(
+    () => (highlightExcerpt ? findExcerptRanges(text, highlightExcerpt) : []),
     [text, highlightExcerpt],
   );
 
   useEffect(() => {
-    if (range && highlightRef.current) {
+    // The ref is on the first span, so a welded quote scrolls to where its
+    // evidence starts rather than to whichever passage happens to be last.
+    //
+    // `open` is a dependency because the panel keeps its hooks while closed:
+    // selecting a node computes the ranges, and by the time the panel is
+    // actually opened they have not changed, so keying only on `ranges` left
+    // the reader at the top of the article with the match somewhere below.
+    if (open && ranges.length > 0 && highlightRef.current) {
       highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [range]);
+  }, [ranges, open]);
 
   if (!open || !text) return null;
 
@@ -91,22 +101,26 @@ export default function SourcePanel({ open, title, text, highlightExcerpt, onClo
           ...createScrollbarStyle(),
         }}
       >
-        {range ? (
+        {ranges.length > 0 ? (
           <>
-            {text.slice(0, range.start)}
-            <Box
-              component="span"
-              ref={highlightRef}
-              sx={{
-                backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.16)',
-                outline: '1px solid rgba(var(--fv-overlay-rgb), 0.35)',
-                borderRadius: flowVizTheme.borderRadius.xs,
-                color: flowVizTheme.colors.text.primary,
-              }}
-            >
-              {text.slice(range.start, range.end)}
-            </Box>
-            {text.slice(range.end)}
+            {ranges.map((range, i) => (
+              <Fragment key={range.start}>
+                {text.slice(i === 0 ? 0 : ranges[i - 1].end, range.start)}
+                <Box
+                  component="span"
+                  ref={i === 0 ? highlightRef : undefined}
+                  sx={{
+                    backgroundColor: 'rgba(var(--fv-overlay-rgb), 0.16)',
+                    outline: '1px solid rgba(var(--fv-overlay-rgb), 0.35)',
+                    borderRadius: flowVizTheme.borderRadius.xs,
+                    color: flowVizTheme.colors.text.primary,
+                  }}
+                >
+                  {text.slice(range.start, range.end)}
+                </Box>
+              </Fragment>
+            ))}
+            {text.slice(ranges[ranges.length - 1].end)}
           </>
         ) : (
           text

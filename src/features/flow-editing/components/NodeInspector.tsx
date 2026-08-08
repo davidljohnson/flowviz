@@ -16,6 +16,7 @@ import { Node } from 'reactflow';
 import { flowVizTheme, createScrollbarStyle } from '../../../shared/theme/flowviz-theme';
 import { NodeHeader } from '../../flow-analysis/components/nodes/shared/NodeHeader';
 import { isAttackAction, isOperator, getMitreLink } from '../../flow-analysis/components/nodes/shared/nodeUtils';
+import { verifyExcerpt } from '../../flow-analysis/components/utils/sourceHighlight';
 import { AttackTechnique } from '../data/attackTechniques';
 import TechniqueAutocomplete from './TechniqueAutocomplete';
 import { labelSx, inputSx } from './inspectorFieldStyles';
@@ -35,6 +36,16 @@ interface NodeInspectorProps {
   onShowSource?: () => void;
   /** Open the AI assistant with this node as the selection. */
   onAskAssistant?: () => void;
+  /**
+   * Everything this flow's excerpts were drawn from — the article, plus the
+   * vision pass over its images — used to check an excerpt is really a quote.
+   *
+   * Null whenever we don't hold the complete set: a hand-built flow, or one
+   * reloaded from storage, which keeps the article but not the vision text.
+   * The check then says nothing, because a missing source is not evidence
+   * against a quote.
+   */
+  groundingSources?: (string | null | undefined)[] | null;
   /** When true, the name field grabs focus on open (double-click / new node). */
   focusName?: boolean;
   /** When true, the notes field grabs focus on open (clicking a node's note glyph). */
@@ -100,12 +111,54 @@ const Chip: React.FC<{ label: string; href?: string }> = ({ label, href }) => {
 };
 
 /**
+ * Says so when an excerpt isn't a straight quote from the article.
+ *
+ * Silent when it checks out, which is the great majority — a badge on every
+ * node would be decoration, and the one that means something would be lost in
+ * it. Only the exception is worth the ink.
+ */
+const ExcerptBadge: React.FC<{ sources?: (string | null | undefined)[] | null; excerpt: unknown }> = ({ sources, excerpt }) => {
+  const check = verifyExcerpt(sources ?? null, typeof excerpt === 'string' ? excerpt : '');
+  if (!check || check.verdict === 'verified') return null;
+
+  const stitched = check.verdict === 'stitched';
+  const status = stitched ? flowVizTheme.colors.status.warning : flowVizTheme.colors.status.error;
+  return (
+    <Tooltip
+      title={stitched
+        ? `Each of the ${check.total} passages in this quote is real, but they were welded together with an ellipsis rather than quoted as written. Worth splitting the node or re-quoting.`
+        : check.total > 1
+          ? `${check.total - check.found} of ${check.total} passages in this quote are not in the report or its images.`
+          : 'This quote is not in the report or its images. It may be a paraphrase rather than a quote.'}
+    >
+      <Box
+        component="span"
+        sx={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          height: 16,
+          px: 0.625,
+          borderRadius: flowVizTheme.borderRadius.xs,
+          ...flowVizTheme.type.xs,
+          cursor: 'default',
+          backgroundColor: status.bg,
+          border: `1px solid ${status.border}`,
+          color: status.text,
+        }}
+      >
+        {stitched ? 'Stitched' : 'Not in source'}
+      </Box>
+    </Tooltip>
+  );
+};
+
+/**
  * Right-hand inspector: the single, complete editor for a node. Every field
  * autosaves through the undoable updateNodeData op — text fields commit on
  * blur, selects/toggles on change. Reads live node data so it stays in sync
  * with undo/redo and canvas edits.
  */
-const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete, onClose, onDuplicate, onShowSource, onAskAssistant, focusName, focusNotes, stacked }) => {
+const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete, onClose, onDuplicate, onShowSource, onAskAssistant, groundingSources, focusName, focusNotes, stacked }) => {
   const data = node.data as Record<string, any>;
   const type = data.type as string;
   const nameRef = useRef<HTMLInputElement>(null);
@@ -475,7 +528,9 @@ const NodeInspector: React.FC<NodeInspectorProps> = ({ node, onChange, onDelete,
 
         {/* Source excerpt (non-operator) */}
         {!isOp && (
-          <Field label="Excerpt">{textField('source_excerpt', 'Quote from the source report...', { multiline: true })}</Field>
+          <Field label="Excerpt" action={<ExcerptBadge sources={groundingSources} excerpt={draft.source_excerpt} />}>
+            {textField('source_excerpt', 'Quote from the source report...', { multiline: true })}
+          </Field>
         )}
 
         {/* Source — link or citation for where this node came from */}
