@@ -257,8 +257,11 @@ export class AttackFlowV3Exporter {
       'asset': 'asset',
       'attack-asset': 'asset',
       'condition': 'condition',
-      'AND_operator': 'and_operator',
-      'OR_operator': 'or_operator'
+      // Attack Flow's operator templates are cased exactly like this. Lowercasing
+      // them makes the builder reject the whole file with "Cannot resolve
+      // template", so the names have to survive the round trip verbatim.
+      'AND_operator': 'AND_operator',
+      'OR_operator': 'OR_operator'
     };
 
     return templateMap[nodeType] || 'action';
@@ -289,6 +292,14 @@ export class AttackFlowV3Exporter {
    */
   private buildNodeProperties(data: any, nodeType: string): Array<[string, any]> {
     const properties: Array<[string, any]> = [];
+
+    // The operator templates carry a single `operator` property and no `name`.
+    // It is the representative one, so it is what the builder draws inside the
+    // gate — a `name` here would be an unknown property on a block that ends up
+    // labelled with nothing.
+    if (nodeType === 'AND_operator' || nodeType === 'OR_operator') {
+      return [["operator", nodeType === 'AND_operator' ? 'AND' : 'OR']];
+    }
 
     // Add name (required for all)
     properties.push(["name", data?.name || `Unnamed ${nodeType}`]);
