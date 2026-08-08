@@ -84,7 +84,17 @@ const FlowListItem: React.FC<FlowListItemProps> = ({
           <MoreVertIcon fontSize="small" />
         </IconButton>
       }
-      sx={{ mb: 0.5 }}
+      sx={{
+        mb: 0.5,
+        // The date sits on the first text line, but MUI centres secondaryAction
+        // on the whole two-line row — so the two things at the row's right edge
+        // were ~10px out of line with each other, on every row. Anchor the
+        // control to the line it reads as belonging to: 8px of row padding plus
+        // half of the 21px first line, keeping MUI's own translateY(-50%).
+        '& .MuiListItemSecondaryAction-root': {
+          top: 20,
+        },
+      }}
     >
       <ListItemButton
         onClick={onClick}
