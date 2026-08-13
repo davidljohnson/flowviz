@@ -195,3 +195,36 @@ describe('findExcerptRanges', () => {
     }
   });
 });
+
+describe('splices that were never punctuated', () => {
+  // Two real sentences with a third between them in the article.
+  const REPORT = 'The flaw affects every version of the platform. Under additional conditions it can be chained into code execution. Tracked as CVE-2026-64638, the bug requires no privileges.';
+
+  it('reads an unpunctuated join as stitched, not invented', () => {
+    // The model dropped the ellipsis but kept splicing; keying on punctuation
+    // saw this as a fabrication.
+    const spliced = 'The flaw affects every version of the platform. Tracked as CVE-2026-64638, the bug requires no privileges.';
+    expect(verifyExcerpt(REPORT, spliced)).toEqual({ verdict: 'stitched', found: 2, total: 2 });
+  });
+
+  it('highlights both halves of an unpunctuated join', () => {
+    const spliced = 'The flaw affects every version of the platform. Tracked as CVE-2026-64638, the bug requires no privileges.';
+    const ranges = findExcerptRanges(REPORT, spliced);
+    expect(ranges).toHaveLength(2);
+    expect(REPORT.slice(ranges[0].start, ranges[0].end)).toContain('every version');
+    expect(REPORT.slice(ranges[1].start, ranges[1].end)).toContain('CVE-2026-64638');
+  });
+
+  it('still calls an invented sentence unverified', () => {
+    expect(verifyExcerpt(REPORT, 'The operators deployed a signed kernel rootkit via BYOVD on every host.')?.verdict).toBe('unverified');
+  });
+
+  it('does not manufacture a splice out of a paraphrase', () => {
+    // Shares wording, but no run of it is long enough to be a real passage.
+    expect(verifyExcerpt(REPORT, 'The flaw lets an attacker run code without any privileges at all.')?.verdict).toBe('unverified');
+  });
+
+  it('leaves a faithful continuous quote alone', () => {
+    expect(verifyExcerpt(REPORT, 'Under additional conditions it can be chained into code execution')?.verdict).toBe('verified');
+  });
+});

@@ -126,7 +126,7 @@ const ExcerptBadge: React.FC<{ sources?: (string | null | undefined)[] | null; e
   return (
     <Tooltip
       title={stitched
-        ? `Each of the ${check.total} passages in this quote is real, but they were welded together with an ellipsis rather than quoted as written. Worth splitting the node or re-quoting.`
+        ? `This quote is ${check.total} separate passages joined together. Each one is really in the report, but the sentence as written never appears there. Open the source to see where they were spliced.`
         : check.total > 1
           ? `${check.total - check.found} of ${check.total} passages in this quote are not in the report or its images.`
           : 'This quote is not in the report or its images. It may be a paraphrase rather than a quote.'}

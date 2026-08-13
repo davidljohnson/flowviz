@@ -86,9 +86,59 @@ export type ExcerptVerdict = 'verified' | 'stitched' | 'unverified';
 
 export interface ExcerptCheck {
   verdict: ExcerptVerdict;
-  /** How many ellipsis-separated fragments were found in the article. */
+  /** How many of the quote's passages were found in the source. */
   found: number;
   total: number;
+}
+
+/** A spliced piece has to be long enough that matching it isn't a coincidence. */
+const MIN_SPLICE_PIECE = 25;
+
+/**
+ * Past this, a quote isn't spliced so much as reassembled, and the pieces are
+ * short enough that finding them proves little.
+ */
+const MAX_SPLICE_PIECES = 4;
+
+/** The longest prefix of `quote` that appears in the source, or 0 if none does. */
+function longestGroundedPrefix(quote: string, foundIn: (s: string) => boolean): number {
+  let low = MIN_SPLICE_PIECE;
+  let high = quote.length;
+  let best = 0;
+  while (low <= high) {
+    const mid = (low + high) >> 1;
+    if (foundIn(quote.slice(0, mid))) {
+      best = mid;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+  return best;
+}
+
+/**
+ * Break a quote into the runs the source actually contains, or null if any of
+ * it is nowhere to be found.
+ *
+ * This is what catches a splice the author didn't punctuate. Telling the model
+ * never to join passages "with ..." got it to stop writing the ellipsis and
+ * carry on joining, so the tell disappeared while the behaviour stayed. Reading
+ * the text itself rather than its punctuation is the only version of this check
+ * that the wording of a prompt cannot dodge.
+ */
+function splicePieces(quote: string, foundIn: (s: string) => boolean): string[] | null {
+  const pieces: string[] = [];
+  let rest = quote;
+  while (rest.length >= MIN_SPLICE_PIECE) {
+    if (pieces.length >= MAX_SPLICE_PIECES) return null;
+    const length = longestGroundedPrefix(rest, foundIn);
+    if (length === 0) return null;
+    pieces.push(rest.slice(0, length));
+    // Whatever punctuation was holding the seam together is not evidence.
+    rest = rest.slice(length).replace(/^[\s.,;:'"-]+/, '');
+  }
+  return pieces;
 }
 
 /**
@@ -101,9 +151,13 @@ export interface ExcerptCheck {
  * cannot itself hallucinate.
  *
  * Three outcomes, because they mean different things. `stitched` is a quote
- * whose fragments are each real but were joined with an ellipsis — sloppy, and
- * worth a look, but the evidence exists. `unverified` is a quote with a
- * fragment that is nowhere in the article, which is the one that matters.
+ * whose passages are each real but were joined together — sloppy, and worth a
+ * look, but the evidence exists. `unverified` is a quote containing something
+ * that is nowhere in the source, which is the one that matters.
+ *
+ * The join does not have to be punctuated. Told never to weld passages "with
+ * ...", the model simply stopped writing the ellipsis, so a check that keyed on
+ * it saw the splices stop while they were merely becoming invisible.
  *
  * Returns null when there is nothing to check against — a flow loaded without
  * its article, or a node with no excerpt. Absence of the source is not
@@ -127,17 +181,28 @@ export function verifyExcerpt(
   const clean = stripPresentation(quote);
   if (foundIn(clean)) return { verdict: 'verified', found: 1, total: 1 };
 
-  // Whole quote missing: test the fragments, so "welded together" is told
-  // apart from "not in the article at all".
+  // Whole quote missing: work out whether it was assembled from real passages
+  // or contains something that isn't there.
+  //
+  // An ellipsis, where the author marked the join, is the precise case and goes
+  // first. Everything else falls through to reading the text itself, which is
+  // what catches the joins nobody punctuated.
   const fragments = splitFragments(clean);
-  if (fragments.length < 2) return { verdict: 'unverified', found: 0, total: 1 };
+  if (fragments.length >= 2) {
+    const found = fragments.filter(foundIn).length;
+    return {
+      verdict: found === fragments.length ? 'stitched' : 'unverified',
+      found,
+      total: fragments.length,
+    };
+  }
 
-  const found = fragments.filter(foundIn).length;
-  return {
-    verdict: found === fragments.length ? 'stitched' : 'unverified',
-    found,
-    total: fragments.length,
-  };
+  const pieces = splicePieces(clean, foundIn);
+  if (pieces && pieces.length >= 2) {
+    return { verdict: 'stitched', found: pieces.length, total: pieces.length };
+  }
+
+  return { verdict: 'unverified', found: 0, total: 1 };
 }
 
 /**
@@ -164,7 +229,13 @@ export function findExcerptRanges(
   const whole = findExcerptRange(text, clean);
   if (whole) return [whole];
 
-  const found = splitFragments(clean)
+  // Same order of resort as the checker, so the panel highlights every quote
+  // the badge calls stitched — including the ones joined without an ellipsis.
+  const inText = (fragment: string) => findExcerptRange(text, fragment) !== null;
+  const fragments = splitFragments(clean);
+  const parts = fragments.length >= 2 ? fragments : (splicePieces(clean, inText) ?? []);
+
+  const found = parts
     .map(fragment => findExcerptRange(text, fragment))
     .filter((range): range is { start: number; end: number } => range !== null)
     .sort((a, b) => a.start - b.start);

@@ -52,9 +52,11 @@ STRICT EXTRACTION RULES - NO SPECULATION OR INFERENCE:
 - CRITICAL: For command_line fields, ONLY include commands explicitly quoted in the article
 - CRITICAL: Each source_excerpt must be 2-3 complete sentences directly copied from the source text
 - Source excerpts are used to validate extraction accuracy - they must prove the node exists in the source
-- CRITICAL: Copy the excerpt as one CONTINUOUS run of text. Never weld two separate
-  passages together with "..." and never add emphasis or edits of your own. The app
-  checks each excerpt against the article and flags any that is not found there.
+- CRITICAL: Copy the excerpt as one CONTINUOUS run of text - a span you could
+  highlight with one drag in the article - and add no emphasis or edits of your own.
+  If no single passage supports the node, quote the shortest one that does rather
+  than joining two. The app checks each excerpt against the article and flags any
+  that is not found there, however the join is punctuated.
 - CRITICAL: The excerpt must justify the SPECIFIC technique_id you assign, not merely
   that some node belongs here. Sub-techniques are a claim about the evidence: only use
   one when the excerpt shows that exact variant. If the evidence is about a different
