@@ -1,4 +1,20 @@
-export const DIRECT_FLOW_PROMPT = `You are an expert in cyber threat intelligence and MITRE ATT&CK. Analyze this article and create React Flow nodes and edges directly.
+/**
+ * The prompt that shapes the graph (/api/analyze-stream).
+ *
+ * One copy, used by every provider. It used to be three: each of
+ * claude/openai/ollama built the same text inline, so a change had to be made
+ * in three places or the providers would quietly disagree about what a node
+ * is. A fourth copy lived client-side and was never imported at all, which is
+ * how the two drifted apart without anyone noticing — the unused one named the
+ * data fields the app actually reads (`tactic_id`, `tactic_name`), while the
+ * three live ones asked for `tactic`, so every AFB export shipped a null
+ * tactic. This file is the version the code agrees with.
+ */
+
+/** Matches the cap the providers applied inline. */
+const MAX_ARTICLE_CHARS = 50000;
+
+const INSTRUCTIONS = `You are an expert in cyber threat intelligence and MITRE ATT&CK. Analyze this article and create React Flow nodes and edges directly.
 
 IMPORTANT: Return only a valid JSON object with "nodes" and "edges" arrays. No text before or after.
 
@@ -14,7 +30,7 @@ Extract from the ENTIRE article including main text, IOC sections, detection/pre
 OUTPUT FORMAT: Create React Flow nodes and edges using ONLY these official AFB node types:
 - **action**: MITRE ATT&CK techniques (T1078, T1190, etc.)
 - **tool**: Legitimate software used in attacks (net.exe, powershell.exe, etc.)
-- **malware**: Malicious software (webshells, backdoors, trojans, etc.)  
+- **malware**: Malicious software (webshells, backdoors, trojans, etc.)
 - **asset**: Target systems and resources (servers, workstations, databases, etc.)
 - **infrastructure**: Adversary-controlled resources (C2 servers, domains, IP addresses)
 - **url**: Web resources and links (malicious URLs, download links)
@@ -48,7 +64,7 @@ STRICT EXTRACTION RULES - NO SPECULATION OR INFERENCE:
 
 EDGE TYPES (Create connections that show attack progression):
 - action → tool/malware: "Uses"
-- action → asset: "Targets"  
+- action → asset: "Targets"
 - action → infrastructure: "Communicates with"
 - action → url: "Connects to"
 - vulnerability → asset: "Affects"
@@ -80,12 +96,12 @@ CRITICAL JSON FORMAT - Follow this EXACT structure:
       }
     },
     {
-      "id": "tool-1", 
+      "id": "tool-1",
       "type": "tool",
       "data": {
         "type": "tool",
         "name": "Net.exe",
-        "description": "Used to enumerate domain users", 
+        "description": "Used to enumerate domain users",
         "command_line": "net user /domain",
         "source_excerpt": "2-3 complete sentences from the source that mention this specific command or tool usage",
         "confidence": "high"
@@ -108,7 +124,7 @@ CRITICAL JSON FORMAT - Follow this EXACT structure:
     ONLY EDGE OBJECTS HERE - NO NODE OBJECTS IN THIS ARRAY
     {
       "id": "edge-1",
-      "source": "action-1", 
+      "source": "action-1",
       "target": "tool-1",
       "type": "floating",
       "label": "Uses"
@@ -116,22 +132,30 @@ CRITICAL JSON FORMAT - Follow this EXACT structure:
     {
       "id": "edge-2",
       "source": "action-1",
-      "target": "asset-1", 
+      "target": "asset-1",
       "type": "floating",
       "label": "Targets"
     }
   ]
-}
+}`;
 
-Article text:
-`;
+/** The default persona, used when the caller sends no system prompt. */
+export const DEFAULT_ANALYSIS_SYSTEM = 'You are an expert in cyber threat intelligence analysis.';
 
-export function createDirectFlowContinuationPrompt(chunkIndex: number, totalChunks: number): string {
-  return `Continue analyzing the article for attack techniques. This is part ${chunkIndex + 1} of ${totalChunks}.
-      
-IMPORTANT: Return additional nodes and edges in the same JSON format. 
-Increment node IDs from where the previous chunk left off (e.g., if last was "action-5", start with "action-6").
+/**
+ * The user-turn prompt: the instructions above followed by the article.
+ *
+ * Vision output is folded in ahead of the article text rather than sent
+ * separately, because a screenshot's contents are evidence the same way the
+ * prose is — a node grounded in one is as real as a node grounded in the other.
+ */
+export function buildAnalysisPrompt({ text, visionAnalysis }) {
+  const body = visionAnalysis
+    ? `## Image Analysis Results\n\n${visionAnalysis}\n\n## Article Text\n\n${text}`
+    : text;
 
-Article text (continuation):
+  return `${INSTRUCTIONS}
+
+Article: "${(body ?? '').substring(0, MAX_ARTICLE_CHARS)}"
 `;
 }

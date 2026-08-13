@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import { buildAnalysisPrompt } from '../prompts/analysisPrompt.js';
 import { BaseProvider } from './base-provider.js';
 
 /**
@@ -223,84 +224,9 @@ export class OllamaProvider extends BaseProvider {
    * @returns {string} Formatted prompt
    */
   formatPrompt(text, visionAnalysis, system) {
-    let finalText = text;
-
-    // Prepend vision analysis if available
-    if (visionAnalysis) {
-      finalText = `## Image Analysis Results\n\n${visionAnalysis}\n\n## Article Text\n\n${text}`;
-    }
-
-    // Build the main prompt
-    const prompt = `You are an expert in cyber threat intelligence and MITRE ATT&CK. Analyze this article and create React Flow nodes and edges directly.
-
-IMPORTANT: Return only a valid JSON object with "nodes" and "edges" arrays. No text before or after.
-
-Node types you can use:
-- action: MITRE ATT&CK techniques (must include technique_id like T1190)
-- tool: Legitimate software used in attack
-- malware: Malicious software
-- asset: Target systems/resources
-- infrastructure: C2 servers, domains, IPs
-- url: Web resources referenced
-- vulnerability: CVEs or specific vulnerabilities
-- AND_operator: Logical AND gate (attack requires multiple conditions)
-- OR_operator: Logical OR gate (attack can follow multiple paths)
-
-Edge types (relationship labels):
-- "Uses", "Targets", "Communicates with", "Connects to", "Affects", "Leads to"
-
-Requirements:
-1. Each node MUST have: id (unique), type, data.name, data.description
-2. Action nodes MUST have: data.technique_id (e.g., "T1190"), data.tactic (e.g., "Initial Access")
-3. All nodes should include: data.source_excerpt (relevant quote from article), data.confidence ("low", "medium", "high")
-4. Use chronological ordering when possible
-5. Create edges that show attack progression
-6. Include operator nodes (AND/OR) for complex logic
-7. Extract specific technical indicators (IPs, domains, file hashes, commands)
-
-Example output format:
-{
-  "nodes": [
-    {
-      "id": "action-1",
-      "type": "action",
-      "data": {
-        "name": "Exploit Public-Facing Application",
-        "description": "Attacker exploited vulnerable web server",
-        "technique_id": "T1190",
-        "tactic": "Initial Access",
-        "source_excerpt": "Quote from article. ..",
-        "confidence": "high"
-      }
-    },
-    {
-      "id": "tool-1",
-      "type": "tool",
-      "data": {
-        "name": "Metasploit",
-        "description": "Used for exploitation",
-        "source_excerpt": "Quote from article. ..",
-        "confidence": "medium"
-      }
-    }
-  ],
-  "edges": [
-    {
-      "id": "edge-1",
-      "source": "action-1",
-      "target": "tool-1",
-      "type": "floating",
-      "label": "Uses"
-    }
-  ]
-}
-
-Article: "${finalText.substring(0, 50000)}"
-
-Article text:
-`;
-
-    return prompt;
+    // Kept for the signature the callers use; the persona travels separately
+    // on Claude and is folded into the messages array on OpenAI.
+    return buildAnalysisPrompt({ text, visionAnalysis });
   }
 
   /**
