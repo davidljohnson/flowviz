@@ -241,3 +241,27 @@ describe('LocalStorageService.updateFlowDetails()', () => {
     await expect(service.updateFlowDetails('nope', { title: 'x' })).rejects.toThrow();
   });
 });
+
+describe('visionText round-trips with its three states', () => {
+  const service = new LocalStorageService();
+
+  it('keeps the reading when vision ran', () => {
+    const out = service.validateFlow(makeValidFlow({ visionText: 'the screenshot shows a login page' }));
+    expect(out!.visionText).toBe('the screenshot shows a login page');
+  });
+
+  it('keeps null, which means vision did not run', () => {
+    // Distinct from absent: here the article IS the whole corpus, so the
+    // excerpt check can speak rather than staying quiet.
+    const out = service.validateFlow(makeValidFlow({ visionText: null }));
+    expect(out).not.toBeNull();
+    expect(out!.visionText).toBeNull();
+    expect('visionText' in out!).toBe(true);
+  });
+
+  it('leaves the field absent on a flow saved before it existed', () => {
+    const out = service.validateFlow(makeValidFlow());
+    expect(out).not.toBeNull();
+    expect('visionText' in out!).toBe(false);
+  });
+});

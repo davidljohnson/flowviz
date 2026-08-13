@@ -23,6 +23,8 @@ interface SaveFlowDialogProps {
   edges: Edge[];
   sourceUrl?: string;
   sourceText?: string;
+  /** The vision pass's reading, or null when it did not run. See SavedFlow. */
+  visionText?: string | null;
   inputMode: 'url' | 'text';
   viewport?: Viewport;
   /** Assistant conversation to carry with the flow. */
@@ -60,6 +62,7 @@ const SaveFlowDialog: React.FC<SaveFlowDialogProps> = ({
   edges,
   sourceUrl,
   sourceText,
+  visionText,
   inputMode,
   viewport,
   assistantMessages,
@@ -173,6 +176,9 @@ const SaveFlowDialog: React.FC<SaveFlowDialogProps> = ({
         title: title.trim(),
         sourceUrl: updating ? (sourceUrl || existingFlow.sourceUrl) : sourceUrl,
         sourceText: updating ? (sourceText || existingFlow.sourceText) : sourceText,
+        // `||` would be wrong here: null is a real answer ("no images"), and
+        // falling back past it to the stored value would relabel the corpus.
+        visionText: updating && visionText === undefined ? existingFlow.visionText : visionText,
         inputMode: updating ? existingFlow.inputMode : inputMode,
         nodes,
         edges,

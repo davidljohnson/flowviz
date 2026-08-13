@@ -122,11 +122,19 @@ export interface StreamingFlowVisualizationProps {
     viewport?: any;
     /** Original article/report text, when the saved flow kept it. */
     sourceText?: string;
+    visionText?: string | null;
     /** Assistant conversation saved with the flow. */
     assistantMessages?: any[];
   };
   /** Fired when a URL analysis yields its extracted article (for saving). */
   onArticleExtracted?: (text: string, title: string) => void;
+  /**
+   * The vision pass's reading of this analysis's images, or null when there
+   * were none to read. Hoisted for the same reason as the article: Save has to
+   * persist it, or a reopened flow loses half of what its excerpts were drawn
+   * from.
+   */
+  onVisionExtracted?: (text: string | null) => void;
   onExportAvailable?: (exportFn: (format: 'png' | 'json' | 'afb' | 'flowviz') => void) => void;
   onClearAvailable?: (clearFn: () => void) => void;
   onSaveAvailable?: (saveFn: (viewport?: any) => { nodes: any[], edges: any[], viewport: any, assistantMessages?: any[] }) => void;
@@ -187,6 +195,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   onPaletteOpenChange,
   loadedFlow,
   onArticleExtracted,
+  onVisionExtracted,
   onExportAvailable,
   onClearAvailable,
   onSaveAvailable,
@@ -220,16 +229,20 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
   // A merge of a second report overwrites it - the panel shows the latest.
   const [articleText, setArticleText] = useState<string | null>(null);
   /**
-   * The vision pass's reading of the article's images, for this session's
-   * analysis only.
-   *
-   * Not persisted with a saved flow, which is why `groundedThisSession` gates
-   * the excerpt check: on a reloaded flow we hold the article but not this,
-   * and a node quoting a screenshot would be wrongly called invented. Better
-   * to say nothing than to accuse a good quote.
+   * The vision pass's reading of the article's images — half of what a flow's
+   * excerpts were drawn from, and saved with it so a reopened flow can still
+   * be checked. `null` means vision did not run.
    */
   const [visionText, setVisionText] = useState<string | null>(null);
-  const [groundedThisSession, setGroundedThisSession] = useState(false);
+  /**
+   * Whether we hold everything this flow's excerpts came from.
+   *
+   * False for a hand-built flow and for one saved before visionText existed:
+   * there, an absent reading cannot be told apart from no reading, so the
+   * excerpt check says nothing rather than calling a screenshot-derived quote
+   * invented. Better to be silent than to accuse a good quote.
+   */
+  const [groundingKnown, setGroundingKnown] = useState(false);
   const [articleTitle, setArticleTitle] = useState<string>('');
   const [sourcePanelOpen, setSourcePanelOpen] = useState(false);
   // Launched from the bottom-right orb; the panel replaces the orb in place
@@ -1222,11 +1235,12 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       setArticleText(loadedFlow.sourceText || null);
       setArticleTitle('');
       assistant.restore(loadedFlow.assistantMessages ?? []);
-      // A saved flow carries its article but not the vision pass, so we no
-      // longer hold everything its excerpts were drawn from. The check goes
-      // quiet rather than flagging screenshot-derived quotes as invented.
-      setVisionText(null);
-      setGroundedThisSession(false);
+      // A flow saved since visionText existed carries everything its excerpts
+      // were drawn from, so the check can run on it. Older ones don't say
+      // whether vision ran, and an absent reading is not the same as no
+      // reading — those stay unchecked rather than being guessed at.
+      setVisionText(loadedFlow.visionText ?? null);
+      setGroundingKnown(loadedFlow.visionText !== undefined);
 
       // Apply current edge styling to loaded edges
       const edgeConfig = getEdgeConfig();
@@ -1409,7 +1423,11 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
       // check can speak. Any vision text from a previous run belongs to a
       // different article and must not vouch for this one's quotes.
       setVisionText(null);
-      setGroundedThisSession(true);
+      // Declared up front so an article with no images still yields a definite
+      // answer: null means "vision did not run", which is different from never
+      // having been told. If vision does run, onVision overwrites this.
+      onVisionExtracted?.(null);
+      setGroundingKnown(true);
 
       if (request.mode === 'replace') {
         setNodes([]);
@@ -1470,6 +1488,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
         onVision: (text) => {
           if (isStale()) return;
           setVisionText(text);
+          onVisionExtracted?.(text);
         },
 
         onNode: (node) => {
@@ -2012,7 +2031,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
               : undefined
           }
           onAskAssistant={() => addAssistantContexts([inspectorNode.id])}
-          groundingSources={groundedThisSession ? [sourceText, visionText] : null}
+          groundingSources={groundingKnown ? [sourceText, visionText] : null}
           onClose={closeInspector}
           stacked={assistantOpen}
         />

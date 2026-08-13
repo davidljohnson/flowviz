@@ -38,6 +38,11 @@ export const validateFlow = (flow: any): SavedFlow | null => {
       title: flow.title,
       sourceUrl: flow.sourceUrl,
       sourceText: flow.sourceText,
+      // Copied through with its absent/null distinction intact: `?? undefined`
+      // or a truthiness check here would collapse "vision did not run" into
+      // "we don't know", and the excerpt check would go quiet on flows it can
+      // actually verify.
+      ...('visionText' in flow ? { visionText: flow.visionText } : {}),
       inputMode: flow.inputMode || 'url',
       nodes: flow.nodes,
       edges: flow.edges,

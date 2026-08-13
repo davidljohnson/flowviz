@@ -16,6 +16,19 @@ export interface SavedFlow {
   title: string;
   sourceUrl?: string;
   sourceText?: string;
+  /**
+   * What the vision pass read out of the article's images, saved because it is
+   * part of what the nodes were grounded in. Without it a reopened flow can
+   * only be checked against the prose, and every screenshot-derived excerpt
+   * looks invented.
+   *
+   * Three states, and the difference matters. A string is the reading. `null`
+   * means vision did not run, so the article alone IS the whole corpus and the
+   * check can speak with confidence. Absent means the flow predates this field
+   * and we simply do not know which of those it was — the check stays quiet
+   * rather than guessing.
+   */
+  visionText?: string | null;
   inputMode: 'url' | 'text';
   
   // Flow data

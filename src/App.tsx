@@ -114,6 +114,10 @@ export default function App() {
   // Save can persist it as the flow's sourceText (pasted text already flows
   // through submittedText).
   const [extractedText, setExtractedText] = useState('');
+  // What the vision pass read, so Save can persist it beside the article.
+  // undefined = we have not been told (no analysis this session, or a flow
+  // loaded from before the field existed); null = vision did not run.
+  const [visionText, setVisionText] = useState<string | null | undefined>(undefined);
 
   // Get provider defaults
   const providerConfig = useProviderConfig();
@@ -258,11 +262,13 @@ export default function App() {
   const handleLoadFlow = (flow: SavedFlow) => {
     setCurrentFlowId(flow.id);
     setExtractedText(flow.sourceText || '');
+    setVisionText(flow.visionText);
     setLoadedFlow({
       nodes: flow.nodes,
       edges: flow.edges,
       viewport: flow.visualization?.viewport,
       sourceText: flow.sourceText,
+      visionText: flow.visionText,
       assistantMessages: flow.assistantMessages
     });
     if (flow.sourceUrl) {
@@ -446,6 +452,7 @@ export default function App() {
         onPaletteOpenChange={setPaletteOpen}
         loadedFlow={loadedFlow}
         onArticleExtracted={(text) => setExtractedText(text)}
+        onVisionExtracted={(text) => setVisionText(text)}
         onExportAvailable={handleExportAvailable}
         onClearAvailable={handleClearAvailable}
         onError={(error, mode) => {
@@ -575,6 +582,7 @@ export default function App() {
           edges={getSaveData().edges}
           sourceUrl={submittedUrl}
           sourceText={submittedText || extractedText}
+          visionText={visionText}
           inputMode={inputMode === 'pdf' ? 'text' : inputMode}
           viewport={getSaveData().viewport}
           assistantMessages={getSaveData().assistantMessages}
