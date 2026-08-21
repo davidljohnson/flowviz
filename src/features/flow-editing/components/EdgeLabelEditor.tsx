@@ -1,26 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Autocomplete, Box, Popover, TextField, createFilterOptions } from '@mui/material';
 import { flowVizTheme, createScrollbarStyle } from '../../../shared/theme/flowviz-theme';
-
-// Verbs the STIX exporter maps to real relationship types
-// (see stixBundleExporter.mapEdgeLabelToSTIXRelationship)
-const RELATIONSHIP_SUGGESTIONS = [
-  'uses',
-  'targets',
-  'delivers',
-  'drops',
-  'downloads',
-  'exploits',
-  'hosts',
-  'communicates with',
-  'controls',
-  'indicates',
-  'impersonates',
-  'leads to',
-  'enables',
-  'requires',
-  'affects',
-];
+import { RELATIONSHIP_SUGGESTIONS } from '../utils/relationshipSuggestions';
 
 const matchSuggestions = createFilterOptions<string>();
 

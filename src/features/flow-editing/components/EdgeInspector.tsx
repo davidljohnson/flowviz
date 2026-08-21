@@ -17,12 +17,7 @@ import {
 import EdgeColorSwatches from '../../../shared/components/EdgeColorSwatches';
 import { labelSx, inputSx } from './inspectorFieldStyles';
 
-// STIX-mappable verbs (kept in sync with EdgeLabelEditor).
-const RELATIONSHIP_SUGGESTIONS = [
-  'uses', 'targets', 'delivers', 'drops', 'downloads', 'exploits', 'hosts',
-  'communicates with', 'controls', 'indicates', 'impersonates', 'leads to',
-  'enables', 'requires', 'affects',
-];
+import { RELATIONSHIP_SUGGESTIONS } from '../utils/relationshipSuggestions';
 
 interface EdgeInspectorProps {
   edge: Edge;

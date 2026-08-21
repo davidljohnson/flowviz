@@ -65,6 +65,7 @@ STRICT EXTRACTION RULES - NO SPECULATION OR INFERENCE:
   A precise id on vague evidence is worse than an honest general one.
 
 EDGE TYPES (Create connections that show attack progression):
+Label every edge in sentence case - first word capitalised, the rest lower, as written below. The canvas offers these same labels when an edge is relabelled by hand, and a flow reads as one thing only if both agree.
 - action → tool/malware: "Uses"
 - action → asset: "Targets"
 - action → infrastructure: "Communicates with"
