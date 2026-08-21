@@ -1895,10 +1895,24 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
           onEdgeUpdateStart={handleReconnectStart}
           onEdgeUpdateEnd={handleReconnectEnd}
           edgesUpdatable={!isStreaming}
-          // Grab radius around an edge's endpoints. Wider than the 10px default
-          // because these endpoints sit a few pixels off the node's dot, and a
-          // near-miss should still pick up the edge rather than the canvas.
-          edgeUpdaterRadius={16}
+          // Grab radius around an edge's endpoints. Wider than the 10px
+          // default because these endpoints sit a few pixels off the node's
+          // dot, and a near-miss should still pick up the edge rather than the
+          // canvas.
+          //
+          // reconnectRadius, not edgeUpdaterRadius: 11.11 renamed the prop and
+          // reads `reconnectRadius ?? edgeUpdaterRadius`, but gave the new name
+          // a default of 10. A default is never nullish, so the old name can
+          // never be reached and the 16 we used to pass here did nothing - the
+          // anchors measured 10px all along.
+          //
+          // This sets where the circle sits as well as how big it is: the
+          // anchor is pushed this far OUTWARD from the endpoint, so the radius
+          // and the offset grow together and the endpoint itself stays on the
+          // circle's edge however large this gets. Keeping it modest holds the
+          // circle near the line; editing.css grows it past its own centre,
+          // which is the part that puts the arrowhead inside the target.
+          reconnectRadius={12}
           onEdgeClick={handleEdgeClick}
           onEdgeDoubleClick={handleEdgeDoubleClick}
           onNodeDoubleClick={handleNodeDoubleClick}

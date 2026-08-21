@@ -57,6 +57,54 @@
   box-shadow: 0 0 0 6px var(--fv-node-glow, rgba(var(--fv-overlay-rgb), 0.3));
 }
 
+/* Reconnect grab targets, decoupled from where React Flow puts them - the same
+   trick the handles above use, for the same reason.
+
+   React Flow draws each end's grab circle offset OUTWARD by its own radius:
+   centre at endpoint + r, radius r. The endpoint therefore lands exactly on the
+   circle's edge, and the arrowhead sitting there is the hardest pixel on the
+   edge to hit. Raising reconnectRadius does not help, because the offset is
+   that same radius and the two move together.
+
+   Growing r here fixes what the prop cannot. cx/cy stay on the attributes React
+   Flow computed, so the circle expands around its existing centre instead of
+   sliding further out, and the endpoint ends up well inside it. The source end
+   needs the extra reach most: its anchor sits ~19px from where the edge is
+   actually drawn, because React Flow measures from the handle while the edge is
+   drawn from its pin.
+
+   Reaching back over the node card costs nothing - nodes are DOM elements above
+   this SVG, so they keep their own drags and this only claims the empty canvas
+   between the card and the arrow.
+
+   Progressive enhancement: r-as-CSS is an SVG2 geometry property. Where it is
+   not honoured the attribute stands and the target is merely the 12px the prop
+   asks for, which is the behaviour without this rule rather than a broken one. */
+.react-flow__edgeupdater {
+  r: 30px;
+}
+
+/* The two ends are not the same distance from their circles, so they do not get
+   the same radius. An edge stops short of the target dot to leave room for the
+   arrowhead (TARGET_GAP in floatingEdgeHelpers) but starts right on the source
+   dot, and React Flow measures both from the handle either way. Measured on a
+   real flow, the source anchor lands ~21px from the drawn end against the
+   target's ~12px. Matching radii would therefore leave the source barely
+   covered while the target had room to spare; this buys the difference back at
+   the end that needs it, and keeps the target circle the smaller of the two so
+   it claims no more of the canvas than it has to.
+
+   Sizes were measured rather than guessed. Walking a real flow's edges pixel by
+   pixel and asking what is actually on top at each point, the reachable band by
+   the arrow went from 0px - there was nowhere at that end you could grab the
+   edge at all - to 16px, and the source end from 13px to 23px, where it stops
+   improving because the handle owns the near side. Every edge keeps a
+   selectable stretch of line in the middle; the grab circles take a third of
+   the shortest one and under a tenth of the longest. */
+.react-flow__edgeupdater-source {
+  r: 36px;
+}
+
 /* --- Edge label affordance ---
    A midpoint control (rendered via EdgeLabelRenderer) that shows an edge's
    label and a hover "＋ Label" affordance so the label is
