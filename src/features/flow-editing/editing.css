@@ -81,7 +81,7 @@
    not honoured the attribute stands and the target is merely the 12px the prop
    asks for, which is the behaviour without this rule rather than a broken one. */
 .react-flow__edgeupdater {
-  r: 30px;
+  r: 34px;
 }
 
 /* The two ends are not the same distance from their circles, so they do not get
@@ -97,8 +97,10 @@
    Sizes were measured rather than guessed. Walking a real flow's edges pixel by
    pixel and asking what is actually on top at each point, the reachable band by
    the arrow went from 0px - there was nowhere at that end you could grab the
-   edge at all - to 16px, and the source end from 13px to 23px, where it stops
-   improving because the handle owns the near side. Every edge keeps a
+   edge at all - to 16px, and the source end from 13px to 24px, where it stops
+   improving because the handle owns the near side. (The target radius was
+   raised again when the source end gained its own gap: moving that endpoint
+   reshapes the curve, and sampling along it cost the far end 3px.) Every edge keeps a
    selectable stretch of line in the middle; the grab circles take a third of
    the shortest one and under a tenth of the longest. */
 .react-flow__edgeupdater-source {

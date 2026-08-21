@@ -50,6 +50,18 @@ function getGeometry(node: any): NodeGeometry {
 // as separate things — which matters now that the dots are the grab targets.
 const TARGET_GAP = HANDLE_SIZE / 2 + 4;
 
+// The source end needs to clear the dot too, for the plainer reason that a line
+// running to the dot's CENTRE spends its last few pixels underneath the card,
+// which renders above the edges layer. Measured, that endpoint sat exactly on
+// the card boundary while the target end stood 9px clear - so one end met its
+// connector and the other disappeared into the node. Most visible right after
+// dragging an end onto a new dot, which is when you are looking at it.
+//
+// Half a dot, so the line stops on the dot's outer rim and reads as touching
+// it. No +4 here: that margin exists to keep the ARROWHEAD legible against the
+// dot, and this end has no arrowhead to keep clear.
+const SOURCE_GAP = HANDLE_SIZE / 2;
+
 // Where a given side's dot sits. Handles are centered along their side, so this
 // matches both the rendered dot and the anchor ReactFlow computes for it —
 // which is what keeps a pinned edge's endpoint under its reconnect grab target.
@@ -177,7 +189,7 @@ export function getEdgeParams(sourceNode: any, targetNode: any, pin?: EdgePin) {
   const t = getGeometry(targetNode);
   const { source: sourceSide, target: targetSide } = resolveEdgeSides(sourceNode, targetNode, pin);
 
-  const source = sideAnchor(s, sourceSide);
+  const source = sideAnchor(s, sourceSide, SOURCE_GAP);
   const target = sideAnchor(t, targetSide, TARGET_GAP);
 
   return {

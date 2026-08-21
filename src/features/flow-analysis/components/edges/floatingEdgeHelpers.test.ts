@@ -96,14 +96,15 @@ describe('getEdgeParams', () => {
     const p = getEdgeParams(ABOVE, BELOW);
     expect(p.sourcePos).toBe(Position.Bottom);
     expect(p.targetPos).toBe(Position.Top);
-    expect([p.sx, p.sy]).toEqual([0, 50]);
+    // ABOVE's bottom edge is y=50; the endpoint stands half a dot clear of it.
+    expect([p.sx, p.sy]).toEqual([0, 50 + HANDLE_SIZE / 2]);
   });
 
   it('holds a pinned side even when geometry disagrees', () => {
     const p = getEdgeParams(ABOVE, BELOW, { source: 'left', target: 'right' });
     expect(p.sourcePos).toBe(Position.Left);
     expect(p.targetPos).toBe(Position.Right);
-    expect([p.sx, p.sy]).toEqual([-100, 0]);
+    expect([p.sx, p.sy]).toEqual([-100 - HANDLE_SIZE / 2, 0]);
   });
 
   it('pins one end and leaves the other floating', () => {
@@ -116,15 +117,26 @@ describe('getEdgeParams', () => {
     const pin = { source: 'left' };
     const sides = resolveEdgeSides(ABOVE, BELOW, pin);
     const p = getEdgeParams(ABOVE, BELOW, pin);
-    expect([p.sx, p.sy]).toEqual([getHandleAnchor(ABOVE, sides.source).x, getHandleAnchor(ABOVE, sides.source).y]);
+    const dot = getHandleAnchor(ABOVE, sides.source);
+    // Straight out from that dot: same axis, one half-dot clear of it.
+    expect(p.sy).toBe(dot.y);
+    expect(dot.x - p.sx).toBe(HANDLE_SIZE / 2);
   });
 
-  it('starts a pinned edge exactly on the dot it names', () => {
+  it('starts a pinned edge on the rim of the dot it names', () => {
     const p = getEdgeParams(ABOVE, BELOW, { source: 'bottom' });
     const dot = getHandleAnchor(ABOVE, 'bottom');
-    // The reconnect grab target ReactFlow places on that handle has to land on
-    // the endpoint we draw, or dragging the end of the line misses it.
-    expect([p.sx, p.sy]).toEqual([dot.x, dot.y]);
+    // On the dot, not under the card. Running the line to the dot's CENTRE put
+    // its last few pixels beneath the card, which paints above the edges layer,
+    // so the line read as disappearing into the node rather than meeting its
+    // connector - most obvious right after dragging that end onto a new dot.
+    //
+    // Exactly a half-dot, which is the rim: far enough to clear the card, near
+    // enough to still touch the dot. The arrowhead end stands further off
+    // because it has a marker to keep legible against the dot; this end has
+    // none, so it has nothing to buy with the extra distance.
+    expect(p.sx).toBe(dot.x);
+    expect(p.sy - dot.y).toBe(HANDLE_SIZE / 2);
   });
 
   it('keeps the target endpoint clear of the connection dot', () => {
