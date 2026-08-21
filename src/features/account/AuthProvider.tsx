@@ -63,8 +63,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(next);
       setIsLoading(false);
 
-      // Entitlements and the flow library both belong to whoever is signed in,
-      // so anything cached for the previous identity is now wrong.
+      // Anything cached here belongs to whoever was signed in - the flow
+      // library above all - so it is now wrong.
       void queryClient.invalidateQueries();
     });
 
