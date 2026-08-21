@@ -4,6 +4,15 @@ import fetch from 'node-fetch';
 import { BaseProvider } from './base-provider.js';
 
 /**
+ * Output allowance for one analysis, covering thinking and the graph together.
+ * See the note at the request body for why 16000 was too small.
+ */
+const ANALYSIS_MAX_TOKENS = Number(process.env.ANTHROPIC_ANALYSIS_MAX_TOKENS) || 32000;
+
+/** How much of that allowance Claude may spend thinking. */
+const ANALYSIS_EFFORT = process.env.ANTHROPIC_ANALYSIS_EFFORT || 'medium';
+
+/**
  * Anthropic Claude provider implementation
  */
 export class ClaudeProvider extends BaseProvider {
@@ -47,7 +56,20 @@ export class ClaudeProvider extends BaseProvider {
       // steer these calls through the prompt instead.
       body: JSON.stringify({
         model: this.model,
-        max_tokens: 16000,
+        // A rich report wants ~13k tokens of JSON, and adaptive thinking spends
+        // several thousand more from the same allowance — max_tokens caps
+        // thinking plus response together. At 16000 the two collided and the
+        // graph was cut off mid-object, arriving as unparseable JSON: measured
+        // at 16000/16000 output tokens with 6091 of them thinking, stop_reason
+        // "max_tokens". Opus 5 allows 128k, so this is headroom, not appetite —
+        // output is billed as generated, and a finished graph costs the same
+        // whatever the ceiling above it.
+        max_tokens: ANALYSIS_MAX_TOKENS,
+        // Turning an article into a fixed JSON schema is extraction, not
+        // frontier reasoning, and the API defaults to "high". Stepping down
+        // spends less of the allowance on thinking and returns sooner; raise it
+        // via the env var if a harder corpus needs it.
+        output_config: { effort: ANALYSIS_EFFORT },
         stream: true,
         messages: [{ role: 'user', content: prompt }],
         system: system || "You are an expert in cyber threat intelligence analysis."
