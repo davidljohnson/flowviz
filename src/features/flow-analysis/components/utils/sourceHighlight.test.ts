@@ -271,3 +271,26 @@ describe('markdown in the source does not break a faithful quote', () => {
     expect(verifyExcerpt(VISION, 'Deploy **Ethereum** miner via a cron job')?.verdict).toBe('unverified');
   });
 });
+
+describe('asterisks that are wildcards rather than emphasis', () => {
+  // The same argument the code already makes for underscores: a threat report
+  // is full of characters that look like markup and are not. These are glob
+  // patterns in a list of indicators, and stripping them off the quote alone
+  // turned a faithfully copied IOC line into an accusation.
+  const IOCS =
+    'Network: outbound to `*.moneroocean.stream`, `xmr*.pool*`, long-lived TLS to ports 3333/4444.';
+
+  it('verifies an indicator line copied verbatim, globs and all', () => {
+    expect(verifyExcerpt(IOCS, IOCS)?.verdict).toBe('verified');
+  });
+
+  it('verifies the same line when the quote carries no backticks', () => {
+    expect(
+      verifyExcerpt(IOCS, 'outbound to *.moneroocean.stream, xmr*.pool*, long-lived TLS')?.verdict,
+    ).toBe('verified');
+  });
+
+  it('still refuses a domain that is not in the list', () => {
+    expect(verifyExcerpt(IOCS, 'outbound to `*.nanopool.org` over TLS')?.verdict).toBe('unverified');
+  });
+});
