@@ -73,6 +73,37 @@ const INVISIBLE_CODES = new Set([
 
 const isInvisible = (char: string): boolean => INVISIBLE_CODES.has(char.charCodeAt(0));
 
+/**
+ * Markup that carries emphasis rather than words.
+ *
+ * `stripPresentation` already takes asterisks off a quote, on the reasoning
+ * that the model added them and the article did not. That holds for a scraped
+ * article, which is plain prose - but the vision reading is part of the corpus
+ * too, and it is written in markdown. So the source carries the very asterisks
+ * the quote is stripped of, and a faithfully copied line like
+ * "Deploy **Monero (XMRig-family) miner**" could never match: one side had the
+ * emphasis and the other did not.
+ *
+ * Dropping them here instead makes it symmetric, because this runs over the
+ * source and the quote alike. Dropped rather than replaced, so the index map
+ * skips them and the highlight still lands on the real characters.
+ *
+ * Backticks join them for the same reason, from the other direction: a model
+ * quoting `LaunchAgent` may or may not carry the ticks across, and neither
+ * answer says anything about whether the words are there.
+ *
+ * Underscores stay, for the reason given on stripPresentation - they are half
+ * the identifiers in a threat report, and dropping them here would reach the
+ * source text as well.
+ */
+const MARKUP = new Set(['*', '`']);
+
+/**
+ * Characters that take no part in matching, removed from both sides before
+ * anything is compared.
+ */
+const isDropped = (char: string): boolean => isInvisible(char) || MARKUP.has(char);
+
 const foldChar = (char: string): string => {
   switch (char) {
     case '‘': case '’': case '‛': return "'";
@@ -276,7 +307,7 @@ export function findExcerptRange(
     const char = text[i];
     // Skipped outright, and never pushed to `map`, so the map stays aligned:
     // one entry per character that actually made it into `normalized`.
-    if (isInvisible(char)) continue;
+    if (isDropped(char)) continue;
     if (/\s/.test(char)) {
       if (prevWasSpace) continue;
       normalized += ' ';
@@ -290,7 +321,7 @@ export function findExcerptRange(
   }
 
   const normalizedExcerpt = Array.from(trimmed)
-    .filter(char => !isInvisible(char))
+    .filter(char => !isDropped(char))
     .map(foldChar)
     .join('')
     .toLowerCase()

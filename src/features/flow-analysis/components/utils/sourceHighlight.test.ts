@@ -228,3 +228,46 @@ describe('splices that were never punctuated', () => {
     expect(verifyExcerpt(REPORT, 'Under additional conditions it can be chained into code execution')?.verdict).toBe('verified');
   });
 });
+
+describe('markdown in the source does not break a faithful quote', () => {
+  // The vision reading is written in markdown, and it is part of the corpus
+  // the excerpts are checked against - so here the SOURCE carries the
+  // emphasis, which is the case that used to be unmatchable.
+  const VISION = [
+    '## Image Analysis Summary',
+    '',
+    '3. Hands-on-keyboard: open Terminal, `curl`/`wget` payload, disable Gatekeeper prompts.',
+    '4. Deploy **Monero (XMRig-family) miner**, typically with a `LaunchAgent`/`LaunchDaemon` for persistence.',
+  ].join(String.fromCharCode(10));
+
+  it('verifies a line copied out of the markdown verbatim', () => {
+    expect(
+      verifyExcerpt(VISION, 'Deploy **Monero (XMRig-family) miner**, typically with a `LaunchAgent`/`LaunchDaemon` for persistence.')
+        ?.verdict,
+    ).toBe('verified');
+  });
+
+  it('verifies the same line quoted without its markup', () => {
+    expect(
+      verifyExcerpt(VISION, 'Deploy Monero (XMRig-family) miner, typically with a LaunchAgent/LaunchDaemon for persistence')
+        ?.verdict,
+    ).toBe('verified');
+  });
+
+  it('verifies a quote that adds markup the source does not have', () => {
+    expect(verifyExcerpt(VISION, 'open Terminal, `curl`/`wget` **payload**')?.verdict).toBe('verified');
+  });
+
+  it('highlights the words in place, running over the markup between them', () => {
+    // The span starts and ends on real characters - it covers the emphasis
+    // sitting inside the quote, and stops at the last word rather than
+    // reaching over the trailing '**' that closes it.
+    const range = findExcerptRange(VISION, 'Deploy Monero (XMRig-family) miner');
+    expect(range).not.toBeNull();
+    expect(VISION.slice(range!.start, range!.end)).toBe('Deploy **Monero (XMRig-family) miner');
+  });
+
+  it('still refuses a quote that is nowhere in the markdown', () => {
+    expect(verifyExcerpt(VISION, 'Deploy **Ethereum** miner via a cron job')?.verdict).toBe('unverified');
+  });
+});
