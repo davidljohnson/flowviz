@@ -58,7 +58,10 @@ export const useAppState = () => {
   const [exportFunction, setExportFunction] = useState<((format: 'png' | 'json' | 'afb' | 'flowviz') => void) | null>(null);
   const [clearVisualization, setClearVisualization] = useState<(() => void) | null>(null);
   const [getSaveData, setGetSaveData] = useState<(() => { nodes: any[], edges: any[], viewport: any, assistantMessages?: any[] }) | null>(null);
-  const [loadedFlow, setLoadedFlow] = useState<{ nodes: any[], edges: any[], viewport?: any, sourceText?: string, assistantMessages?: any[] } | undefined>(undefined);
+  // visionText carries three states, so it is optional AND nullable: a string
+  // is what the vision pass read, null means it did not run, and absent means
+  // the flow predates the field and the two cannot be told apart.
+  const [loadedFlow, setLoadedFlow] = useState<{ nodes: any[], edges: any[], viewport?: any, sourceText?: string, visionText?: string | null, assistantMessages?: any[] } | undefined>(undefined);
   
   // The current analysis request. Distinct from submittedUrl/submittedText,
   // which gate the landing-page-vs-canvas branch; this is what actually starts
