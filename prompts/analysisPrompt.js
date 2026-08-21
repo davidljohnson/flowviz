@@ -50,13 +50,21 @@ STRICT EXTRACTION RULES - NO SPECULATION OR INFERENCE:
 - DO NOT create example commands or typical attack patterns
 - If technical details are vague, keep descriptions general
 - CRITICAL: For command_line fields, ONLY include commands explicitly quoted in the article
-- CRITICAL: Each source_excerpt must be 2-3 complete sentences directly copied from the source text
+- CRITICAL: Each source_excerpt must be copied from the source text, and long enough
+  to stand on its own - normally 1-3 complete sentences
 - Source excerpts are used to validate extraction accuracy - they must prove the node exists in the source
 - CRITICAL: Copy the excerpt as one CONTINUOUS run of text - a span you could
   highlight with one drag in the article - and add no emphasis or edits of your own.
   If no single passage supports the node, quote the shortest one that does rather
   than joining two. The app checks each excerpt against the article and flags any
   that is not found there, however the join is punctuated.
+- CRITICAL: The excerpt belongs to THIS node and must be what tells it apart. One
+  sentence often names several techniques at once - "open Terminal, curl the payload,
+  disable Gatekeeper prompts" is three of them - and quoting that whole sentence under
+  each of the three proves only that the sentence exists. Quote the part that names
+  this node's own element instead. Two nodes may carry the same passage when it really
+  is the evidence for both, as an asset and the action against it are; if two nodes
+  would quote the same words for the same reason, they are one node.
 - CRITICAL: The excerpt must justify the SPECIFIC technique_id you assign, not merely
   that some node belongs here. Sub-techniques are a claim about the evidence: only use
   one when the excerpt shows that exact variant. If the evidence is about a different
@@ -94,7 +102,7 @@ CRITICAL JSON FORMAT - Follow this EXACT structure:
         "technique_id": "T1078",
         "tactic_id": "TA0001",
         "tactic_name": "Initial Access",
-        "source_excerpt": "2-3 complete sentences directly quoted from the source article that support this technique. Include surrounding context to validate the extraction.",
+        "source_excerpt": "the passage from the source article that proves THIS technique - 1-3 complete sentences, or the part of a sentence that names it when one sentence covers several",
         "confidence": "high"
       }
     },
@@ -106,7 +114,7 @@ CRITICAL JSON FORMAT - Follow this EXACT structure:
         "name": "Net.exe",
         "description": "Used to enumerate domain users",
         "command_line": "net user /domain",
-        "source_excerpt": "2-3 complete sentences from the source that mention this specific command or tool usage",
+        "source_excerpt": "the passage from the source naming this specific command or tool",
         "confidence": "high"
       }
     },
@@ -118,7 +126,7 @@ CRITICAL JSON FORMAT - Follow this EXACT structure:
         "name": "Domain Controller",
         "description": "Target system compromised",
         "role": "Server",
-        "source_excerpt": "2-3 complete sentences from the source describing this asset or target system",
+        "source_excerpt": "the passage from the source describing this asset or target system",
         "confidence": "high"
       }
     }
