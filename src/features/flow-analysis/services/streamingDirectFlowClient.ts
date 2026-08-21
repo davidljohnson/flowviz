@@ -151,6 +151,7 @@ export class StreamingDirectFlowClient {
       let responseText = '';
       let hasError = false;
 
+      let sawDone = false;
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -169,10 +170,8 @@ export class StreamingDirectFlowClient {
             
             if (data === '[DONE]') {
               // Only parse and emit if no error occurred
-              if (!hasError) {
-                this.parseAndEmitAllNodes(responseText, callbacks);
-                callbacks.onComplete();
-              }
+              sawDone = true;
+              if (!hasError) this.finishStream(responseText, callbacks);
               return;
             }
             
@@ -222,6 +221,11 @@ export class StreamingDirectFlowClient {
           }
         }
       }
+
+      // The stream closed without a [DONE] line - a truncated or aborted
+      // response. Nothing used to run here at all, so the loading indicator
+      // stayed up forever and the analysis simply never ended.
+      if (!sawDone && !hasError) this.finishStream(responseText, callbacks);
     } catch (error) {
       console.error('❌ Streaming extraction failed:', error);
       callbacks.onError(error as Error);
@@ -366,7 +370,8 @@ export class StreamingDirectFlowClient {
     this.pendingEdges = remainingEdges;
   }
 
-  private parseAndEmitAllNodes(text: string, callbacks: StreamingDirectFlowCallbacks) {
+  /** @returns whether the response parsed as JSON. */
+  private parseAndEmitAllNodes(text: string, callbacks: StreamingDirectFlowCallbacks): boolean {
     try {
       // Clean the response text and parse the complete JSON
       const cleanedText = text.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
@@ -413,8 +418,40 @@ export class StreamingDirectFlowClient {
       // Skip edge processing - all edges are handled during streaming
       // Process any remaining pending edges one final time
       this.processPendingEdges(callbacks);
+      return true;
     } catch (e) {
       console.error('Failed to parse final response:', e);
+      return false;
     }
+  }
+
+  /**
+   * End of stream, however it arrived: a [DONE] line or the body simply
+   * closing.
+   *
+   * A response the model truncated mid-JSON used to be swallowed here — the
+   * error was logged and the run reported success, so the canvas sat empty
+   * under a loading indicator that never came down. What the incremental
+   * parser already emitted is worth keeping, since those nodes are whole; it
+   * is only when nothing survived that there is no analysis to show and the
+   * caller has to be told.
+   */
+  private finishStream(responseText: string, callbacks: StreamingDirectFlowCallbacks) {
+    const parsed = this.parseAndEmitAllNodes(responseText, callbacks);
+
+    if (!parsed && this.emittedNodeIds.size === 0) {
+      callbacks.onError(
+        new Error("The analysis came back malformed and no flow could be built from it. Try again."),
+      );
+      return;
+    }
+
+    if (!parsed) {
+      console.warn(
+        `Response ended mid-JSON; keeping the ${this.emittedNodeIds.size} node(s) that streamed cleanly.`,
+      );
+    }
+
+    callbacks.onComplete();
   }
 }
