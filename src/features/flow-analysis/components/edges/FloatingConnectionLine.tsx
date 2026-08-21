@@ -1,8 +1,21 @@
-import React from 'react';
-import { getBezierPath, ConnectionLineComponentProps } from 'reactflow';
-import { getEdgeParams, getHandleAnchor, toHandleSide } from './floatingEdgeHelpers';
+import React, { useCallback } from 'react';
+import { getBezierPath, useStore, ConnectionLineComponentProps } from 'reactflow';
+import { getEdgeEndpoint, getEdgeParams, toHandleSide, sidePosition } from './floatingEdgeHelpers';
 
 // The preview line while dragging a new connection.
+//
+// Both ends are drawn where the finished edge will put them. The far end used
+// to follow the cursor exactly, which meant that once the pointer was over a
+// node the line carried on past the connection dot and under the card, ending
+// somewhere inside it — then snapped back out to the dot on release. React Flow
+// tells us which dot the drop would land on (connectionEndHandle, set only
+// while the connection is valid), so the preview finishes there instead and
+// release changes nothing but the line's style.
+//
+// The end is measured as a target end. Every dot is declared a source and the
+// flow runs in Loose mode, so the handle's own type cannot say which end of a
+// reconnect is moving; the moving end is the arrow end in all but the case of
+// dragging an edge's start, where this sits 4px from where it lands.
 //
 // It starts at the dot you grabbed and stays there for the whole drag —
 // `fromHandle` names that handle (unlike fromX/fromY, which always report the
@@ -17,6 +30,17 @@ const FloatingConnectionLine: React.FC<ConnectionLineComponentProps> = ({
   fromNode,
   fromHandle,
 }) => {
+  // The dot the drop would land on, or null while the cursor is over open
+  // canvas. Read before the early return so the hook order never changes.
+  const endHandle = useStore(s => s.connectionEndHandle);
+  const endNode = useStore(
+    useCallback((s) => (endHandle ? s.nodeInternals.get(endHandle.nodeId) : undefined), [endHandle]),
+  );
+  const endSide = toHandleSide(endHandle?.handleId);
+  const snapped = endNode && endSide
+    ? { ...getEdgeEndpoint(endNode, endSide, 'target'), position: sidePosition(endSide) }
+    : null;
+
   if (!fromNode) {
     return null;
   }
@@ -25,14 +49,14 @@ const FloatingConnectionLine: React.FC<ConnectionLineComponentProps> = ({
 
   const { sx, sy, tx, ty, sourcePos, targetPos } = fromSide
     ? (() => {
-        const anchor = getHandleAnchor(fromNode, fromSide);
+        const anchor = getEdgeEndpoint(fromNode, fromSide, 'source');
         return {
           sx: anchor.x,
           sy: anchor.y,
-          tx: toX,
-          ty: toY,
+          tx: snapped ? snapped.x : toX,
+          ty: snapped ? snapped.y : toY,
           sourcePos: fromHandle!.position,
-          targetPos: toPosition,
+          targetPos: snapped ? snapped.position : toPosition,
         };
       })()
     : (() => {
@@ -50,8 +74,11 @@ const FloatingConnectionLine: React.FC<ConnectionLineComponentProps> = ({
         const params = getEdgeParams(fromNode, targetNode);
         return {
           ...params,
+          // The snap applies here too: which dot the drop lands on does not
+          // depend on whether we could identify the one it started from.
+          ...(snapped && { tx: snapped.x, ty: snapped.y }),
           sourcePos: params.sourcePos || fromPosition,
-          targetPos: params.targetPos || toPosition,
+          targetPos: snapped ? snapped.position : (params.targetPos || toPosition),
         };
       })();
 

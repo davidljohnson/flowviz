@@ -87,6 +87,23 @@ export function getHandleAnchor(node: any, side: HandleSide) {
   return sideAnchor(getGeometry(node), side);
 }
 
+/** The Position a given side connects through. */
+export function sidePosition(side: HandleSide): Position {
+  return SIDE_POSITION[side];
+}
+
+/**
+ * Where an edge's end actually lands on a given dot - the same point
+ * getEdgeParams would compute for that end, gap and all.
+ *
+ * Exported so the drag preview can finish exactly where the edge it is about to
+ * become will start or stop. Drawn to the raw cursor instead, the preview runs
+ * past the dot and into the card, and then jumps back out on release.
+ */
+export function getEdgeEndpoint(node: any, side: HandleSide, role: 'source' | 'target') {
+  return sideAnchor(getGeometry(node), side, role === 'target' ? TARGET_GAP : SOURCE_GAP);
+}
+
 // The outward direction of each face, used to score how squarely it faces the
 // other node.
 const NORMAL: Record<HandleSide, { x: number; y: number }> = {
