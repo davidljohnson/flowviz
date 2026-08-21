@@ -661,6 +661,19 @@ app.post('/api/assistant-stream', rateLimits.assistant, async (req, res) => {
     'Connection': 'keep-alive',
   });
 
+  // The reader can stop a turn part-way. That closes the socket, and without
+  // this the call to the model would run on to completion with nowhere to send
+  // what it produced - still generating, still billed, for an answer nobody is
+  // waiting for. Aborting here is what makes the stop button mean it.
+  const upstream = new AbortController();
+  let readerGone = false;
+  res.on('close', () => {
+    if (res.writableEnded) return; // an ordinary end of response, not a stop
+    readerGone = true;
+    upstream.abort();
+    logger.info('Assistant stream stopped by the reader');
+  });
+
   try {
     const system = buildAssistantSystemPrompt({
       graph,
@@ -668,10 +681,13 @@ app.post('/api/assistant-stream', rateLimits.assistant, async (req, res) => {
       // Cap defensively even though the client already truncates
       sourceText: sourceText ? sourceText.substring(0, 20000) : null,
     });
-    await aiProvider.streamChat({ system, messages, maxTokens: 8192 }, res);
+    await aiProvider.streamChat({ system, messages, maxTokens: 8192, signal: upstream.signal }, res);
     logger.info('Assistant streaming completed successfully');
     res.end();
   } catch (err) {
+    // A stop surfaces here as the abort tearing the upstream request down.
+    // There is no failure to report, and no socket left to report it on.
+    if (readerGone) return;
     logger.error('Assistant streaming error:', { message: err.message, stack: err.stack });
     res.write(`data: ${JSON.stringify({ type: 'error', error: err.message })}\n\n`);
     res.write(`data: [DONE]\n\n`);

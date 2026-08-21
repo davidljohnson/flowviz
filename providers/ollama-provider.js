@@ -140,7 +140,7 @@ export class OllamaProvider extends BaseProvider {
    * @returns {Promise<void>}
    */
   async streamChat(params, res) {
-    const { system, messages, maxTokens } = params;
+    const { system, messages, maxTokens, signal } = params;
 
     const ollamaApiUrl = `${this.baseUrl}/api/chat`;
 
@@ -158,6 +158,7 @@ export class OllamaProvider extends BaseProvider {
           num_predict: maxTokens || 4096
         }
       }),
+      signal,
     });
 
     if (!aiResponse.ok) {

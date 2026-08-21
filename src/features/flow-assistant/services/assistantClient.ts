@@ -120,16 +120,24 @@ export interface AssistantStreamCallbacks {
  * is the full list, so callers that applied ops via onOp should take
  * ops.slice(<count already applied>) for any stragglers the incremental
  * parser missed.
+ *
+ * Aborting `signal` ends the turn where it stands: the fetch is cancelled, the
+ * server sees the socket close and drops its own upstream call, and this
+ * resolves with `stopped: true` carrying whatever had already arrived. It does
+ * not reject, because being stopped on purpose is not a failure and the caller
+ * should not have to tell the two apart in a catch block.
  */
 export async function streamAssistant(
   request: AssistantRequest,
   callbacks?: AssistantStreamCallbacks,
+  signal?: AbortSignal,
 ): Promise<AssistantResponse> {
   const { onMessageDelta, onOp } = callbacks ?? {};
   const response = await apiFetch('/api/assistant-stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),
+    signal,
   });
 
   if (!response.ok) {
@@ -154,10 +162,21 @@ export async function streamAssistant(
   let emittedLength = 0;
   let emittedOps = 0;
   let done = false;
+  let stopped = false;
 
   while (!done) {
-    const { value, done: readerDone } = await reader.read();
-    if (readerDone) break;
+    let value: Uint8Array | undefined;
+    try {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      value = chunk.value;
+    } catch (err) {
+      // Aborting rejects the pending read. That is this function being told to
+      // stop, not a failure to report - so it leaves the loop and returns what
+      // arrived, the same as any other ending.
+      if (signal?.aborted) { stopped = true; break; }
+      throw err;
+    }
 
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split('\n');
@@ -200,6 +219,18 @@ export async function streamAssistant(
         onOp(completeOps[emittedOps]);
       }
     }
+  }
+
+  if (stopped) {
+    // The buffer is a half-written object, so the parse below would fail and
+    // fall through to the raw-text fallback - printing braces and op JSON into
+    // the conversation. The partial reader gives the prose on its own, and the
+    // ops that completed have already gone out through onOp.
+    return {
+      message: extractPartialMessage(responseText) ?? undefined,
+      ops: extractCompleteOps(responseText) as AssistantResponse['ops'],
+      stopped: true,
+    };
   }
 
   try {

@@ -23,7 +23,9 @@ export class BaseProvider {
   /**
    * Stream a multi-turn chat completion with a caller-supplied conversation.
    * Unlike stream(), nothing is prepended - the caller owns the full prompt.
-   * @param {object} params - { system, messages: [{role, content}], maxTokens? }
+   * @param {object} params - { system, messages: [{role, content}], maxTokens?, signal? }
+   *   signal aborts the upstream call when the reader stops the turn; a
+   *   provider that ignores it keeps generating an answer nobody will read.
    * @param {object} res - Express response object for SSE streaming
    * @returns {Promise<void>}
    */

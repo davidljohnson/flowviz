@@ -41,6 +41,10 @@ export function useAssistant({ provider, model, getGraph, getContexts, getSource
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
 
+  // The in-flight turn's controller, so stop() can reach a request that send()
+  // is still awaiting. Cleared in the same finally that clears `pending`.
+  const abortRef = useRef<AbortController | null>(null);
+
   const send = useCallback(async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
@@ -71,6 +75,8 @@ export function useAssistant({ provider, model, getGraph, getContexts, getSource
     // entry because the component brackets it (batch opens at the first
     // applied op, closes in finishTurn).
     const opResults: OpResult[] = [];
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
       const response = await streamAssistant({
         provider,
@@ -82,10 +88,19 @@ export function useAssistant({ provider, model, getGraph, getContexts, getSource
       }, {
         onMessageDelta: setStreamingText,
         onOp: (op) => opResults.push(applyOp(op as AssistantOp)),
-      });
+      }, controller.signal);
 
-      // Stragglers the incremental parser didn't see (e.g. fence-fallback parse)
-      response.ops?.slice(opResults.length).forEach(op => opResults.push(applyOp(op)));
+      // Stragglers the incremental parser didn't see (e.g. fence-fallback parse).
+      // A stopped turn has none worth chasing - the response carries only what
+      // had already gone out through onOp, so applying it again would double it.
+      if (!response.stopped) {
+        response.ops?.slice(opResults.length).forEach(op => opResults.push(applyOp(op)));
+      }
+
+      // Edits made before the stop are kept, and committed as the single undo
+      // entry the turn would have been. They are whole ops that the reader
+      // watched land, and keeping them is the recoverable choice: one Ctrl+Z
+      // removes them, while discarding them puts back nothing.
       finishTurn(trimmed, true);
 
       const appliedCount = opResults.filter(r => r.status === 'applied').length;
@@ -94,6 +109,7 @@ export function useAssistant({ provider, model, getGraph, getContexts, getSource
         role: 'assistant',
         text: response.message || (appliedCount > 0 ? 'Done.' : ''),
         opResults,
+        ...(response.stopped && { stopped: true }),
       }]);
     } catch (err) {
       // A failed turn takes its partial edits with it
@@ -104,15 +120,28 @@ export function useAssistant({ provider, model, getGraph, getContexts, getSource
         text: err instanceof Error ? err.message : 'Something went wrong',
       }]);
     } finally {
+      abortRef.current = null;
       setPending(false);
       setStreamingText(null);
     }
   }, [provider, model, getGraph, getContexts, getSourceText, applyOp, finishTurn]);
+
+  /**
+   * End the turn in flight. Safe to call when nothing is running.
+   *
+   * The abort travels the whole way: it cancels the fetch, which closes the
+   * socket, which is what tells the server to drop its own call to the model.
+   * Stopping the words on screen without stopping the work behind them would
+   * leave the request running and billing to no one's benefit.
+   */
+  const stop = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
 
   const clear = useCallback(() => setMessages([]), []);
 
   /** Replace the conversation wholesale - restoring a saved flow's chat. */
   const restore = useCallback((restored: ChatMessage[]) => setMessages(restored), []);
 
-  return { messages, pending, streamingText, send, clear, restore };
+  return { messages, pending, streamingText, send, stop, clear, restore };
 }

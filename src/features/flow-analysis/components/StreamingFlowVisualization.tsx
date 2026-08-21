@@ -2098,6 +2098,7 @@ const StreamingFlowVisualizationContent: React.FC<StreamingFlowVisualizationProp
         streamingText={assistant.streamingText}
         disabled={isStreaming}
         onSend={assistant.send}
+        onStop={assistant.stop}
         onClear={assistant.clear}
         onClose={() => setAssistantOpen(false)}
         onFocusNode={handleFocusNode}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Box, Chip, CircularProgress, IconButton, InputBase, Tooltip, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import StopRoundedIcon from '@mui/icons-material/StopRounded';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import AssistantMark from '../../../shared/components/icons/AssistantMark';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -35,6 +36,8 @@ interface AssistantPanelProps {
   /** True while an analysis is streaming - input is held until it finishes. */
   disabled: boolean;
   onSend: (text: string) => void;
+  /** End the turn in flight; the send button becomes a stop while pending. */
+  onStop: () => void;
   onClear: () => void;
   onClose: () => void;
   /** Center the canvas on a node; [[id|label]] refs in replies use this. */
@@ -360,6 +363,7 @@ export default function AssistantPanel({
   streamingText,
   disabled,
   onSend,
+  onStop,
   onClear,
   onClose,
   onFocusNode,
@@ -536,8 +540,26 @@ export default function AssistantPanel({
               <MessageContexts contexts={message.contexts} />
             )}
             {message.role === 'assistant'
-              ? <AssistantMarkdown text={message.text} onFocusNode={onFocusNode} />
+              ? (message.text
+                  ? <AssistantMarkdown text={message.text} onFocusNode={onFocusNode} />
+                  : null)
               : message.text}
+            {/* A stopped turn ends mid-sentence. Left unmarked it reads as the
+                whole answer, and the reader has no way to tell a thought that
+                finished from one that was cut off. */}
+            {message.stopped && (
+              <Typography
+                component="div"
+                sx={{
+                  ...flowVizTheme.type.xs,
+                  color: flowVizTheme.colors.text.tertiary,
+                  fontStyle: 'italic',
+                  mt: message.text ? 0.5 : 0,
+                }}
+              >
+                Stopped
+              </Typography>
+            )}
             {message.role === 'assistant' && message.text && <CopyMessageButton text={message.text} />}
             {message.role === 'assistant' && <OpChips results={message.opResults ?? []} />}
           </Box>
@@ -607,32 +629,47 @@ export default function AssistantPanel({
           />
           {/* Filled disc reads as the composer's one primary action - the
               inverted silver keeps it monochrome; grey while there is
-              nothing to send */}
-          <IconButton
-            size="small"
-            onClick={submit}
-            disabled={!canSend}
-            sx={{
-              width: flowVizTheme.controlSize,
-              height: flowVizTheme.controlSize,
-              mb: 0.25,
-              flexShrink: 0,
-              backgroundColor: flowVizTheme.colors.inverse.surface,
-              color: flowVizTheme.colors.inverse.text,
-              transition: flowVizTheme.motion.fast,
-              '&:hover': { backgroundColor: flowVizTheme.colors.inverse.surfaceHover },
-              // 1.4.3 exempts disabled controls, so this was not a contrast
-              // failure — but there is a token for exactly this state and it
-              // resolves to the same weight, so there is no reason to hand-roll
-              // it.
-              '&.Mui-disabled': {
-                backgroundColor: flowVizTheme.colors.surface.hover,
-                color: flowVizTheme.colors.text.disabled,
-              },
-            }}
-          >
-            <ArrowUpwardIcon sx={{ fontSize: 16 }} />
-          </IconButton>
+              nothing to send.
+
+              While a turn is running the same disc becomes stop. One control,
+              because the two are the same decision at different moments and a
+              separate stop button would sit dead for the whole of every idle
+              minute. It keeps the filled treatment rather than turning red:
+              stopping your own request is ordinary, not destructive, and the
+              disabled-grey it would otherwise wear is what the composer uses
+              for "you cannot press this" - the one thing this button is not. */}
+          <Tooltip title={pending ? 'Stop' : ''} disableHoverListener={!pending}>
+            <Box component="span" sx={{ display: 'inline-flex' }}>
+              <IconButton
+                size="small"
+                aria-label={pending ? 'Stop generating' : 'Send message'}
+                onClick={pending ? onStop : submit}
+                disabled={pending ? false : !canSend}
+                sx={{
+                  width: flowVizTheme.controlSize,
+                  height: flowVizTheme.controlSize,
+                  mb: 0.25,
+                  flexShrink: 0,
+                  backgroundColor: flowVizTheme.colors.inverse.surface,
+                  color: flowVizTheme.colors.inverse.text,
+                  transition: flowVizTheme.motion.fast,
+                  '&:hover': { backgroundColor: flowVizTheme.colors.inverse.surfaceHover },
+                  // 1.4.3 exempts disabled controls, so this was not a contrast
+                  // failure — but there is a token for exactly this state and it
+                  // resolves to the same weight, so there is no reason to hand-roll
+                  // it.
+                  '&.Mui-disabled': {
+                    backgroundColor: flowVizTheme.colors.surface.hover,
+                    color: flowVizTheme.colors.text.disabled,
+                  },
+                }}
+              >
+                {pending
+                  ? <StopRoundedIcon sx={{ fontSize: 18 }} />
+                  : <ArrowUpwardIcon sx={{ fontSize: 16 }} />}
+              </IconButton>
+            </Box>
+          </Tooltip>
           </Box>
         </Box>
       </Tooltip>

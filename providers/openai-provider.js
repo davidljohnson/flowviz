@@ -65,7 +65,7 @@ export class OpenAIProvider extends BaseProvider {
    * Stream a multi-turn chat completion (assistant endpoint)
    */
   async streamChat(params, res) {
-    const { system, messages, maxTokens } = params;
+    const { system, messages, maxTokens, signal } = params;
 
     try {
       const stream = await this.client.chat.completions.create({
@@ -74,7 +74,7 @@ export class OpenAIProvider extends BaseProvider {
         temperature: 0.2,
         max_tokens: maxTokens || 8192,
         stream: true,
-      });
+      }, { signal });
 
       for await (const chunk of stream) {
         const delta = chunk.choices[0]?.delta?.content;

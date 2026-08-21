@@ -109,7 +109,7 @@ export class ClaudeProvider extends BaseProvider {
    * Stream a multi-turn chat completion (assistant endpoint)
    */
   async streamChat(params, res) {
-    const { system, messages, maxTokens } = params;
+    const { system, messages, maxTokens, signal } = params;
 
     const anthropicApiUrl = this.baseUrl
       ? `${this.baseUrl}/v1/messages`
@@ -129,6 +129,8 @@ export class ClaudeProvider extends BaseProvider {
         system,
         messages,
       }),
+      // Stopping a turn has to reach the model, not just the socket.
+      signal,
     });
 
     if (!aiResponse.ok) {
@@ -143,6 +145,9 @@ export class ClaudeProvider extends BaseProvider {
     // Pipe Anthropic's native SSE through untouched, as stream() does - the
     // client only reads data lines carrying delta.text, which both formats share
     return new Promise((resolve, reject) => {
+      // The abort rejects the body stream, which lands on the 'error' handler
+      // below and settles this promise. Nothing is written to res afterwards,
+      // because by then there is no reader on the other end of it.
       aiResponse.body.on('data', (chunk) => {
         res.write(chunk.toString());
       });

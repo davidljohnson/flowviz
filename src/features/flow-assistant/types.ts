@@ -18,6 +18,8 @@ export type AssistantOp =
 export interface AssistantResponse {
   message?: string;
   ops?: AssistantOp[];
+  /** The turn was stopped part-way, so this is what had arrived by then. */
+  stopped?: boolean;
 }
 
 export interface OpResult {
@@ -39,6 +41,13 @@ export interface ChatMessage {
    * asked with, even after the node is renamed or removed from the row.
    */
   contexts?: SerializedContext[];
+  /**
+   * This turn was stopped by the reader rather than finished by the model. The
+   * bubble says so, because a half-answer that looks whole is worse than one
+   * that admits it - the reader would otherwise take a sentence cut mid-clause
+   * for the whole of what the assistant had to say.
+   */
+  stopped?: boolean;
 }
 
 /** Fields every node type accepts in its data bag. */
