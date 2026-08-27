@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import { SavedFlow } from '../types/SavedFlow';
 import { flowStorage } from '../services';
-import { validateFlow } from '../services/flowValidation';
-import { apiFetch } from '../../../shared/services/api/apiClient';
 
 /**
  * Opens a flow named in the URL, so `/f/<id>` is a link to a specific analysis
@@ -43,8 +41,6 @@ export const readFlowToken = (pathname = window.location.pathname): string | nul
   return match ? match[1] : null;
 };
 
-const IS_CLOUD_BUILD = Boolean(import.meta.env.VITE_SUPABASE_URL);
-
 export const useSharedFlow = (): SharedFlowState => {
   const [state, setState] = useState<SharedFlowState>(() =>
     readFlowToken() ? { ...IDLE, isLoading: true } : IDLE
@@ -57,37 +53,15 @@ export const useSharedFlow = (): SharedFlowState => {
     let active = true;
 
     const resolve = async (): Promise<SharedFlowState> => {
-      // Self-hosting has no share tokens and no server-side library, so the
-      // segment is a local flow id.
-      if (!IS_CLOUD_BUILD) {
-        try {
-          const flow = await flowStorage.loadFlow(token);
-          return { flow, mode: 'edit', isShared: false, isLoading: false, error: null };
-        } catch {
-          return { ...IDLE, error: 'That analysis is not on this device.' };
-        }
+      // Flows live in this browser, so the segment is a local flow id rather
+      // than a share token: a link can only ever mean one of your own analyses.
+      // Sharing one means exporting it.
+      try {
+        const flow = await flowStorage.loadFlow(token);
+        return { flow, mode: 'edit', isShared: false, isLoading: false, error: null };
+      } catch {
+        return { ...IDLE, error: 'That analysis is not on this device.' };
       }
-
-      const response = await apiFetch(`/v1/shared/${token}`);
-
-      if (response.status === 404) {
-        return { ...IDLE, error: 'That link has expired or been revoked.' };
-      }
-      if (!response.ok) {
-        return { ...IDLE, error: 'Could not open that link.' };
-      }
-
-      const body = await response.json();
-      const flow = validateFlow(body.flow);
-      if (!flow) return { ...IDLE, error: 'That link points to a malformed analysis.' };
-
-      return {
-        flow,
-        mode: body.mode === 'edit' ? 'edit' : 'view',
-        isShared: true,
-        isLoading: false,
-        error: null,
-      };
     };
 
     void resolve()

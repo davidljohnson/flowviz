@@ -743,10 +743,11 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-// The hosted service imports this app and mounts auth, entitlement, and
-// metering middleware in front of it, so binding a port has to be conditional
-// on being the process entry point rather than a side effect of importing.
-// `npm run server` and `node server.js` are unaffected.
+// Binding a port is conditional on being the process entry point rather than a
+// side effect of importing, so `import app from './server.js'` gets the routes
+// without a listening socket - which is what an integration test wants, and
+// what mounting this inside a larger Express app needs. `npm run server` and
+// `node server.js` are unaffected.
 const isEntryPoint =
   Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href;
 

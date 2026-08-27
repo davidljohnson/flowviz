@@ -1,9 +1,7 @@
 import { LocalStorageService } from './LocalStorageService';
-import { ApiFlowStorage } from './ApiFlowStorage';
 import { type IFlowStorage } from './StorageInterface';
 
 export { LocalStorageService } from './LocalStorageService';
-export { ApiFlowStorage } from './ApiFlowStorage';
 export { type IFlowStorage, StorageError } from './StorageInterface';
 
 /**
@@ -15,12 +13,11 @@ export { type IFlowStorage, StorageError } from './StorageInterface';
  * construct a second one inside an effect and use that instead of the field it
  * had already made. One instance makes that impossible to repeat.
  *
- * Which backend is decided by build configuration rather than by the signed-in
- * user, so it is settled before the first render and cannot change underneath a
- * dialog mid-session. An instance with accounts always stores server-side; a
- * signed-out visitor there simply has an empty library until they sign in.
+ * Flows live in the browser that made them, which is why this is the only
+ * implementation. A shared instance where several people see one library would
+ * need a server-side store behind the same interface, and a server with
+ * somewhere to put it; neither exists here, and export is how a flow moves
+ * between people today.
  */
-export const flowStorage: IFlowStorage = import.meta.env.VITE_SUPABASE_URL
-  ? new ApiFlowStorage()
-  : new LocalStorageService();
+export const flowStorage: IFlowStorage = new LocalStorageService();
 export { type SavedFlow, type ImportResult } from '../types/SavedFlow';
