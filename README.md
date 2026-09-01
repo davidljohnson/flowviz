@@ -120,3 +120,16 @@ npm run build      # Production build
 ## License
 
 MIT License - see LICENSE file for details
+
+## Attribution
+
+FlowViz maps techniques onto MITRE ATT&CK, and ships a technique/tactic index
+built from MITRE's published STIX data (`npm run attack:update` regenerates it
+from a pinned ATT&CK release).
+
+> © The MITRE Corporation. This work is reproduced and distributed with the
+> permission of The MITRE Corporation.
+
+ATT&CK® is a registered trademark of The MITRE Corporation. FlowViz is not
+affiliated with or endorsed by MITRE. See the
+[ATT&CK Terms of Use](https://attack.mitre.org/resources/legal-and-branding/terms-of-use/).

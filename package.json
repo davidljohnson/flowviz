@@ -3,6 +3,15 @@
   "version": "1.0.0",
   "description": "AI-powered cybersecurity attack flow visualization tool using MITRE ATT&CK",
   "license": "MIT",
+  "author": "David Johnson (https://github.com/davidljohnson)",
+  "homepage": "https://github.com/davidljohnson/flowviz#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/davidljohnson/flowviz.git"
+  },
+  "bugs": {
+    "url": "https://github.com/davidljohnson/flowviz/issues"
+  },
   "type": "module",
   "engines": {
     "node": ">=22.15.0"
