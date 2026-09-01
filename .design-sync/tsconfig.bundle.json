@@ -1,9 +1,0 @@
-{
-  "_comment": "Import resolution for the design-sync converter. FlowViz's package.json sets type=module, so esbuild applies Node ESM-importing-CommonJS interop: a default import of a CommonJS @mui/icons-material/<Icon> yields the module object rather than the component, and every deep-imported icon then renders as 'Element type is invalid ... got: object'. Vite never hits this because it pre-bundles with bundler-style interop. Around 50 distinct deep icon imports exist under src/, so this maps the package's own ESM build instead of patching call sites. Note: the converter strips double-slash sequences as line comments before parsing this file, so neither a comment key nor a comment body may contain one.",
-  "compilerOptions": {
-    "baseUrl": "..",
-    "paths": {
-      "@mui/icons-material/*": ["node_modules/@mui/icons-material/esm/*"]
-    }
-  }
-}

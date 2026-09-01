@@ -36,10 +36,7 @@ memory/
 docs/
 CLAUDE.md
 
-# design-sync (claude.ai/design import) — staged scripts, build output, machine state
+# design-sync: local tooling for the design-system import, not part of the app
+.design-sync/
 .ds-sync/
 ds-bundle/
-.design-sync/.cache/
-.design-sync/learnings/
-.design-sync/node_modules
-.design-sync/.componentSrcMap.json
